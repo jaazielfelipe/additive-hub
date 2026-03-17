@@ -18,25 +18,25 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Baixar código
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Instalar Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Instalar dependências
+      - name: Install dependencies
         run: npm ci
 
-      - name: Gerar build
+      - name: Build
         run: npm run build
 
-      - name: Configurar Pages
+      - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Enviar arquivos do site
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
@@ -48,6 +48,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Publicar no GitHub Pages
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
