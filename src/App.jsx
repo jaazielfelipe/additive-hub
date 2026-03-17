@@ -47,8 +47,8 @@ const produtosPadrao = [
     descricao:
       "Ideal para brindes, lembranças e revenda. Produzido em impressão 3D com acabamento personalizado.",
     imagens: [
-      "imagens/produtos/chaveiro-personalizado/1.png",
-      "imagens/produtos/chaveiro-personalizado/2.png",
+      "/imagens/produtos/chaveiro-personalizado/1.png",
+      "/imagens/produtos/chaveiro-personalizado/2.png",
     ],
   },
   {
@@ -61,8 +61,8 @@ const produtosPadrao = [
     descricao:
       "Peça decorativa com design exclusivo para presentear, colecionar ou compor ambientes criativos.",
     imagens: [
-      "imagens/produtos/miniatura-3d/1.png",
-      "imagens/produtos/miniatura-3d/2.png",
+      "/imagens/produtos/miniatura-3d/1.png",
+      "/imagens/produtos/miniatura-3d/2.png",
     ],
   },
   {
@@ -75,8 +75,8 @@ const produtosPadrao = [
     descricao:
       "Perfeito para mesa de trabalho, estudo ou uso diário. Design funcional com ótima estabilidade.",
     imagens: [
-      "imagens/produtos/suporte-celular/1.png",
-      "imagens/produtos/suporte-celular/2.png",
+      "/imagens/produtos/suporte-celular/1.png",
+      "/imagens/produtos/suporte-celular/2.png",
     ],
   },
   {
@@ -89,8 +89,8 @@ const produtosPadrao = [
     descricao:
       "Item decorativo produzido em impressão 3D para compor ambientes com personalidade e criatividade.",
     imagens: [
-      "imagens/produtos/peca-decorativa-3d/1.png",
-      "imagens/produtos/peca-decorativa-3d/2.png",
+      "/imagens/produtos/peca-decorativa-3d/1.png",
+      "/imagens/produtos/peca-decorativa-3d/2.png",
     ],
   },
   {
@@ -103,8 +103,8 @@ const produtosPadrao = [
     descricao:
       "Ideal para organizar itens de escritório, bancada ou setup com um visual moderno e funcional.",
     imagens: [
-      "imagens/produtos/organizador-mesa/1.png",
-      "imagens/produtos/organizador-mesa/2.png",
+      "/imagens/produtos/organizador-mesa/1.png",
+      "/imagens/produtos/organizador-mesa/2.png",
     ],
   },
   {
@@ -116,7 +116,7 @@ const produtosPadrao = [
     destaque: "Feito conforme sua ideia",
     descricao:
       "Desenvolvemos peças personalizadas em impressão 3D para presentes, utilidades, decoração e projetos especiais.",
-    imagens: ["imagens/placeholder.png"],
+    imagens: ["/imagens/placeholder.png"],
   },
 ];
 
@@ -140,57 +140,79 @@ function IconeCarrinho({ className = "h-5 w-5" }) {
 }
 
 function parseCSV(texto) {
-  const linhas = texto
-    .split(/\r?\n/)
-    .map((linha) => linha.trim())
-    .filter(Boolean);
+  if (!texto || !texto.trim()) return [];
+
+  const linhas = [];
+  let linhaAtual = [];
+  let campoAtual = "";
+  let emAspas = false;
+
+  for (let i = 0; i < texto.length; i += 1) {
+    const char = texto[i];
+    const proximo = texto[i + 1];
+
+    if (char === '"') {
+      if (emAspas && proximo === '"') {
+        campoAtual += '"';
+        i += 1;
+      } else {
+        emAspas = !emAspas;
+      }
+    } else if (char === "," && !emAspas) {
+      linhaAtual.push(campoAtual);
+      campoAtual = "";
+    } else if ((char === "\n" || char === "\r") && !emAspas) {
+      if (char === "\r" && proximo === "\n") {
+        i += 1;
+      }
+
+      linhaAtual.push(campoAtual);
+      campoAtual = "";
+
+      const linhaTemConteudo = linhaAtual.some((campo) => String(campo).trim() !== "");
+      if (linhaTemConteudo) {
+        linhas.push(linhaAtual);
+      }
+
+      linhaAtual = [];
+    } else {
+      campoAtual += char;
+    }
+  }
+
+  linhaAtual.push(campoAtual);
+  const ultimaLinhaTemConteudo = linhaAtual.some(
+    (campo) => String(campo).trim() !== ""
+  );
+  if (ultimaLinhaTemConteudo) {
+    linhas.push(linhaAtual);
+  }
 
   if (linhas.length < 2) return [];
 
-  const separarLinha = (linha) => {
-    const resultado = [];
-    let atual = "";
-    let emAspas = false;
+  const limparCampo = (valor) =>
+    String(valor ?? "")
+      .replace(/\r/g, "")
+      .trim();
 
-    for (let i = 0; i < linha.length; i += 1) {
-      const char = linha[i];
-      const proximo = linha[i + 1];
+  const cabecalhos = linhas[0].map((item) => limparCampo(item).toLowerCase());
 
-      if (char === '"') {
-        if (emAspas && proximo === '"') {
-          atual += '"';
-          i += 1;
-        } else {
-          emAspas = !emAspas;
-        }
-      } else if (char === "," && !emAspas) {
-        resultado.push(atual.trim());
-        atual = "";
-      } else {
-        atual += char;
-      }
-    }
-
-    resultado.push(atual.trim());
-    return resultado;
-  };
-
-  const cabecalhos = separarLinha(linhas[0]).map((item) =>
-    item.toLowerCase().trim()
-  );
-
-  return linhas.slice(1).map((linha, index) => {
-    const colunas = separarLinha(linha);
+  return linhas.slice(1).map((colunas, index) => {
     const item = {};
 
     cabecalhos.forEach((cabecalho, i) => {
-      item[cabecalho] = colunas[i] ?? "";
+      item[cabecalho] = limparCampo(colunas[i] ?? "");
     });
 
-    const imagens = String(item.imagens || item.imagem || "imagens/placeholder.png")
+    const imagensBrutas = String(
+      item.imagens || item.imagem || "/imagens/placeholder.png"
+    );
+
+    const imagens = imagensBrutas
       .split("|")
-      .map((img) => img.trim())
-      .filter(Boolean);
+      .map((img) => limparCampo(img))
+      .filter(Boolean)
+      .map((img) => (img.startsWith("/") ? img : `/${img}`));
 
     return {
       id: Number(item.id) || index + 1,
@@ -202,7 +224,7 @@ function parseCSV(texto) {
       descricao:
         item.descricao ||
         "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
-      imagens: imagens.length > 0 ? imagens : ["imagens/placeholder.png"],
+      imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
     };
   });
 }
@@ -216,7 +238,11 @@ function getImagemSrc(imagem) {
     return imagem;
   }
 
-  const caminhoLimpo = imagem.startsWith("/") ? imagem.slice(1) : imagem;
+  const caminhoLimpo = imagem
+    .replace(/\r/g, "")
+    .trim()
+    .replace(/^\/+/, "");
+
   return `${import.meta.env.BASE_URL}${caminhoLimpo}`;
 }
 
@@ -261,11 +287,14 @@ export default function CatalogoOnline() {
       })
       .then((texto) => {
         const lista = parseCSV(texto);
+        console.log("Produtos CSV:", lista);
+
         if (lista.length > 0) {
           setProdutos(lista);
         }
       })
-      .catch(() => {
+      .catch((erro) => {
+        console.error("Erro ao carregar CSV:", erro);
         setProdutos(produtosPadrao);
       });
   }, []);
@@ -679,7 +708,7 @@ export default function CatalogoOnline() {
                   )}
                 </div>
 
-                <p className="line-clamp-3 text-sm leading-6 text-zinc-600">
+                <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-zinc-600">
                   {produto.descricao}
                 </p>
 
@@ -862,7 +891,7 @@ export default function CatalogoOnline() {
                   R$ {produtoSelecionado.preco.toFixed(2)}
                 </p>
 
-                <p className="mt-5 leading-7 text-zinc-600">
+                <p className="mt-5 whitespace-pre-line leading-7 text-zinc-600">
                   {produtoSelecionado.descricao}
                 </p>
 

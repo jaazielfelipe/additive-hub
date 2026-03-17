@@ -8,6 +8,8 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from openpyxl import load_workbook
+
 
 def slugify(texto: str) -> str:
     texto = texto.strip().lower()
@@ -22,6 +24,10 @@ def slugify(texto: str) -> str:
     while "--" in texto:
         texto = texto.replace("--", "-")
     return texto.strip("-")
+
+
+def limpar_descricao_linha_unica(texto: str) -> str:
+    return " ".join(str(texto).replace("\r", " ").replace("\n", " ").split())
 
 
 def abrir_no_sistema(caminho: Path):
@@ -42,7 +48,11 @@ class GeradorCatalogoApp:
         self.root.title("Additive Hub • Gerador de Catálogo")
         self.root.geometry("1360x860")
         self.root.minsize(1180, 720)
-        self.root.state("zoomed")
+
+        try:
+            self.root.state("zoomed")
+        except Exception:
+            pass
 
         self.imagens_selecionadas = []
         self.produtos_csv_cache = []
@@ -56,6 +66,9 @@ class GeradorCatalogoApp:
         self.var_destaque = tk.StringVar()
         self.var_pasta_produto = tk.StringVar()
         self.var_produto_existente = tk.StringVar()
+
+        self.var_planilha_massa = tk.StringVar()
+        self.var_pasta_fotos = tk.StringVar()
 
         self.categorias = {
             "Chaveiro": {
@@ -73,19 +86,35 @@ class GeradorCatalogoApp:
             },
             "Decoração": {
                 "pasta": "decoracoes",
-                "subcategorias": ["Miniaturas", "Itens para cozinha", "Itens para ambiente"],
+                "subcategorias": [
+                    "Miniaturas",
+                    "Itens para cozinha",
+                    "Itens para ambiente",
+                ],
             },
             "Cozinha & Confeitaria": {
                 "pasta": "cozinha-confeitaria",
-                "subcategorias": ["Cortadores", "Marcadores", "Utensílios personalizados"],
+                "subcategorias": [
+                    "Cortadores",
+                    "Marcadores",
+                    "Utensílios personalizados",
+                ],
             },
             "Utilidades": {
                 "pasta": "utilidades",
-                "subcategorias": ["Organizadores", "Suportes", "Acessórios funcionais"],
+                "subcategorias": [
+                    "Organizadores",
+                    "Suportes",
+                    "Acessórios funcionais",
+                ],
             },
             "Personalizados": {
                 "pasta": "personalizados",
-                "subcategorias": ["Projetos sob medida", "Brindes personalizados", "Peças exclusivas"],
+                "subcategorias": [
+                    "Projetos sob medida",
+                    "Brindes personalizados",
+                    "Peças exclusivas",
+                ],
             },
         }
 
@@ -142,7 +171,11 @@ class GeradorCatalogoApp:
         topo = ttk.Frame(frame)
         topo.pack(fill="x", pady=(0, 10))
 
-        ttk.Label(topo, text="Gerador de catálogo Additive Hub", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(
+            topo,
+            text="Gerador de catálogo Additive Hub",
+            style="Title.TLabel",
+        ).pack(anchor="w")
         ttk.Label(
             topo,
             text="Cadastre produtos, organize imagens e monte o CSV com muito menos trabalho.",
@@ -171,6 +204,42 @@ class GeradorCatalogoApp:
             command=self.abrir_csv,
         ).pack(side="left")
 
+        massa = ttk.LabelFrame(frame, text="Importação em massa", style="Card.TLabelframe")
+        massa.pack(fill="x", pady=(0, 10))
+
+        linha_massa_1 = ttk.Frame(massa)
+        linha_massa_1.pack(fill="x", pady=(0, 6))
+        ttk.Label(linha_massa_1, text="Planilha", width=18).pack(side="left")
+        ttk.Entry(linha_massa_1, textvariable=self.var_planilha_massa).pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
+        ttk.Button(
+            linha_massa_1,
+            text="Selecionar CSV / Excel",
+            command=self.selecionar_planilha_massa,
+        ).pack(side="left")
+
+        linha_massa_2 = ttk.Frame(massa)
+        linha_massa_2.pack(fill="x", pady=(0, 6))
+        ttk.Label(linha_massa_2, text="Pasta base das fotos", width=18).pack(side="left")
+        ttk.Entry(linha_massa_2, textvariable=self.var_pasta_fotos).pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
+        ttk.Button(
+            linha_massa_2,
+            text="Selecionar pasta",
+            command=self.selecionar_pasta_fotos,
+        ).pack(side="left")
+
+        linha_massa_3 = ttk.Frame(massa)
+        linha_massa_3.pack(fill="x")
+        ttk.Button(
+            linha_massa_3,
+            text="🚀 Processar importação em massa",
+            style="Accent.TButton",
+            command=self.processar_em_massa,
+        ).pack(side="left")
+
         acoes = ttk.LabelFrame(frame, text="Ações rápidas", style="Card.TLabelframe")
         acoes.pack(fill="x", pady=(0, 10))
 
@@ -179,15 +248,47 @@ class GeradorCatalogoApp:
         barra_acoes_2 = ttk.Frame(acoes)
         barra_acoes_2.pack(fill="x")
 
-        ttk.Button(barra_acoes_1, text="Gerar ID automático", command=self.gerar_id_automatico).pack(side="left", padx=(0, 8))
-        ttk.Button(barra_acoes_1, text="Selecionar imagens", command=self.selecionar_imagens).pack(side="left", padx=(0, 8))
-        ttk.Button(barra_acoes_1, text="Remover imagem", command=self.remover_imagem_selecionada).pack(side="left", padx=(0, 8))
-        ttk.Button(barra_acoes_1, text="Processar imagens", command=self.processar_imagens).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            barra_acoes_1,
+            text="Gerar ID automático",
+            command=self.gerar_id_automatico,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            barra_acoes_1,
+            text="Selecionar imagens",
+            command=self.selecionar_imagens,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            barra_acoes_1,
+            text="Remover imagem",
+            command=self.remover_imagem_selecionada,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            barra_acoes_1,
+            text="Processar imagens",
+            command=self.processar_imagens,
+        ).pack(side="left", padx=(0, 8))
 
-        ttk.Button(barra_acoes_2, text="Gerar linha CSV", command=self.gerar_linha_csv).pack(side="left", padx=(0, 8))
-        ttk.Button(barra_acoes_2, text="Adicionar ao produtos.csv", command=self.adicionar_ao_csv).pack(side="left", padx=(0, 8))
-        ttk.Button(barra_acoes_2, text="Abrir pasta do produto", command=self.abrir_pasta_produto).pack(side="left", padx=(0, 8))
-        ttk.Button(barra_acoes_2, text="Limpar", command=self.limpar_tudo).pack(side="right")
+        ttk.Button(
+            barra_acoes_2,
+            text="Gerar linha CSV",
+            command=self.gerar_linha_csv,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            barra_acoes_2,
+            text="Adicionar ao produtos.csv",
+            command=self.adicionar_ao_csv,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            barra_acoes_2,
+            text="Abrir pasta do produto",
+            command=self.abrir_pasta_produto,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            barra_acoes_2,
+            text="Limpar",
+            command=self.limpar_tudo,
+        ).pack(side="right")
 
         self.label_status = ttk.Label(acoes, text="Pronto.")
         self.label_status.pack(anchor="w", pady=(8, 0))
@@ -212,7 +313,9 @@ class GeradorCatalogoApp:
         linha1.pack(fill="x", pady=4)
         ttk.Label(linha1, text="Produto já cadastrado", width=20).pack(side="left")
         self.combo_produtos = ttk.Combobox(
-            linha1, textvariable=self.var_produto_existente, state="readonly"
+            linha1,
+            textvariable=self.var_produto_existente,
+            state="readonly",
         )
         self.combo_produtos.pack(side="left", fill="x", expand=True)
         self.combo_produtos.bind("<<ComboboxSelected>>", self.carregar_produto_existente)
@@ -285,14 +388,22 @@ class GeradorCatalogoApp:
 
         linha_botoes = ttk.Frame(frame)
         linha_botoes.pack(fill="x", pady=(0, 8))
-        ttk.Button(linha_botoes, text='Copiar campo "imagens"', command=self.copiar_campo_imagens).pack(side="left", padx=(0, 8))
-        ttk.Button(linha_botoes, text="Copiar linha CSV", command=self.copiar_linha_csv).pack(side="left")
+        ttk.Button(
+            linha_botoes,
+            text='Copiar campo "imagens"',
+            command=self.copiar_campo_imagens,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            linha_botoes,
+            text="Copiar linha CSV",
+            command=self.copiar_linha_csv,
+        ).pack(side="left")
 
         ttk.Label(frame, text="Linha CSV completa").pack(anchor="w")
         self.txt_linha_csv = tk.Text(frame, height=7, wrap="word")
         self.txt_linha_csv.pack(fill="x", pady=(4, 8))
 
-        ttk.Label(frame, text="Arquivos gerados").pack(anchor="w")
+        ttk.Label(frame, text="Arquivos gerados / relatório").pack(anchor="w")
         self.txt_arquivos_gerados = tk.Text(frame, height=16, wrap="word")
         self.txt_arquivos_gerados.pack(fill="both", expand=True, pady=(4, 0))
 
@@ -303,10 +414,10 @@ class GeradorCatalogoApp:
         widget.delete("1.0", tk.END)
         widget.insert("1.0", texto)
 
-    def _obter_subpasta_categoria(self) -> str:
-        categoria = self.var_categoria.get().strip()
+    def _obter_subpasta_categoria(self, categoria=None) -> str:
+        categoria = (categoria or self.var_categoria.get()).strip()
         if categoria not in self.categorias:
-            raise ValueError("Categoria inválida.")
+            return "outros"
         return self.categorias[categoria]["pasta"]
 
     def _atualizar_subcategorias(self):
@@ -333,6 +444,29 @@ class GeradorCatalogoApp:
         self.var_pasta_projeto.set(pasta)
         self._set_status("Pasta do projeto selecionada.")
         self.carregar_produtos_csv()
+
+    def selecionar_planilha_massa(self):
+        arquivo = filedialog.askopenfilename(
+            title="Selecione a planilha",
+            filetypes=[
+                ("Planilhas Excel e CSV", "*.xlsx *.csv"),
+                ("Excel", "*.xlsx"),
+                ("CSV", "*.csv"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        )
+        if not arquivo:
+            return
+
+        self.var_planilha_massa.set(str(arquivo).strip())
+        self._set_status("Planilha de importação em massa selecionada.")
+
+    def selecionar_pasta_fotos(self):
+        pasta = filedialog.askdirectory(title="Selecione a pasta base das fotos")
+        if not pasta:
+            return
+        self.var_pasta_fotos.set(pasta)
+        self._set_status("Pasta base das fotos selecionada.")
 
     def selecionar_imagens(self):
         arquivos = filedialog.askopenfilenames(
@@ -384,7 +518,14 @@ class GeradorCatalogoApp:
         if not pasta_produto:
             raise ValueError("Informe a pasta do produto.")
 
-        return Path(pasta_projeto) / "public" / "imagens" / "produtos" / subpasta_categoria / pasta_produto
+        return (
+            Path(pasta_projeto)
+            / "public"
+            / "imagens"
+            / "produtos"
+            / subpasta_categoria
+            / pasta_produto
+        )
 
     def processar_imagens(self):
         try:
@@ -404,7 +545,7 @@ class GeradorCatalogoApp:
                 shutil.copy2(origem, destino_arquivo)
 
                 caminho_relativo = (
-                    f"imagens/produtos/{self._obter_subpasta_categoria()}/"
+                    f"/imagens/produtos/{self._obter_subpasta_categoria()}/"
                     f"{self.var_pasta_produto.get().strip()}/{novo_nome}"
                 )
                 caminhos_csv.append(caminho_relativo)
@@ -453,7 +594,10 @@ class GeradorCatalogoApp:
             if not campo_imagens:
                 raise ValueError("Processe as imagens antes de gerar a linha CSV.")
 
-            descricao = self.txt_descricao.get("1.0", tk.END).strip()
+            descricao = limpar_descricao_linha_unica(
+                self.txt_descricao.get("1.0", tk.END)
+            )
+
             linha = [
                 self.var_id.get().strip(),
                 self.var_nome_produto.get().strip(),
@@ -465,14 +609,21 @@ class GeradorCatalogoApp:
                 campo_imagens,
             ]
 
-            with open("temp_linha.csv", "w", newline="", encoding="utf-8-sig") as f:
-                writer = csv.writer(f)
+            temp_path = Path("temp_linha.csv")
+
+            with open(temp_path, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.writer(
+                    f,
+                    delimiter=",",
+                    quotechar='"',
+                    quoting=csv.QUOTE_ALL,
+                )
                 writer.writerow(linha)
 
-            with open("temp_linha.csv", "r", encoding="utf-8-sig") as f:
+            with open(temp_path, "r", encoding="utf-8-sig") as f:
                 buffer = f.read().strip()
 
-            Path("temp_linha.csv").unlink(missing_ok=True)
+            temp_path.unlink(missing_ok=True)
 
             self._set_texto(self.txt_linha_csv, buffer)
             self._set_status("Linha CSV gerada com sucesso.")
@@ -490,9 +641,20 @@ class GeradorCatalogoApp:
                 raise ValueError("Processe as imagens antes de adicionar ao CSV.")
 
             caminho_csv = Path(pasta_projeto) / "public" / "produtos.csv"
-            descricao = self.txt_descricao.get("1.0", tk.END).strip()
+            descricao = limpar_descricao_linha_unica(
+                self.txt_descricao.get("1.0", tk.END)
+            )
 
-            cabecalho = ["id", "nome", "categoria", "subcategoria", "preco", "destaque", "descricao", "imagens"]
+            cabecalho = [
+                "id",
+                "nome",
+                "categoria",
+                "subcategoria",
+                "preco",
+                "destaque",
+                "descricao",
+                "imagens",
+            ]
             linha = [
                 self.var_id.get().strip(),
                 self.var_nome_produto.get().strip(),
@@ -507,7 +669,12 @@ class GeradorCatalogoApp:
             arquivo_existe = caminho_csv.exists()
 
             with open(caminho_csv, "a", newline="", encoding="utf-8-sig") as f:
-                writer = csv.writer(f)
+                writer = csv.writer(
+                    f,
+                    delimiter=",",
+                    quotechar='"',
+                    quoting=csv.QUOTE_ALL,
+                )
                 if not arquivo_existe:
                     writer.writerow(cabecalho)
                 writer.writerow(linha)
@@ -539,7 +706,10 @@ class GeradorCatalogoApp:
                     produtos.append(row)
 
             self.produtos_csv_cache = produtos
-            opcoes = [f'{p.get("id", "").strip()} - {p.get("nome", "").strip()}' for p in produtos]
+            opcoes = [
+                f'{p.get("id", "").strip()} - {p.get("nome", "").strip()}'
+                for p in produtos
+            ]
             self.combo_produtos["values"] = opcoes
             self._set_status(f"{len(produtos)} produto(s) carregado(s) do CSV.")
         except Exception as e:
@@ -582,6 +752,255 @@ class GeradorCatalogoApp:
             self.atualizar_lista_imagens()
 
             self._set_status("Produto carregado do CSV.")
+        except Exception as e:
+            messagebox.showerror("Erro", str(e))
+
+    def ler_planilha_massa(self, caminho_arquivo):
+        caminho = Path(str(caminho_arquivo).strip())
+        extensao = caminho.suffix.strip().lower()
+
+        if not str(caminho).strip():
+            raise ValueError("Selecione uma planilha para importação em massa.")
+
+        if not caminho.exists():
+            raise ValueError(f"Arquivo não encontrado:\n{caminho}")
+
+        if extensao == ".csv":
+            with open(caminho, "r", newline="", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                return [dict(row) for row in reader]
+
+        if extensao == ".xlsx":
+            try:
+                wb = load_workbook(filename=str(caminho), data_only=True)
+            except Exception as e:
+                raise ValueError(
+                    f"Não foi possível abrir o arquivo Excel.\n\n"
+                    f"Arquivo: {caminho.name}\n"
+                    f"Erro: {e}"
+                ) from e
+
+            nome_aba = "cadastro-em-massa"
+
+            if nome_aba not in wb.sheetnames:
+                raise ValueError(
+                    f'A planilha Excel não contém a guia "{nome_aba}".\n\n'
+                    f"Guias encontradas:\n" + "\n".join(wb.sheetnames)
+                )
+
+            ws = wb[nome_aba]
+
+            linhas = list(ws.iter_rows(values_only=True))
+            if not linhas:
+                return []
+
+            cabecalhos = [
+                str(col).strip() if col is not None else ""
+                for col in linhas[0]
+            ]
+
+            dados = []
+            for linha in linhas[1:]:
+                if linha is None:
+                    continue
+
+                item = {}
+                linha_vazia = True
+
+                for i, valor in enumerate(linha):
+                    if i >= len(cabecalhos):
+                        continue
+
+                    chave = cabecalhos[i]
+                    if not chave:
+                        continue
+
+                    valor_final = "" if valor is None else str(valor).strip()
+                    if valor_final != "":
+                        linha_vazia = False
+
+                    item[chave] = valor_final
+
+                if not linha_vazia:
+                    dados.append(item)
+
+            return dados
+
+        raise ValueError(
+            f"Formato não suportado.\n\n"
+            f"Arquivo selecionado: {caminho.name}\n"
+            f"Extensão encontrada: {extensao or '(sem extensão)'}\n\n"
+            f"Use .csv ou .xlsx"
+        )
+
+    def processar_em_massa(self):
+        try:
+            pasta_projeto = self.var_pasta_projeto.get().strip()
+            planilha = self.var_planilha_massa.get().strip()
+            pasta_fotos = self.var_pasta_fotos.get().strip()
+
+            if not pasta_projeto:
+                raise ValueError("Selecione a pasta do projeto.")
+            if not planilha:
+                raise ValueError("Selecione a planilha CSV ou Excel.")
+            if not pasta_fotos:
+                raise ValueError("Selecione a pasta base das fotos.")
+
+            caminho_csv_saida = Path(pasta_projeto) / "public" / "produtos.csv"
+
+            produtos_saida = []
+            relatorio = []
+
+            linhas_planilha = self.ler_planilha_massa(planilha)
+
+            if not linhas_planilha:
+                raise ValueError("A planilha está vazia.")
+
+            colunas_necessarias = {
+                "id",
+                "nome",
+                "categoria",
+                "subcategoria",
+                "preco",
+                "destaque",
+                "descricao",
+                "caminho_origem",
+                "pasta_produto",
+            }
+            colunas_planilha = set(linhas_planilha[0].keys())
+            faltando = colunas_necessarias - colunas_planilha
+            if faltando:
+                raise ValueError(
+                    "A planilha está sem as colunas obrigatórias:\n"
+                    + ", ".join(sorted(faltando))
+                )
+
+            for numero_linha, row in enumerate(linhas_planilha, start=2):
+                nome = row.get("nome", "").strip()
+                categoria = row.get("categoria", "").strip()
+                subcategoria = row.get("subcategoria", "").strip()
+                caminho_origem = row.get("caminho_origem", "").strip()
+                pasta_produto = row.get("pasta_produto", "").strip()
+                destaque = row.get("destaque", "").strip()
+                descricao = limpar_descricao_linha_unica(row.get("descricao", ""))
+                preco = row.get("preco", "").strip()
+                id_produto = row.get("id", "").strip()
+
+                if not nome:
+                    relatorio.append(f"Linha {numero_linha}: produto sem nome. Ignorado.")
+                    continue
+
+                if not pasta_produto:
+                    pasta_produto = slugify(nome)
+
+                if not caminho_origem:
+                    relatorio.append(f"Linha {numero_linha}: {nome} sem caminho_origem. Ignorado.")
+                    continue
+
+                origem = Path(pasta_fotos) / Path(caminho_origem)
+
+                if not origem.exists():
+                    relatorio.append(f"Linha {numero_linha}: pasta não encontrada -> {origem}")
+                    continue
+
+                if not origem.is_dir():
+                    relatorio.append(f"Linha {numero_linha}: caminho_origem não é pasta -> {origem}")
+                    continue
+
+                subpasta_categoria = self._obter_subpasta_categoria(categoria)
+
+                destino = (
+                    Path(pasta_projeto)
+                    / "public"
+                    / "imagens"
+                    / "produtos"
+                    / subpasta_categoria
+                    / pasta_produto
+                )
+                destino.mkdir(parents=True, exist_ok=True)
+
+                arquivos_validos = sorted(
+                    [
+                        arq for arq in origem.iterdir()
+                        if arq.is_file() and arq.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+                    ],
+                    key=lambda x: x.name.lower()
+                )
+
+                if not arquivos_validos:
+                    relatorio.append(f"Linha {numero_linha}: sem imagens válidas em {origem}")
+                    continue
+
+                imagens = []
+                arquivos_copiados = []
+
+                for contador, arquivo in enumerate(arquivos_validos, start=1):
+                    ext = arquivo.suffix.lower()
+                    novo_nome = f"{contador}{ext}"
+                    destino_arquivo = destino / novo_nome
+
+                    shutil.copy2(arquivo, destino_arquivo)
+
+                    caminho_site = (
+                        f"/imagens/produtos/{subpasta_categoria}/"
+                        f"{pasta_produto}/{novo_nome}"
+                    )
+
+                    imagens.append(caminho_site)
+                    arquivos_copiados.append(f"{arquivo.name} -> {novo_nome}")
+
+                produtos_saida.append([
+                    id_produto,
+                    nome,
+                    categoria,
+                    subcategoria,
+                    preco,
+                    destaque,
+                    descricao,
+                    "|".join(imagens),
+                ])
+
+                relatorio.append(
+                    f"[OK] {nome}\n"
+                    f"Origem: {origem}\n"
+                    f"Destino: {destino}\n"
+                    f"Arquivos: {len(arquivos_copiados)}\n"
+                )
+
+            with open(caminho_csv_saida, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.writer(
+                    f,
+                    delimiter=",",
+                    quotechar='"',
+                    quoting=csv.QUOTE_ALL,
+                )
+
+                writer.writerow([
+                    "id",
+                    "nome",
+                    "categoria",
+                    "subcategoria",
+                    "preco",
+                    "destaque",
+                    "descricao",
+                    "imagens",
+                ])
+                writer.writerows(produtos_saida)
+
+            self.carregar_produtos_csv()
+            self._set_texto(self.txt_arquivos_gerados, "\n\n".join(relatorio))
+            self._set_texto(self.txt_pasta_saida, str(caminho_csv_saida))
+            self._set_texto(self.txt_campo_imagens, "")
+            self._set_texto(self.txt_linha_csv, "")
+
+            self._set_status(f"{len(produtos_saida)} produto(s) processado(s) com sucesso.")
+            messagebox.showinfo(
+                "Sucesso",
+                f"Importação em massa concluída.\n\n"
+                f"{len(produtos_saida)} produto(s) processado(s).\n\n"
+                f"CSV gerado em:\n{caminho_csv_saida}"
+            )
+
         except Exception as e:
             messagebox.showerror("Erro", str(e))
 
