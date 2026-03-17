@@ -120,6 +120,36 @@ const produtosPadrao = [
   },
 ];
 
+  const slidesDestaque = [
+  {
+    id: 1,
+    tag: "Novidades",
+    titulo: "Especial de Páscoa 3D",
+    subtitulo:
+      "Prepare-se para a Páscoa com peças criativas e personalizadas. Temos porta-ovos, lembrancinhas, brindes e itens exclusivos em impressão 3D, perfeitos para presentear, vender ou decorar. Produção sob demanda com possibilidade de personalização em cores e nomes.",
+    imagem: "/imagens/banners/banner-1.png",
+    produtoId: 1,
+  },
+  {
+    id: 2,
+    tag: "Em breve",
+    titulo: "Funko-Pop Personalizado",
+    subtitulo:
+      "Estamos desenvolvendo uma nova linha de miniaturas estilo Funko-Pop totalmente personalizadas com base em pessoas reais. Ideal para presentes únicos, lembranças especiais ou até para eternizar momentos. Aguarde — em breve disponível para encomenda.",
+    imagem: "/imagens/banners/banner-2.png",
+    produtoId: 2,
+  },
+  {
+    id: 3,
+    tag: "Novidades",
+    titulo: "Lançamentos e peças em destaque",
+    subtitulo:
+      "Acompanhe os modelos mais recentes e descubra novas ideias em impressão 3D para venda, presente e revenda.",
+    imagem: "/imagens/banners/banner-3.png",
+    produtoId: 3,
+  },
+];
+
 function IconeCarrinho({ className = "h-5 w-5" }) {
   return (
     <svg
@@ -261,6 +291,34 @@ function ImagemProduto({ src, alt, className }) {
   );
 }
 
+function ControleQuantidade({ quantidade, onDiminuir, onAumentar, compacto = false }) {
+  return (
+    <div
+      className={`inline-flex items-center gap-2 rounded-2xl border border-zinc-300 bg-white px-2 py-2 ${
+        compacto ? "" : "shadow-sm"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onDiminuir}
+        className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-300 bg-white text-lg font-bold text-zinc-800 transition hover:bg-zinc-50"
+      >
+        −
+      </button>
+      <span className="min-w-[2rem] text-center text-sm font-semibold text-zinc-900">
+        {quantidade}
+      </span>
+      <button
+        type="button"
+        onClick={onAumentar}
+        className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-300 bg-white text-lg font-bold text-zinc-800 transition hover:bg-zinc-50"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
 export default function CatalogoOnline() {
   const [produtos, setProdutos] = useState(produtosPadrao);
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
@@ -268,6 +326,8 @@ export default function CatalogoOnline() {
   const [busca, setBusca] = useState("");
   const [produtoSelecionado, setProdutoSelecionado] = useState(null);
   const [imagemAtiva, setImagemAtiva] = useState(0);
+  const [slideAtual, setSlideAtual] = useState(0);
+  const [carrinho, setCarrinho] = useState([]);
 
   const whatsapp = "5511978635579";
 
@@ -287,7 +347,6 @@ export default function CatalogoOnline() {
       })
       .then((texto) => {
         const lista = parseCSV(texto);
-        console.log("Produtos CSV:", lista);
 
         if (lista.length > 0) {
           setProdutos(lista);
@@ -298,6 +357,38 @@ export default function CatalogoOnline() {
         setProdutos(produtosPadrao);
       });
   }, []);
+
+  useEffect(() => {
+    const intervalo = setInterval(() => {
+      setSlideAtual((atual) => (atual + 1) % slidesDestaque.length);
+    }, 4000);
+
+    return () => clearInterval(intervalo);
+  }, []);
+
+  useEffect(() => {
+    const tecla = (e) => {
+      if (!produtoSelecionado) return;
+
+      if (e.key === "Escape") {
+        setProdutoSelecionado(null);
+        setImagemAtiva(0);
+      }
+
+      if (e.key === "ArrowRight" && produtoSelecionado.imagens?.length > 1) {
+        setImagemAtiva((atual) => (atual + 1) % produtoSelecionado.imagens.length);
+      }
+
+      if (e.key === "ArrowLeft" && produtoSelecionado.imagens?.length > 1) {
+        setImagemAtiva((atual) =>
+          atual === 0 ? produtoSelecionado.imagens.length - 1 : atual - 1
+        );
+      }
+    };
+
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [produtoSelecionado]);
 
   const categorias = useMemo(() => {
     const lista = [...new Set(produtos.map((produto) => produto.categoria))];
@@ -343,7 +434,16 @@ export default function CatalogoOnline() {
     });
   }, [produtos, categoriaAtiva, subcategoriaAtiva, busca]);
 
+  const totalItensCarrinho = useMemo(() => {
+    return carrinho.reduce((total, item) => total + item.quantidade, 0);
+  }, [carrinho]);
+
+  const slideSelecionado = slidesDestaque[slideAtual];
+  const produtoDoSlide =
+    produtos.find((produto) => produto.id === slideSelecionado?.produtoId) || null;
+
   const abrirDetalhes = (produto) => {
+    if (!produto) return;
     setProdutoSelecionado(produto);
     setImagemAtiva(0);
   };
@@ -353,15 +453,61 @@ export default function CatalogoOnline() {
     setImagemAtiva(0);
   };
 
-  const gerarMensagemWhatsApp = (produto) =>
-    encodeURIComponent(
-      `Olá! Tenho interesse neste produto da Additive Hub:\n\nProduto: ${produto.nome}\nCategoria: ${produto.categoria}\nSubcategoria: ${produto.subcategoria}\nValor: R$ ${produto.preco.toFixed(
-        2
-      )}\n\nPode me passar mais informações?`
+  const quantidadeNoCarrinho = (produtoId) => {
+    return carrinho.find((item) => item.id === produtoId)?.quantidade || 0;
+  };
+
+  const adicionarAoCarrinho = (produto) => {
+    if (!produto) return;
+
+    setCarrinho((anterior) => {
+      const existente = anterior.find((item) => item.id === produto.id);
+
+      if (existente) {
+        return anterior.map((item) =>
+          item.id === produto.id
+            ? { ...item, quantidade: item.quantidade + 1 }
+            : item
+        );
+      }
+
+      return [...anterior, { ...produto, quantidade: 1 }];
+    });
+  };
+
+  const aumentarQuantidade = (produto) => {
+    if (!produto) return;
+
+    setCarrinho((anterior) =>
+      anterior.map((item) =>
+        item.id === produto.id
+          ? { ...item, quantidade: item.quantidade + 1 }
+          : item
+      )
     );
+  };
+
+  const diminuirQuantidade = (produto) => {
+    if (!produto) return;
+
+    setCarrinho((anterior) =>
+      anterior
+        .map((item) =>
+          item.id === produto.id
+            ? { ...item, quantidade: item.quantidade - 1 }
+            : item
+        )
+        .filter((item) => item.quantidade > 0)
+    );
+  };
 
   const irParaCatalogo = () => {
     const secao = document.getElementById("catalogo");
+    secao?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const irParaQuemSomos = () => {
+    const secao = document.getElementById("quem-somos");
     secao?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -381,6 +527,16 @@ export default function CatalogoOnline() {
     setTimeout(() => {
       irParaCatalogo();
     }, 50);
+  };
+
+  const proximoSlide = () => {
+    setSlideAtual((atual) => (atual + 1) % slidesDestaque.length);
+  };
+
+  const slideAnterior = () => {
+    setSlideAtual((atual) =>
+      atual === 0 ? slidesDestaque.length - 1 : atual - 1
+    );
   };
 
   return (
@@ -414,10 +570,16 @@ export default function CatalogoOnline() {
                 const temSubmenu = categoria.itens.length > 0;
 
                 if (!temSubmenu) {
+                  const acao =
+                    categoria.nome === "Quem somos"
+                      ? irParaQuemSomos
+                      : () => selecionarCategoria(categoria.nome);
+
                   return (
                     <button
                       key={categoria.nome}
                       type="button"
+                      onClick={acao}
                       className="rounded-xl px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
                       {categoria.nome}
@@ -429,6 +591,7 @@ export default function CatalogoOnline() {
                   <div key={categoria.nome} className="group relative">
                     <button
                       type="button"
+                      onClick={() => selecionarCategoria(categoria.nome)}
                       className="rounded-xl px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
                       {categoria.nome}
@@ -468,115 +631,93 @@ export default function CatalogoOnline() {
           >
             <IconeCarrinho className="h-4 w-4" />
             Carrinho
+            {totalItensCarrinho > 0 && (
+              <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-black px-2 text-xs font-bold text-white">
+                {totalItensCarrinho}
+              </span>
+            )}
           </button>
         </div>
       </header>
 
       <section className="mx-auto max-w-7xl px-4 pb-8 pt-10">
-        <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="grid gap-10 px-6 py-10 md:px-8 lg:grid-cols-[1.2fr_0.8fr] lg:px-10 lg:py-14">
-            <div>
-              <span className="inline-flex rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
-                Catálogo online
-              </span>
+  <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+    <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10">
+      <div className="flex flex-col justify-center py-2">
+        <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
+  {slideSelecionado?.tag || "Novidades"}
+</span>
 
-              <h2 className="mt-5 max-w-3xl text-4xl font-bold leading-tight md:text-5xl lg:text-6xl">
-                Impressão 3D com visual profissional e peças personalizadas sob
-                medida
-              </h2>
+        <h3 className="mt-5 max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
+          {slideSelecionado?.titulo}
+        </h3>
 
-              <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
-                Criamos chaveiros, utilidades, decoração, brindes e projetos
-                personalizados em impressão 3D, unindo design, criatividade e
-                acabamento de qualidade.
-              </p>
+        <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
+  {slideSelecionado?.tag === "Em breve" ? (
+    <>
+      {slideSelecionado.subtitulo.split("Aguarde")[0]}
 
-              <div className="mt-8 flex flex-wrap gap-3">
-                <a
-                  href={`https://wa.me/${whatsapp}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-2xl bg-[#f4b400] px-6 py-3.5 font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
-                >
-                  Pedir pelo WhatsApp
-                </a>
+      <span className="block mt-3 font-semibold text-[#b38200]">
+        Aguarde — em breve disponível para encomenda.
+      </span>
+    </>
+  ) : (
+    slideSelecionado?.subtitulo
+  )}
+</p>
+        <div className="mt-6 flex items-center gap-2">
+          {slidesDestaque.map((slide, index) => (
+            <button
+              key={slide.id}
+              type="button"
+              onClick={() => setSlideAtual(index)}
+              className={`h-2.5 rounded-full transition-all ${
+                slideAtual === index ? "w-10 bg-[#f4b400]" : "w-2.5 bg-zinc-300"
+              }`}
+              aria-label={`Ir para slide ${index + 1}`}
+            />
+          ))}
+        </div>
 
-                <button
-                  onClick={irParaCatalogo}
-                  className="rounded-2xl border border-zinc-300 bg-white px-6 py-3.5 font-medium text-zinc-800 transition hover:bg-zinc-50"
-                >
-                  Ver catálogo
-                </button>
-              </div>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={slideAnterior}
+            className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+          >
+            ←
+          </button>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-3xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur">
-                  <p className="text-sm text-zinc-500">Personalização</p>
-                  <p className="mt-1 font-semibold">Peças únicas</p>
-                </div>
-                <div className="rounded-3xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur">
-                  <p className="text-sm text-zinc-500">Produção</p>
-                  <p className="mt-1 font-semibold">Sob demanda</p>
-                </div>
-                <div className="rounded-3xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur">
-                  <p className="text-sm text-zinc-500">Atendimento</p>
-                  <p className="mt-1 font-semibold">Via WhatsApp</p>
-                </div>
-              </div>
-            </div>
+          <button
+            type="button"
+            onClick={proximoSlide}
+            className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+          >
+            →
+          </button>
 
-            <div className="grid gap-4 self-center">
-              <div className="rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-sm">
-                <p className="text-sm font-medium text-zinc-500">Especialidade</p>
-                <h3 className="mt-2 text-2xl font-bold">
-                  Design 3D personalizado
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-zinc-600">
-                  Desenvolvemos peças decorativas, funcionais e exclusivas para
-                  presentes, revenda, organização e projetos especiais.
-                </p>
-              </div>
+          
+        </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm text-zinc-500">Catálogo</p>
-                  <p className="mt-2 text-lg font-semibold">
-                    Atualização por CSV
-                  </p>
-                </div>
-                <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm text-zinc-500">Projetos</p>
-                  <p className="mt-2 text-lg font-semibold">Sob medida</p>
-                </div>
-              </div>
-            </div>
+        
+      </div>
+
+      <div className="self-center">
+        <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
+          <div className="relative h-[420px] w-full bg-zinc-100 lg:h-[500px]">
+            <ImagemProduto
+              src={slideSelecionado?.imagem}
+              alt={slideSelecionado?.titulo || "Banner em destaque"}
+              className="h-full w-full scale-[1.12] object-cover"
+            />
           </div>
         </div>
-      </section>
+      </div>
+    </div>
+  </div>
+</section>
 
-      <section className="mx-auto max-w-7xl px-4 py-2">
-        <div className="grid gap-4 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm lg:grid-cols-[1fr_auto] lg:items-center">
-          <div>
-            <h3 className="text-lg font-semibold">
-              Como atualizar os produtos por Excel
-            </h3>
-            <p className="mt-1 text-sm text-zinc-600">
-              Salve sua planilha como{" "}
-              <span className="font-semibold text-zinc-900">CSV</span> e coloque
-              o arquivo{" "}
-              <span className="font-semibold text-zinc-900">produtos.csv</span>{" "}
-              dentro da pasta{" "}
-              <span className="font-semibold text-zinc-900">public</span> com as
-              colunas: id, nome, categoria, subcategoria, preco, destaque,
-              descricao e imagens.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700">
-            Excel → Salvar como CSV → public/produtos.csv
-          </div>
-        </div>
-      </section>
+      
 
       <main id="catalogo" className="mx-auto max-w-7xl px-4 pb-16 pt-8">
         <div className="mb-6 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm">
@@ -712,24 +853,29 @@ export default function CatalogoOnline() {
                   {produto.descricao}
                 </p>
 
-                <div className="flex gap-3 pt-1">
-                  <a
-                    href={`https://wa.me/${whatsapp}?text=${gerarMensagemWhatsApp(
-                      produto
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 rounded-2xl bg-[#f4b400] px-4 py-3 text-center font-semibold text-black transition hover:opacity-90"
-                  >
-                    Solicitar orçamento
-                  </a>
-
+                <div className="flex flex-wrap gap-3 pt-1">
                   <button
                     onClick={() => abrirDetalhes(produto)}
                     className="rounded-2xl border border-zinc-300 bg-white px-4 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
                   >
                     Detalhes
                   </button>
+
+                  {quantidadeNoCarrinho(produto.id) > 0 ? (
+                    <ControleQuantidade
+                      quantidade={quantidadeNoCarrinho(produto.id)}
+                      onDiminuir={() => diminuirQuantidade(produto)}
+                      onAumentar={() => aumentarQuantidade(produto)}
+                      compacto
+                    />
+                  ) : (
+                    <button
+                      onClick={() => adicionarAoCarrinho(produto)}
+                      className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-4 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+                    >
+                      Adicionar ao carrinho
+                    </button>
+                  )}
                 </div>
               </div>
             </article>
@@ -808,6 +954,52 @@ export default function CatalogoOnline() {
         </div>
       </section>
 
+      <section id="quem-somos" className="mx-auto max-w-7xl px-4 pb-16">
+        <div className="grid gap-6 rounded-[2rem] border border-zinc-200 bg-white p-8 shadow-sm lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-zinc-100">
+            <ImagemProduto
+              src="/imagens/banners/banner-2.png"
+              alt="Quem somos Additive Hub"
+              className="h-full min-h-[320px] w-full object-cover"
+            />
+          </div>
+
+          <div className="flex flex-col justify-center gap-4">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-[#b38200]">
+              Quem somos
+            </p>
+            <h3 className="mt-3 text-3xl font-bold">Additive Hub</h3>
+            <p className="mt-4 text-base leading-7 text-zinc-600">
+              A Additive Hub é uma marca voltada para criação e produção de peças
+              em impressão 3D, com foco em personalização, acabamento e design.
+              Trabalhamos com chaveiros, itens decorativos, utilidades, brindes
+              e projetos sob medida.
+            </p>
+            <p className="mt-4 text-base leading-7 text-zinc-600">
+              Nossa proposta é unir criatividade, funcionalidade e apresentação
+              profissional para transformar ideias em produtos com identidade.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a
+                href={`https://wa.me/${whatsapp}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl bg-[#f4b400] px-6 py-3 font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+              >
+                Falar no WhatsApp
+              </a>
+              <button
+                onClick={irParaCatalogo}
+                className="rounded-2xl border border-zinc-300 bg-white px-6 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+              >
+                Ver produtos
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <footer className="border-t border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-sm text-zinc-500 md:flex-row md:items-center md:justify-between">
           <p>© 2026 Additive Hub • Design e Impressão 3D</p>
@@ -825,8 +1017,14 @@ export default function CatalogoOnline() {
       </a>
 
       {produtoSelecionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="grid max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)] lg:grid-cols-2">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={fecharDetalhes}
+        >
+          <div
+            className="grid max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)] lg:grid-cols-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex flex-col bg-zinc-100">
               <div className="relative min-h-[320px] flex-1">
                 <ImagemProduto
@@ -841,6 +1039,25 @@ export default function CatalogoOnline() {
                 >
                   Fechar
                 </button>
+
+                {produtoSelecionado.imagens?.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={imagemAnteriorProduto}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      onClick={proximaImagemProduto}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+                    >
+                      →
+                    </button>
+                  </>
+                )}
               </div>
 
               {produtoSelecionado.imagens?.length > 1 && (
@@ -873,9 +1090,9 @@ export default function CatalogoOnline() {
 
             <div className="flex flex-col justify-between p-6 md:p-8">
               <div>
-                <span className="inline-flex rounded-full bg-[#f4b400] px-3 py-1 text-xs font-semibold text-black">
-                  {produtoSelecionado.categoria}
-                </span>
+                <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
+              {slideSelecionado?.tag || "Novidades"}
+            </span>
 
                 <h3 className="mt-4 text-3xl font-bold">
                   {produtoSelecionado.nome}
@@ -903,17 +1120,21 @@ export default function CatalogoOnline() {
                 </div>
               </div>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href={`https://wa.me/${whatsapp}?text=${gerarMensagemWhatsApp(
-                    produtoSelecionado
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 rounded-2xl bg-[#f4b400] px-5 py-3 text-center font-semibold text-black transition hover:opacity-90"
-                >
-                  Solicitar pelo WhatsApp
-                </a>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                {quantidadeNoCarrinho(produtoSelecionado.id) > 0 ? (
+                  <ControleQuantidade
+                    quantidade={quantidadeNoCarrinho(produtoSelecionado.id)}
+                    onDiminuir={() => diminuirQuantidade(produtoSelecionado)}
+                    onAumentar={() => aumentarQuantidade(produtoSelecionado)}
+                  />
+                ) : (
+                  <button
+                    onClick={() => adicionarAoCarrinho(produtoSelecionado)}
+                    className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+                  >
+                    Adicionar ao carrinho
+                  </button>
+                )}
 
                 <button
                   onClick={fecharDetalhes}
