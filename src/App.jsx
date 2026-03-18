@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const menuCategorias = [
   {
@@ -120,7 +121,7 @@ const produtosPadrao = [
   },
 ];
 
-  const slidesDestaque = [
+const slidesDestaque = [
   {
     id: 1,
     tag: "Novidades",
@@ -291,7 +292,12 @@ function ImagemProduto({ src, alt, className }) {
   );
 }
 
-function ControleQuantidade({ quantidade, onDiminuir, onAumentar, compacto = false }) {
+function ControleQuantidade({
+  quantidade,
+  onDiminuir,
+  onAumentar,
+  compacto = false,
+}) {
   return (
     <div
       className={`inline-flex items-center gap-2 rounded-2xl border border-zinc-300 bg-white px-2 py-2 ${
@@ -328,7 +334,12 @@ export default function CatalogoOnline() {
   const [imagemAtiva, setImagemAtiva] = useState(0);
   const [slideAtual, setSlideAtual] = useState(0);
   const [carrinho, setCarrinho] = useState([]);
+  const [menuMobileAberto, setMenuMobileAberto] = useState(false);
+  const [categoriaMobileAberta, setCategoriaMobileAberta] = useState(null);
+  const [animacoesCarrinho, setAnimacoesCarrinho] = useState([]);
+  const [carrinhoDestacado, setCarrinhoDestacado] = useState(false);
 
+  const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
 
   useEffect(() => {
@@ -347,7 +358,6 @@ export default function CatalogoOnline() {
       })
       .then((texto) => {
         const lista = parseCSV(texto);
-
         if (lista.length > 0) {
           setProdutos(lista);
         }
@@ -457,8 +467,38 @@ export default function CatalogoOnline() {
     return carrinho.find((item) => item.id === produtoId)?.quantidade || 0;
   };
 
-  const adicionarAoCarrinho = (produto) => {
+  const animarProdutoParaCarrinho = (event) => {
+    if (!event?.currentTarget || !botaoCarrinhoRef.current) return;
+
+    const origem = event.currentTarget.getBoundingClientRect();
+    const destino = botaoCarrinhoRef.current.getBoundingClientRect();
+
+    const id = `${Date.now()}-${Math.random()}`;
+
+    const item = {
+      id,
+      startX: origem.left + origem.width / 2,
+      startY: origem.top + origem.height / 2,
+      endX: destino.left + destino.width / 2,
+      endY: destino.top + destino.height / 2,
+    };
+
+    setAnimacoesCarrinho((atual) => [...atual, item]);
+    setCarrinhoDestacado(true);
+
+    window.setTimeout(() => {
+      setCarrinhoDestacado(false);
+    }, 450);
+
+    window.setTimeout(() => {
+      setAnimacoesCarrinho((atual) => atual.filter((anim) => anim.id !== id));
+    }, 900);
+  };
+
+  const adicionarAoCarrinho = (produto, event) => {
     if (!produto) return;
+
+    animarProdutoParaCarrinho(event);
 
     setCarrinho((anterior) => {
       const existente = anterior.find((item) => item.id === produto.id);
@@ -475,8 +515,10 @@ export default function CatalogoOnline() {
     });
   };
 
-  const aumentarQuantidade = (produto) => {
+  const aumentarQuantidade = (produto, event) => {
     if (!produto) return;
+
+    animarProdutoParaCarrinho(event);
 
     setCarrinho((anterior) =>
       anterior.map((item) =>
@@ -515,6 +557,9 @@ export default function CatalogoOnline() {
     setCategoriaAtiva(categoria);
     setSubcategoriaAtiva("Todos");
     setBusca("");
+    setMenuMobileAberto(false);
+    setCategoriaMobileAberta(null);
+
     setTimeout(() => {
       irParaCatalogo();
     }, 50);
@@ -524,6 +569,9 @@ export default function CatalogoOnline() {
     setCategoriaAtiva(categoria);
     setSubcategoriaAtiva(subcategoria);
     setBusca("");
+    setMenuMobileAberto(false);
+    setCategoriaMobileAberta(null);
+
     setTimeout(() => {
       irParaCatalogo();
     }, 50);
@@ -547,7 +595,7 @@ export default function CatalogoOnline() {
     >
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4">
-          <div className="flex items-center gap-12">
+          <div className="flex items-center gap-4 md:gap-12">
             <div className="flex items-center gap-3">
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
@@ -625,99 +673,282 @@ export default function CatalogoOnline() {
             </nav>
           </div>
 
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#f4b400] px-4 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
-          >
-            <IconeCarrinho className="h-4 w-4" />
-            Carrinho
-            {totalItensCarrinho > 0 && (
-              <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-black px-2 text-xs font-bold text-white">
-                {totalItensCarrinho}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMenuMobileAberto(true)}
+              className="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white p-2.5 text-zinc-800 transition hover:bg-zinc-50 lg:hidden"
+              aria-label="Abrir menu"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+
+            <motion.button
+              ref={botaoCarrinhoRef}
+              type="button"
+              animate={
+                carrinhoDestacado
+                  ? { scale: [1, 1.12, 1], y: [0, -2, 0] }
+                  : { scale: 1, y: 0 }
+              }
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#f4b400] px-4 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+            >
+              <IconeCarrinho className="h-4 w-4" />
+              <span className="hidden sm:inline">Carrinho</span>
+              {totalItensCarrinho > 0 && (
+                <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-black px-2 text-xs font-bold text-white">
+                  {totalItensCarrinho}
+                </span>
+              )}
+            </motion.button>
+          </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-4 pb-8 pt-10">
-  <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-    <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10">
-      <div className="flex flex-col justify-center py-2">
-        <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
-  {slideSelecionado?.tag || "Novidades"}
-</span>
-
-        <h3 className="mt-5 max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
-          {slideSelecionado?.titulo}
-        </h3>
-
-        <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
-  {slideSelecionado?.tag === "Em breve" ? (
-    <>
-      {slideSelecionado.subtitulo.split("Aguarde")[0]}
-
-      <span className="block mt-3 font-semibold text-[#b38200]">
-        Aguarde — em breve disponível para encomenda.
-      </span>
-    </>
-  ) : (
-    slideSelecionado?.subtitulo
-  )}
-</p>
-        <div className="mt-6 flex items-center gap-2">
-          {slidesDestaque.map((slide, index) => (
-            <button
-              key={slide.id}
+      <AnimatePresence>
+        {menuMobileAberto && (
+          <motion.div
+            className="fixed inset-0 z-50 lg:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.button
               type="button"
-              onClick={() => setSlideAtual(index)}
-              className={`h-2.5 rounded-full transition-all ${
-                slideAtual === index ? "w-10 bg-[#f4b400]" : "w-2.5 bg-zinc-300"
-              }`}
-              aria-label={`Ir para slide ${index + 1}`}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => {
+                setMenuMobileAberto(false);
+                setCategoriaMobileAberta(null);
+              }}
+              aria-label="Fechar menu"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             />
-          ))}
-        </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={slideAnterior}
-            className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
-          >
-            ←
-          </button>
+            <motion.div
+              className="absolute left-0 top-0 h-full w-[88%] max-w-sm overflow-y-auto bg-white shadow-2xl"
+              initial={{ x: -40, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -40, opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-4">
+                <div>
+                  <p className="text-lg font-bold text-zinc-900">Categorias</p>
+                  <p className="text-sm text-zinc-500">Explore o catálogo</p>
+                </div>
 
-          <button
-            type="button"
-            onClick={proximoSlide}
-            className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
-          >
-            →
-          </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuMobileAberto(false);
+                    setCategoriaMobileAberta(null);
+                  }}
+                  className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800"
+                >
+                  Fechar
+                </button>
+              </div>
 
-          
-        </div>
+              <div className="p-3">
+                <button
+                  type="button"
+                  onClick={() => selecionarCategoria("Todos")}
+                  className="mb-2 block w-full rounded-2xl bg-[#f4b400] px-4 py-3 text-left text-sm font-semibold text-black"
+                >
+                  Ver todos os produtos
+                </button>
 
-        
-      </div>
+                {menuCategorias.map((categoria) => {
+                  const temSubmenu = categoria.itens.length > 0;
+                  const aberta = categoriaMobileAberta === categoria.nome;
 
-      <div className="self-center">
-        <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
-          <div className="relative h-[420px] w-full bg-zinc-100 lg:h-[500px]">
-            <ImagemProduto
-              src={slideSelecionado?.imagem}
-              alt={slideSelecionado?.titulo || "Banner em destaque"}
-              className="h-full w-full scale-[1.12] object-cover"
-            />
+                  if (!temSubmenu) {
+                    const acao =
+                      categoria.nome === "Quem somos"
+                        ? () => {
+                            setMenuMobileAberto(false);
+                            setCategoriaMobileAberta(null);
+                            setTimeout(() => {
+                              irParaQuemSomos();
+                            }, 50);
+                          }
+                        : () => selecionarCategoria(categoria.nome);
+
+                    return (
+                      <button
+                        key={categoria.nome}
+                        type="button"
+                        onClick={acao}
+                        className="mb-2 block w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-left text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+                      >
+                        {categoria.nome}
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={categoria.nome}
+                      className="mb-2 overflow-hidden rounded-2xl border border-zinc-200 bg-white"
+                    >
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => selecionarCategoria(categoria.nome)}
+                          className="flex-1 px-4 py-3 text-left text-sm font-semibold text-zinc-900"
+                        >
+                          {categoria.nome}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCategoriaMobileAberta((atual) =>
+                              atual === categoria.nome ? null : categoria.nome
+                            )
+                          }
+                          className="px-4 py-3 text-zinc-600"
+                          aria-label={`Expandir ${categoria.nome}`}
+                        >
+                          {aberta ? "−" : "+"}
+                        </button>
+                      </div>
+
+                      {aberta && (
+                        <div className="border-t border-zinc-100 bg-zinc-50 p-2">
+                          <button
+                            type="button"
+                            onClick={() => selecionarCategoria(categoria.nome)}
+                            className="mb-1 block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#b38200]"
+                          >
+                            Ver tudo em {categoria.nome}
+                          </button>
+
+                          {categoria.itens.map((item) => (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() =>
+                                selecionarSubcategoria(categoria.nome, item)
+                              }
+                              className="block w-full rounded-xl px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-white"
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.section
+        className="mx-auto max-w-7xl px-4 pb-8 pt-10"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+      >
+        <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10">
+            <motion.div
+              className="flex flex-col justify-center py-2"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.55, delay: 0.1, ease: "easeOut" }}
+            >
+              <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
+                {slideSelecionado?.tag || "Novidades"}
+              </span>
+
+              <h3 className="mt-5 max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
+                {slideSelecionado?.titulo}
+              </h3>
+
+              <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
+                {slideSelecionado?.tag === "Em breve" ? (
+                  <>
+                    {slideSelecionado.subtitulo.split("Aguarde")[0]}
+                    <span className="mt-3 block font-semibold text-[#b38200]">
+                      Aguarde — em breve disponível para encomenda.
+                    </span>
+                  </>
+                ) : (
+                  slideSelecionado?.subtitulo
+                )}
+              </p>
+
+              <div className="mt-6 flex items-center gap-2">
+                {slidesDestaque.map((slide, index) => (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    onClick={() => setSlideAtual(index)}
+                    className={`h-2.5 rounded-full transition-all ${
+                      slideAtual === index ? "w-10 bg-[#f4b400]" : "w-2.5 bg-zinc-300"
+                    }`}
+                    aria-label={`Ir para slide ${index + 1}`}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={slideAnterior}
+                  className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+                >
+                  ←
+                </button>
+
+                <button
+                  type="button"
+                  onClick={proximoSlide}
+                  className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+                >
+                  →
+                </button>
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="self-center"
+              initial={{ opacity: 0, x: 24, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
+            >
+              <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
+                <div className="relative h-[420px] w-full bg-zinc-100 lg:h-[500px]">
+                  <ImagemProduto
+                    src={slideSelecionado?.imagem}
+                    alt={slideSelecionado?.titulo || "Banner em destaque"}
+                    className="h-full w-full scale-[1.12] object-cover"
+                  />
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-      
+      </motion.section>
 
       <main id="catalogo" className="mx-auto max-w-7xl px-4 pb-16 pt-8">
         <div className="mb-6 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm">
@@ -809,9 +1040,14 @@ export default function CatalogoOnline() {
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {produtosFiltrados.map((produto) => (
-            <article
+            <motion.article
               key={produto.id}
-              className="group overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_45px_rgba(0,0,0,0.10)]"
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.15 }}
+              transition={{ duration: 0.45, ease: "easeOut" }}
+              whileHover={{ y: -6 }}
+              className="group overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-white shadow-sm transition duration-300 hover:shadow-[0_20px_45px_rgba(0,0,0,0.10)]"
             >
               <div className="relative overflow-hidden">
                 <ImagemProduto
@@ -865,12 +1101,12 @@ export default function CatalogoOnline() {
                     <ControleQuantidade
                       quantidade={quantidadeNoCarrinho(produto.id)}
                       onDiminuir={() => diminuirQuantidade(produto)}
-                      onAumentar={() => aumentarQuantidade(produto)}
+                      onAumentar={(e) => aumentarQuantidade(produto, e)}
                       compacto
                     />
                   ) : (
                     <button
-                      onClick={() => adicionarAoCarrinho(produto)}
+                      onClick={(e) => adicionarAoCarrinho(produto, e)}
                       className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-4 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
                     >
                       Adicionar ao carrinho
@@ -878,7 +1114,7 @@ export default function CatalogoOnline() {
                   )}
                 </div>
               </div>
-            </article>
+            </motion.article>
           ))}
         </div>
 
@@ -1016,137 +1252,184 @@ export default function CatalogoOnline() {
         WhatsApp
       </a>
 
-      {produtoSelecionado && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-          onClick={fecharDetalhes}
-        >
-          <div
-            className="grid max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)] lg:grid-cols-2"
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {produtoSelecionado && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            onClick={fecharDetalhes}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            <div className="flex flex-col bg-zinc-100">
-              <div className="relative min-h-[320px] flex-1">
-                <ImagemProduto
-                  src={produtoSelecionado.imagens?.[imagemAtiva]}
-                  alt={produtoSelecionado.nome}
-                  className="h-full w-full object-cover"
-                />
+            <motion.div
+              className="grid max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)] lg:grid-cols-2"
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              <div className="flex flex-col bg-zinc-100">
+                <div className="relative min-h-[320px] flex-1">
+                  <ImagemProduto
+                    src={produtoSelecionado.imagens?.[imagemAtiva]}
+                    alt={produtoSelecionado.nome}
+                    className="h-full w-full object-cover"
+                  />
 
-                <button
-                  onClick={fecharDetalhes}
-                  className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
-                >
-                  Fechar
-                </button>
+                  <button
+                    onClick={fecharDetalhes}
+                    className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+                  >
+                    Fechar
+                  </button>
+
+                  {produtoSelecionado.imagens?.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setImagemAtiva((atual) =>
+                            atual === 0
+                              ? produtoSelecionado.imagens.length - 1
+                              : atual - 1
+                          )
+                        }
+                        className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+                      >
+                        ←
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setImagemAtiva((atual) =>
+                            (atual + 1) % produtoSelecionado.imagens.length
+                          )
+                        }
+                        className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+                      >
+                        →
+                      </button>
+                    </>
+                  )}
+                </div>
 
                 {produtoSelecionado.imagens?.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={imagemAnteriorProduto}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
-                    >
-                      ←
-                    </button>
-                    <button
-                      type="button"
-                      onClick={proximaImagemProduto}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
-                    >
-                      →
-                    </button>
-                  </>
+                  <div className="flex gap-3 overflow-x-auto border-t border-zinc-200 bg-white p-4">
+                    {produtoSelecionado.imagens.map((img, index) => {
+                      const ativa = imagemAtiva === index;
+
+                      return (
+                        <button
+                          key={`${produtoSelecionado.id}-${index}`}
+                          type="button"
+                          onClick={() => setImagemAtiva(index)}
+                          className={`shrink-0 overflow-hidden rounded-2xl border-2 transition ${
+                            ativa
+                              ? "border-[#f4b400]"
+                              : "border-zinc-200 hover:border-zinc-300"
+                          }`}
+                        >
+                          <ImagemProduto
+                            src={img}
+                            alt={`${produtoSelecionado.nome} ${index + 1}`}
+                            className="h-20 w-20 object-cover"
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
-              {produtoSelecionado.imagens?.length > 1 && (
-                <div className="flex gap-3 overflow-x-auto border-t border-zinc-200 bg-white p-4">
-                  {produtoSelecionado.imagens.map((img, index) => {
-                    const ativa = imagemAtiva === index;
+              <div className="flex flex-col justify-between p-6 md:p-8">
+                <div>
+                  <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
+                    {slideSelecionado?.tag || "Novidades"}
+                  </span>
 
-                    return (
-                      <button
-                        key={`${produtoSelecionado.id}-${index}`}
-                        type="button"
-                        onClick={() => setImagemAtiva(index)}
-                        className={`shrink-0 overflow-hidden rounded-2xl border-2 transition ${
-                          ativa
-                            ? "border-[#f4b400]"
-                            : "border-zinc-200 hover:border-zinc-300"
-                        }`}
-                      >
-                        <ImagemProduto
-                          src={img}
-                          alt={`${produtoSelecionado.nome} ${index + 1}`}
-                          className="h-20 w-20 object-cover"
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                  <h3 className="mt-4 text-3xl font-bold">
+                    {produtoSelecionado.nome}
+                  </h3>
 
-            <div className="flex flex-col justify-between p-6 md:p-8">
-              <div>
-                <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
-              {slideSelecionado?.tag || "Novidades"}
-            </span>
+                  {produtoSelecionado.subcategoria && (
+                    <p className="mt-2 text-sm font-medium uppercase tracking-wide text-zinc-500">
+                      {produtoSelecionado.subcategoria}
+                    </p>
+                  )}
 
-                <h3 className="mt-4 text-3xl font-bold">
-                  {produtoSelecionado.nome}
-                </h3>
-
-                {produtoSelecionado.subcategoria && (
-                  <p className="mt-2 text-sm font-medium uppercase tracking-wide text-zinc-500">
-                    {produtoSelecionado.subcategoria}
+                  <p className="mt-2 text-lg font-semibold text-[#b38200]">
+                    R$ {produtoSelecionado.preco.toFixed(2)}
                   </p>
-                )}
 
-                <p className="mt-2 text-lg font-semibold text-[#b38200]">
-                  R$ {produtoSelecionado.preco.toFixed(2)}
-                </p>
-
-                <p className="mt-5 whitespace-pre-line leading-7 text-zinc-600">
-                  {produtoSelecionado.descricao}
-                </p>
-
-                <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-                  <p className="text-sm text-zinc-500">Destaque</p>
-                  <p className="mt-1 font-medium text-zinc-900">
-                    {produtoSelecionado.destaque}
+                  <p className="mt-5 whitespace-pre-line leading-7 text-zinc-600">
+                    {produtoSelecionado.descricao}
                   </p>
-                </div>
-              </div>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                {quantidadeNoCarrinho(produtoSelecionado.id) > 0 ? (
-                  <ControleQuantidade
-                    quantidade={quantidadeNoCarrinho(produtoSelecionado.id)}
-                    onDiminuir={() => diminuirQuantidade(produtoSelecionado)}
-                    onAumentar={() => aumentarQuantidade(produtoSelecionado)}
-                  />
-                ) : (
+                  <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+                    <p className="text-sm text-zinc-500">Destaque</p>
+                    <p className="mt-1 font-medium text-zinc-900">
+                      {produtoSelecionado.destaque}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  {quantidadeNoCarrinho(produtoSelecionado.id) > 0 ? (
+                    <ControleQuantidade
+                      quantidade={quantidadeNoCarrinho(produtoSelecionado.id)}
+                      onDiminuir={() => diminuirQuantidade(produtoSelecionado)}
+                      onAumentar={(e) => aumentarQuantidade(produtoSelecionado, e)}
+                    />
+                  ) : (
+                    <button
+                      onClick={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
+                      className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+                    >
+                      Adicionar ao carrinho
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => adicionarAoCarrinho(produtoSelecionado)}
-                    className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+                    onClick={fecharDetalhes}
+                    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
                   >
-                    Adicionar ao carrinho
+                    Voltar
                   </button>
-                )}
-
-                <button
-                  onClick={fecharDetalhes}
-                  className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
-                >
-                  Voltar
-                </button>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {animacoesCarrinho.map((anim) => (
+          <motion.div
+            key={anim.id}
+            className="pointer-events-none fixed z-[70] flex h-10 w-10 items-center justify-center rounded-full bg-[#f4b400] text-sm font-bold text-black shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
+            initial={{
+              opacity: 0.95,
+              x: anim.startX - 20,
+              y: anim.startY - 20,
+              scale: 1,
+            }}
+            animate={{
+              opacity: [1, 1, 0.2],
+              x: anim.endX - 20,
+              y: anim.endY - 20,
+              scale: [1, 0.95, 0.55],
+            }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.85,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            +
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
