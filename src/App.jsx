@@ -17,19 +17,19 @@ const menuCategorias = [
   },
   {
     nome: "Decoração",
-    itens: ["Miniaturas", "Itens para cozinha", "Itens para ambiente"],
+    itens: ["Imãs", "Miniaturas", "Ambientes em geral", "Banheiro", "Itens Temáticos"],
   },
   {
     nome: "Cozinha & Confeitaria",
-    itens: ["Cortadores", "Marcadores", "Utensílios personalizados"],
+    itens: ["Cortadores de biscoito", "Marcadores de massa", "Carimbos para doces","Utensílios personalizados"],
   },
   {
     nome: "Utilidades",
-    itens: ["Organizadores", "Suportes", "Acessórios funcionais"],
+    itens: ["Organizadores", "Suportes"],
   },
   {
     nome: "Personalizados",
-    itens: ["Projetos sob medida", "Brindes personalizados", "Peças exclusivas"],
+    itens: ["Projetos sob medida", "Brindes para empresas", "Datas comemorativas"],
   },
   {
     nome: "Quem somos",
@@ -246,7 +246,7 @@ function parseCSV(texto) {
       .map((img) => (img.startsWith("/") ? img : `/${img}`));
 
     return {
-      id: Number(item.id) || index + 1,
+      id: item.id || String(index + 1),
       nome: item.nome || "Produto sem nome",
       categoria: item.categoria || "Outros",
       subcategoria: item.subcategoria || "",
@@ -269,10 +269,7 @@ function getImagemSrc(imagem) {
     return imagem;
   }
 
-  const caminhoLimpo = imagem
-    .replace(/\r/g, "")
-    .trim()
-    .replace(/^\/+/, "");
+  const caminhoLimpo = imagem.replace(/\r/g, "").trim().replace(/^\/+/, "");
 
   return `${import.meta.env.BASE_URL}${caminhoLimpo}`;
 }
@@ -300,24 +297,26 @@ function ControleQuantidade({
 }) {
   return (
     <div
-      className={`inline-flex items-center gap-2 rounded-2xl border border-zinc-300 bg-white px-2 py-2 ${
+      className={`inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 bg-white px-1.5 py-1 ${
         compacto ? "" : "shadow-sm"
       }`}
     >
       <button
         type="button"
         onClick={onDiminuir}
-        className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-300 bg-white text-lg font-bold text-zinc-800 transition hover:bg-zinc-50"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300 bg-white text-base font-bold text-zinc-800 transition hover:bg-zinc-50"
       >
         −
       </button>
-      <span className="min-w-[2rem] text-center text-sm font-semibold text-zinc-900">
+
+      <span className="min-w-[1.75rem] text-center text-sm font-semibold text-zinc-900">
         {quantidade}
       </span>
+
       <button
         type="button"
         onClick={onAumentar}
-        className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-300 bg-white text-lg font-bold text-zinc-800 transition hover:bg-zinc-50"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300 bg-white text-base font-bold text-zinc-800 transition hover:bg-zinc-50"
       >
         +
       </button>
@@ -338,6 +337,7 @@ export default function CatalogoOnline() {
   const [categoriaMobileAberta, setCategoriaMobileAberta] = useState(null);
   const [animacoesCarrinho, setAnimacoesCarrinho] = useState([]);
   const [carrinhoDestacado, setCarrinhoDestacado] = useState(false);
+  const [carrinhoAberto, setCarrinhoAberto] = useState(false);
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
@@ -448,6 +448,13 @@ export default function CatalogoOnline() {
     return carrinho.reduce((total, item) => total + item.quantidade, 0);
   }, [carrinho]);
 
+  const totalCarrinho = useMemo(() => {
+    return carrinho.reduce(
+      (total, item) => total + item.preco * item.quantidade,
+      0
+    );
+  }, [carrinho]);
+
   const slideSelecionado = slidesDestaque[slideAtual];
   const produtoDoSlide =
     produtos.find((produto) => produto.id === slideSelecionado?.produtoId) || null;
@@ -518,7 +525,9 @@ export default function CatalogoOnline() {
   const aumentarQuantidade = (produto, event) => {
     if (!produto) return;
 
-    animarProdutoParaCarrinho(event);
+    if (event) {
+      animarProdutoParaCarrinho(event);
+    }
 
     setCarrinho((anterior) =>
       anterior.map((item) =>
@@ -542,6 +551,31 @@ export default function CatalogoOnline() {
         .filter((item) => item.quantidade > 0)
     );
   };
+
+  const finalizarPedidoWhatsApp = () => {
+  if (carrinho.length === 0) return;
+
+  const linhas = carrinho.map((item) => {
+    const subtotal = item.preco * item.quantidade;
+    return `• ${item.nome} (ID:${item.id}) | Qtd: ${item.quantidade} | Unit: R$ ${item.preco.toFixed(
+      2
+    )} | Subtotal: R$ ${subtotal.toFixed(2)}`;
+  });
+
+  const mensagem = [
+    "Olá! Tenho interesse nos seguintes produtos:",
+    "",
+    ...linhas,
+    "",
+    `Total de itens: ${totalItensCarrinho}`,
+    `Valor total: R$ ${totalCarrinho.toFixed(2)}`,
+    "",
+    "Gostaria de finalizar esse pedido.",
+  ].join("\n");
+
+  const url = `https://wa.me/${whatsapp}?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, "_blank");
+};
 
   const irParaCatalogo = () => {
     const secao = document.getElementById("catalogo");
@@ -698,6 +732,7 @@ export default function CatalogoOnline() {
             <motion.button
               ref={botaoCarrinhoRef}
               type="button"
+              onClick={() => setCarrinhoAberto(true)}
               animate={
                 carrinhoDestacado
                   ? { scale: [1, 1.12, 1], y: [0, -2, 0] }
@@ -1038,80 +1073,94 @@ export default function CatalogoOnline() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {produtosFiltrados.map((produto) => (
             <motion.article
               key={produto.id}
-              initial={{ opacity: 0, y: 24 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.15 }}
-              transition={{ duration: 0.45, ease: "easeOut" }}
-              whileHover={{ y: -6 }}
-              className="group overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-white shadow-sm transition duration-300 hover:shadow-[0_20px_45px_rgba(0,0,0,0.10)]"
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              whileHover={{ y: -4 }}
+              className="group flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-zinc-200 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.10)]"
             >
-              <div className="relative overflow-hidden">
+              <div className="relative overflow-hidden bg-zinc-100">
                 <ImagemProduto
                   src={produto.imagens?.[0]}
                   alt={produto.nome}
-                  className="h-72 w-full object-cover transition duration-500 group-hover:scale-105"
+                  className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105"
                 />
 
+                <div className="absolute inset-x-0 top-0 flex items-start p-2">
+  <span className="max-w-[60%] truncate rounded-full bg-white/92 px-2.5 py-1 text-[10px] font-semibold text-zinc-800 shadow-sm backdrop-blur sm:text-xs">
+    {produto.categoria}
+  </span>
+</div>
+
                 {produto.imagens?.length > 1 && (
-                  <span className="absolute bottom-4 left-4 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                  <span className="absolute bottom-2 left-2 rounded-full bg-black/75 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur sm:text-xs">
                     +{produto.imagens.length} fotos
                   </span>
                 )}
 
-                <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
-                  <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-zinc-800 shadow-sm backdrop-blur">
-                    {produto.categoria}
-                  </span>
-                  <span className="rounded-full bg-[#f4b400] px-3 py-1 text-xs font-bold text-black shadow-sm">
-                    R$ {produto.preco.toFixed(2)}
-                  </span>
+                <div className="absolute bottom-2 right-2 rounded-full border border-white/70 bg-white/90 px-2 py-1 text-[10px] font-bold text-[#8b6900] shadow-sm backdrop-blur">
+                  Destaque
                 </div>
               </div>
 
-              <div className="space-y-4 p-5">
-                <div>
-                  <h4 className="text-xl font-bold">{produto.nome}</h4>
-                  <p className="mt-1 text-sm font-medium text-[#b38200]">
-                    {produto.destaque}
-                  </p>
+              <div className="flex flex-1 flex-col p-3 sm:p-4">
+                <div className="min-h-[3.3rem]">
+                  <h4 className="line-clamp-2 text-sm font-bold leading-5 text-zinc-900 sm:text-[15px]">
+                    {produto.nome}
+                  </h4>
+
                   {produto.subcategoria && (
-                    <p className="mt-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <p className="mt-1 line-clamp-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500 sm:text-[11px]">
                       {produto.subcategoria}
                     </p>
                   )}
                 </div>
 
-                <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-zinc-600">
+                <div className="mt-3">
+                  <p className="text-xl font-black leading-none tracking-tight text-zinc-900 sm:text-2xl">
+                    R$ {produto.preco.toFixed(2)}
+                  </p>
+                  <p className="mt-1 line-clamp-1 text-xs font-medium text-[#b38200] sm:text-sm">
+                    {produto.destaque}
+                  </p>
+                </div>
+
+                <p className="mt-2 line-clamp-2 whitespace-pre-line text-xs leading-5 text-zinc-600 sm:text-sm">
                   {produto.descricao}
                 </p>
 
-                <div className="flex flex-wrap gap-3 pt-1">
-                  <button
-                    onClick={() => abrirDetalhes(produto)}
-                    className="rounded-2xl border border-zinc-300 bg-white px-4 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
-                  >
-                    Detalhes
-                  </button>
-
-                  {quantidadeNoCarrinho(produto.id) > 0 ? (
-                    <ControleQuantidade
-                      quantidade={quantidadeNoCarrinho(produto.id)}
-                      onDiminuir={() => diminuirQuantidade(produto)}
-                      onAumentar={(e) => aumentarQuantidade(produto, e)}
-                      compacto
-                    />
-                  ) : (
+                <div className="mt-auto pt-3">
+                  <div className="grid grid-cols-1 gap-2">
                     <button
-                      onClick={(e) => adicionarAoCarrinho(produto, e)}
-                      className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-4 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+                      onClick={() => abrirDetalhes(produto)}
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-50 sm:text-sm"
                     >
-                      Adicionar ao carrinho
+                      Ver produto
                     </button>
-                  )}
+
+                    {quantidadeNoCarrinho(produto.id) > 0 ? (
+                      <div className="flex justify-center rounded-xl border border-zinc-200 bg-zinc-50 py-1.5">
+                        <ControleQuantidade
+                          quantidade={quantidadeNoCarrinho(produto.id)}
+                          onDiminuir={() => diminuirQuantidade(produto)}
+                          onAumentar={(e) => aumentarQuantidade(produto, e)}
+                          compacto
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => adicionarAoCarrinho(produto, e)}
+                        className="w-full rounded-xl bg-[#f4b400] px-3 py-2.5 text-xs font-extrabold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 sm:text-sm"
+                      >
+                        Adicionar ao carrinho
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.article>
@@ -1130,7 +1179,7 @@ export default function CatalogoOnline() {
         )}
       </main>
 
-      <section className="mx-auto max-w-7xl px-4 pb-16">
+      {/* <section className="mx-auto max-w-7xl px-4 pb-16">
         <div className="grid gap-6 rounded-[2rem] border border-zinc-200 bg-white p-8 shadow-sm lg:grid-cols-3">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-[#b38200]">
@@ -1189,7 +1238,7 @@ export default function CatalogoOnline() {
           </div>
         </div>
       </section>
-
+ */}
       <section id="quem-somos" className="mx-auto max-w-7xl px-4 pb-16">
         <div className="grid gap-6 rounded-[2rem] border border-zinc-200 bg-white p-8 shadow-sm lg:grid-cols-[0.95fr_1.05fr]">
           <div className="overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-zinc-100">
@@ -1217,21 +1266,51 @@ export default function CatalogoOnline() {
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href={`https://wa.me/${whatsapp}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl bg-[#f4b400] px-6 py-3 font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
-              >
-                Falar no WhatsApp
-              </a>
-              <button
-                onClick={irParaCatalogo}
-                className="rounded-2xl border border-zinc-300 bg-white px-6 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
-              >
-                Ver produtos
-              </button>
-            </div>
+  <a
+    href={`https://wa.me/${whatsapp}`}
+    target="_blank"
+    rel="noreferrer"
+    className="rounded-2xl bg-[#f4b400] px-6 py-3 font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+  >
+    Falar no WhatsApp
+  </a>
+
+  <button
+    onClick={irParaCatalogo}
+    className="rounded-2xl border border-zinc-300 bg-white px-6 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+  >
+    Ver produtos
+  </button>
+</div>
+
+<div className="mt-6 border-t border-zinc-200 pt-5">
+  <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
+    Acompanhe no Instagram
+  </p>
+
+  <a
+    href="https://instagram.com/additive.hub"
+    target="_blank"
+    rel="noreferrer"
+    className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+  >
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <path d="M16 11.37a4 4 0 1 1-1.37-1.37 4 4 0 0 1 1.37 1.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+    @additive.hub
+  </a>
+</div>
           </div>
         </div>
       </section>
@@ -1239,6 +1318,7 @@ export default function CatalogoOnline() {
       <footer className="border-t border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-sm text-zinc-500 md:flex-row md:items-center md:justify-between">
           <p>© 2026 Additive Hub • Design e Impressão 3D</p>
+          <p>Desenvolvido por Jaaziel</p>
           <p>Peças personalizadas, utilidades, decoração e projetos sob medida</p>
         </div>
       </footer>
@@ -1270,12 +1350,12 @@ export default function CatalogoOnline() {
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
               <div className="flex flex-col bg-zinc-100">
-                <div className="relative min-h-[320px] flex-1">
-                  <ImagemProduto
-                    src={produtoSelecionado.imagens?.[imagemAtiva]}
-                    alt={produtoSelecionado.nome}
-                    className="h-full w-full object-cover"
-                  />
+                <div className="relative h-[240px] w-full bg-zinc-100 sm:h-[300px] md:h-[360px] lg:h-[500px]">
+                      <ImagemProduto
+                        src={slideSelecionado?.imagem}
+                        alt={slideSelecionado?.titulo || "Banner em destaque"}
+                        className="h-full w-full object-cover md:scale-[1.05]"
+                      />
 
                   <button
                     onClick={fecharDetalhes}
@@ -1395,6 +1475,125 @@ export default function CatalogoOnline() {
                     className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
                   >
                     Voltar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {carrinhoAberto && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setCarrinhoAberto(false)}
+          >
+            <motion.div
+              className="w-full max-w-2xl rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)]"
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-5">
+                <div>
+                  <h3 className="text-2xl font-bold text-zinc-900">Seu carrinho</h3>
+                  <p className="text-sm text-zinc-500">
+                    Revise os itens antes de finalizar
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCarrinhoAberto(false)}
+                  className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+                {carrinho.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <p className="text-lg font-semibold text-zinc-700">
+                      Seu carrinho está vazio
+                    </p>
+                    <p className="mt-2 text-sm text-zinc-500">
+                      Adicione produtos para finalizar no WhatsApp.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {carrinho.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+                      >
+                        <ImagemProduto
+                          src={item.imagens?.[0]}
+                          alt={item.nome}
+                          className="h-20 w-20 rounded-xl object-cover"
+                        />
+
+                        <div className="min-w-0 flex-1">
+                          <h4 className="truncate text-sm font-bold text-zinc-900 sm:text-base">
+                            {item.nome}
+                          </h4>
+
+                          <p className="mt-1 text-xs text-zinc-500">
+                            R$ {item.preco.toFixed(2)} por unidade
+                          </p>
+
+                          <p className="mt-1 text-sm font-semibold text-[#8b6900]">
+                            Subtotal: R$ {(item.preco * item.quantidade).toFixed(2)}
+                          </p>
+
+                          <div className="mt-3">
+                            <ControleQuantidade
+                              quantidade={item.quantidade}
+                              onDiminuir={() => diminuirQuantidade(item)}
+                              onAumentar={() => aumentarQuantidade(item)}
+                              compacto
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-zinc-200 px-6 py-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-sm text-zinc-500">
+                    {totalItensCarrinho} item(ns)
+                  </span>
+                  <span className="text-2xl font-bold text-zinc-900">
+                    R$ {totalCarrinho.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setCarrinho([])}
+                    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+                  >
+                    Limpar carrinho
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={finalizarPedidoWhatsApp}
+                    disabled={carrinho.length === 0}
+                    className="flex-1 rounded-2xl bg-[#25D366] px-5 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Finalizar no WhatsApp
                   </button>
                 </div>
               </div>

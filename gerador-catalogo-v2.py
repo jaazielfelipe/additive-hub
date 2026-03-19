@@ -122,6 +122,7 @@ class GeradorCatalogoApp:
         self._montar_interface_com_scroll()
         self._atualizar_subcategorias()
         self.gerar_id_automatico()
+        self.atualizar_pasta_produto_automatica()
 
     def _configurar_estilo(self):
         style = ttk.Style()
@@ -251,7 +252,7 @@ class GeradorCatalogoApp:
         ttk.Button(
             barra_acoes_1,
             text="Gerar ID automático",
-            command=self.gerar_id_automatico,
+            command=self.gerar_id_automatico_e_pasta,
         ).pack(side="left", padx=(0, 8))
         ttk.Button(
             barra_acoes_1,
@@ -323,7 +324,10 @@ class GeradorCatalogoApp:
         linha2 = ttk.Frame(form)
         linha2.pack(fill="x", pady=4)
         ttk.Label(linha2, text="ID", width=20).pack(side="left")
-        ttk.Entry(linha2, textvariable=self.var_id, width=12).pack(side="left", padx=(0, 8))
+        entry_id = ttk.Entry(linha2, textvariable=self.var_id, width=12)
+        entry_id.pack(side="left", padx=(0, 8))
+        entry_id.bind("<KeyRelease>", self.atualizar_pasta_produto_automatica)
+
         ttk.Label(linha2, text="Preço", width=10).pack(side="left")
         ttk.Entry(linha2, textvariable=self.var_preco).pack(side="left", fill="x", expand=True)
 
@@ -432,10 +436,24 @@ class GeradorCatalogoApp:
     def ao_mudar_categoria(self, _event=None):
         self._atualizar_subcategorias()
 
+    def montar_nome_pasta_produto(self, id_produto: str, nome_produto: str) -> str:
+        id_produto = str(id_produto).strip()
+        nome_slug = slugify(nome_produto)
+
+        if id_produto and nome_slug:
+            return f"{id_produto}-{nome_slug}"
+        if id_produto:
+            return id_produto
+        if nome_slug:
+            return nome_slug
+        return ""
+
     def atualizar_pasta_produto_automatica(self, _event=None):
-        nome = self.var_nome_produto.get().strip()
-        if nome:
-            self.var_pasta_produto.set(slugify(nome))
+        pasta = self.montar_nome_pasta_produto(
+            self.var_id.get().strip(),
+            self.var_nome_produto.get().strip()
+        )
+        self.var_pasta_produto.set(pasta)
 
     def selecionar_pasta_projeto(self):
         pasta = filedialog.askdirectory(title="Selecione a pasta do projeto")
@@ -588,6 +606,10 @@ class GeradorCatalogoApp:
         except Exception as e:
             messagebox.showerror("Erro", str(e))
 
+    def gerar_id_automatico_e_pasta(self):
+        self.gerar_id_automatico()
+        self.atualizar_pasta_produto_automatica()
+
     def gerar_linha_csv(self):
         try:
             campo_imagens = self.txt_campo_imagens.get("1.0", tk.END).strip()
@@ -681,7 +703,7 @@ class GeradorCatalogoApp:
 
             self.gerar_linha_csv()
             self.carregar_produtos_csv()
-            self.gerar_id_automatico()
+            self.gerar_id_automatico_e_pasta()
             self._set_status("Produto adicionado ao produtos.csv com sucesso.")
             messagebox.showinfo("Sucesso", f"Produto adicionado em:\n{caminho_csv}")
         except Exception as e:
@@ -742,7 +764,12 @@ class GeradorCatalogoApp:
             self.txt_descricao.delete("1.0", tk.END)
             self.txt_descricao.insert("1.0", produto.get("descricao", "").strip())
 
-            self.var_pasta_produto.set(slugify(self.var_nome_produto.get().strip()))
+            self.var_pasta_produto.set(
+                self.montar_nome_pasta_produto(
+                    self.var_id.get().strip(),
+                    self.var_nome_produto.get().strip()
+                )
+            )
             self._set_texto(self.txt_campo_imagens, produto.get("imagens", "").strip())
             self._set_texto(self.txt_linha_csv, "")
             self._set_texto(self.txt_arquivos_gerados, "")
@@ -891,7 +918,7 @@ class GeradorCatalogoApp:
                     continue
 
                 if not pasta_produto:
-                    pasta_produto = slugify(nome)
+                    pasta_produto = self.montar_nome_pasta_produto(id_produto, nome)
 
                 if not caminho_origem:
                     relatorio.append(f"Linha {numero_linha}: {nome} sem caminho_origem. Ignorado.")
@@ -1059,7 +1086,7 @@ class GeradorCatalogoApp:
         self._set_texto(self.txt_linha_csv, "")
         self._set_texto(self.txt_arquivos_gerados, "")
 
-        self.gerar_id_automatico()
+        self.gerar_id_automatico_e_pasta()
         self._set_status("Campos limpos.")
 
 
