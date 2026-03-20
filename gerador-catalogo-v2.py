@@ -67,6 +67,11 @@ class GeradorCatalogoApp:
         self.var_pasta_produto = tk.StringVar()
         self.var_produto_existente = tk.StringVar()
 
+        self.var_nome_variacao_1 = tk.StringVar()
+        self.var_variacoes_1 = tk.StringVar()
+        self.var_nome_variacao_2 = tk.StringVar()
+        self.var_variacoes_2 = tk.StringVar()
+
         self.var_planilha_massa = tk.StringVar()
         self.var_pasta_fotos = tk.StringVar()
 
@@ -370,6 +375,28 @@ class GeradorCatalogoApp:
         ttk.Label(linha6, text="Pasta do produto", width=20).pack(side="left")
         ttk.Entry(linha6, textvariable=self.var_pasta_produto).pack(side="left", fill="x", expand=True)
 
+        linha7 = ttk.Frame(form)
+        linha7.pack(fill="x", pady=4)
+        ttk.Label(linha7, text="Nome variação 1", width=20).pack(side="left")
+        ttk.Entry(linha7, textvariable=self.var_nome_variacao_1).pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
+        ttk.Label(linha7, text="Variações 1", width=14).pack(side="left")
+        ttk.Entry(linha7, textvariable=self.var_variacoes_1).pack(
+            side="left", fill="x", expand=True
+        )
+
+        linha8 = ttk.Frame(form)
+        linha8.pack(fill="x", pady=4)
+        ttk.Label(linha8, text="Nome variação 2", width=20).pack(side="left")
+        ttk.Entry(linha8, textvariable=self.var_nome_variacao_2).pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
+        ttk.Label(linha8, text="Variações 2", width=14).pack(side="left")
+        ttk.Entry(linha8, textvariable=self.var_variacoes_2).pack(
+            side="left", fill="x", expand=True
+        )
+
         ttk.Label(form, text="Descrição").pack(anchor="w", pady=(8, 4))
         self.txt_descricao = tk.Text(form, height=5, wrap="word")
         self.txt_descricao.pack(fill="x")
@@ -594,12 +621,20 @@ class GeradorCatalogoApp:
             with open(caminho_csv, "r", newline="", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
+                    valor_id = str(row.get("id", "")).strip()
+                    if not valor_id:
+                        continue
+
                     try:
-                        valor = int(str(row.get("id", "")).strip() or 0)
-                        if valor > maior:
-                            maior = valor
+                        valor = int(valor_id)
                     except ValueError:
-                        pass
+                        numeros = "".join(ch for ch in valor_id if ch.isdigit())
+                        if not numeros:
+                            continue
+                        valor = int(numeros)
+
+                    if valor > maior:
+                        maior = valor
 
             self.var_id.set(str(maior + 1))
             self._set_status(f"ID automático definido como {maior + 1}.")
@@ -629,6 +664,10 @@ class GeradorCatalogoApp:
                 self.var_destaque.get().strip(),
                 descricao,
                 campo_imagens,
+                self.var_nome_variacao_1.get().strip(),
+                self.var_variacoes_1.get().strip(),
+                self.var_nome_variacao_2.get().strip(),
+                self.var_variacoes_2.get().strip(),
             ]
 
             temp_path = Path("temp_linha.csv")
@@ -676,6 +715,10 @@ class GeradorCatalogoApp:
                 "destaque",
                 "descricao",
                 "imagens",
+                "nome_variacao_1",
+                "variacoes_1",
+                "nome_variacao_2",
+                "variacoes_2",
             ]
             linha = [
                 self.var_id.get().strip(),
@@ -686,6 +729,10 @@ class GeradorCatalogoApp:
                 self.var_destaque.get().strip(),
                 descricao,
                 campo_imagens,
+                self.var_nome_variacao_1.get().strip(),
+                self.var_variacoes_1.get().strip(),
+                self.var_nome_variacao_2.get().strip(),
+                self.var_variacoes_2.get().strip(),
             ]
 
             arquivo_existe = caminho_csv.exists()
@@ -760,6 +807,11 @@ class GeradorCatalogoApp:
             self.var_subcategoria.set(produto.get("subcategoria", "").strip())
             self.var_preco.set(produto.get("preco", "").strip())
             self.var_destaque.set(produto.get("destaque", "").strip())
+
+            self.var_nome_variacao_1.set(produto.get("nome_variacao_1", "").strip())
+            self.var_variacoes_1.set(produto.get("variacoes_1", "").strip())
+            self.var_nome_variacao_2.set(produto.get("nome_variacao_2", "").strip())
+            self.var_variacoes_2.set(produto.get("variacoes_2", "").strip())
 
             self.txt_descricao.delete("1.0", tk.END)
             self.txt_descricao.insert("1.0", produto.get("descricao", "").strip())
@@ -891,6 +943,10 @@ class GeradorCatalogoApp:
                 "preco",
                 "destaque",
                 "descricao",
+                "nome_variacao_1",
+                "variacoes_1",
+                "nome_variacao_2",
+                "variacoes_2",
                 "caminho_origem",
                 "pasta_produto",
             }
@@ -906,12 +962,18 @@ class GeradorCatalogoApp:
                 nome = row.get("nome", "").strip()
                 categoria = row.get("categoria", "").strip()
                 subcategoria = row.get("subcategoria", "").strip()
-                caminho_origem = row.get("caminho_origem", "").strip()
-                pasta_produto = row.get("pasta_produto", "").strip()
                 destaque = row.get("destaque", "").strip()
                 descricao = limpar_descricao_linha_unica(row.get("descricao", ""))
                 preco = row.get("preco", "").strip()
                 id_produto = row.get("id", "").strip()
+
+                nome_variacao_1 = row.get("nome_variacao_1", "").strip()
+                variacoes_1 = row.get("variacoes_1", "").strip()
+                nome_variacao_2 = row.get("nome_variacao_2", "").strip()
+                variacoes_2 = row.get("variacoes_2", "").strip()
+
+                caminho_origem = row.get("caminho_origem", "").strip()
+                pasta_produto = row.get("pasta_produto", "").strip()
 
                 if not nome:
                     relatorio.append(f"Linha {numero_linha}: produto sem nome. Ignorado.")
@@ -985,6 +1047,10 @@ class GeradorCatalogoApp:
                     destaque,
                     descricao,
                     "|".join(imagens),
+                    nome_variacao_1,
+                    variacoes_1,
+                    nome_variacao_2,
+                    variacoes_2,
                 ])
 
                 relatorio.append(
@@ -1011,6 +1077,10 @@ class GeradorCatalogoApp:
                     "destaque",
                     "descricao",
                     "imagens",
+                    "nome_variacao_1",
+                    "variacoes_1",
+                    "nome_variacao_2",
+                    "variacoes_2",
                 ])
                 writer.writerows(produtos_saida)
 
@@ -1077,6 +1147,12 @@ class GeradorCatalogoApp:
         self.var_preco.set("")
         self.var_destaque.set("")
         self.var_pasta_produto.set("")
+
+        self.var_nome_variacao_1.set("")
+        self.var_variacoes_1.set("")
+        self.var_nome_variacao_2.set("")
+        self.var_variacoes_2.set("")
+
         self.txt_descricao.delete("1.0", tk.END)
         self.lista_imagens.delete(0, tk.END)
         self.imagens_selecionadas = []
