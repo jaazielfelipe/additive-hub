@@ -1112,13 +1112,13 @@ export default function CatalogoOnline() {
               transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
             >
               <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
-                <div className="relative h-[420px] w-full bg-zinc-100 lg:h-[500px]">
-                  <ImagemProduto
-                    src={slideSelecionado?.imagem}
-                    alt={slideSelecionado?.titulo || "Banner em destaque"}
-                    className="h-full w-full scale-[1.12] object-cover"
-                  />
-                </div>
+                <div className="relative h-[220px] w-full overflow-hidden bg-zinc-100 sm:h-[300px] lg:h-[500px]">
+  <ImagemProduto
+    src={slideSelecionado?.imagem}
+    alt={slideSelecionado?.titulo || "Banner em destaque"}
+    className="h-full w-full object-cover"
+  />
+</div>
               </div>
             </motion.div>
           </div>
