@@ -1356,7 +1356,7 @@ export default function CatalogoOnline() {
         <div className="grid gap-6 rounded-[2rem] border border-zinc-200 bg-white p-8 shadow-sm lg:grid-cols-[0.95fr_1.05fr]">
           <div className="overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-zinc-100">
             <ImagemProduto
-              src="/imagens/banners/banner-2.png"
+              src="/imagens/banners/banner-quem-somos.png"
               alt="Quem somos Additive Hub"
               className="h-full min-h-[320px] w-full object-cover"
             />
