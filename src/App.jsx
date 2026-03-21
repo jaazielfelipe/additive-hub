@@ -434,9 +434,8 @@ export default function CatalogoOnline() {
   const [animacoesCarrinho, setAnimacoesCarrinho] = useState([]);
   const [carrinhoDestacado, setCarrinhoDestacado] = useState(false);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
+  const [mostrarBarraCarrinhoMobile, setMostrarBarraCarrinhoMobile] = useState(false);
   const [selecoesVariacao, setSelecoesVariacao] = useState({});
-  const [isMobile, setIsMobile] = useState(false);
-  const [prefereMenosMovimento, setPrefereMenosMovimento] = useState(false);
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
@@ -445,55 +444,6 @@ export default function CatalogoOnline() {
     document.documentElement.lang = "pt-BR";
     document.documentElement.setAttribute("translate", "no");
     document.body.setAttribute("translate", "no");
-  }, []);
-
-  useEffect(() => {
-    const atualizarViewport = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-    const atualizarPreferencia = () => {
-      setPrefereMenosMovimento(mediaQuery.matches);
-    };
-
-    atualizarViewport();
-    atualizarPreferencia();
-
-    window.addEventListener("resize", atualizarViewport);
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", atualizarPreferencia);
-    } else {
-      mediaQuery.addListener(atualizarPreferencia);
-    }
-
-    return () => {
-      window.removeEventListener("resize", atualizarViewport);
-
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener("change", atualizarPreferencia);
-      } else {
-        mediaQuery.removeListener(atualizarPreferencia);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-
-    const htmlOverflowAnchor = html.style.overflowAnchor;
-    const bodyOverflowAnchor = body.style.overflowAnchor;
-
-    html.style.overflowAnchor = "none";
-    body.style.overflowAnchor = "none";
-
-    return () => {
-      html.style.overflowAnchor = htmlOverflowAnchor;
-      body.style.overflowAnchor = bodyOverflowAnchor;
-    };
   }, []);
 
   useEffect(() => {
@@ -517,15 +467,12 @@ export default function CatalogoOnline() {
   }, []);
 
   useEffect(() => {
-    if (isMobile || prefereMenosMovimento || slidesDestaque.length <= 1) return;
-
     const intervalo = setInterval(() => {
-      if (document.hidden) return;
       setSlideAtual((atual) => (atual + 1) % slidesDestaque.length);
-    }, 5000);
+    }, 4000);
 
     return () => clearInterval(intervalo);
-  }, [isMobile, prefereMenosMovimento]);
+  }, []);
 
   useEffect(() => {
     const tecla = (e) => {
@@ -611,6 +558,21 @@ export default function CatalogoOnline() {
       0
     );
   }, [carrinho]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (window.innerWidth >= 1024) {
+      setMostrarBarraCarrinhoMobile(false);
+      return;
+    }
+
+    if (totalItensCarrinho > 0) {
+      setMostrarBarraCarrinhoMobile(true);
+    } else {
+      setMostrarBarraCarrinhoMobile(false);
+    }
+  }, [totalItensCarrinho]);
 
   const slideSelecionado = slidesDestaque[slideAtual];
 
@@ -826,7 +788,7 @@ export default function CatalogoOnline() {
 
   return (
     <div
-      className="min-h-screen overflow-x-hidden bg-[#fcfcfc] text-zinc-900"
+      className="min-h-screen bg-[#fcfcfc] text-zinc-900"
       lang="pt-BR"
       translate="no"
     >
@@ -1100,86 +1062,95 @@ export default function CatalogoOnline() {
         )}
       </AnimatePresence>
 
-      <section className="mx-auto max-w-7xl px-4 pb-8 pt-10">
+      <motion.section
+        className="mx-auto max-w-7xl px-4 pb-8 pt-10"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+      >
         <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="grid gap-6 px-5 py-5 md:px-8 md:py-8 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8 lg:px-10 lg:py-10">
-            <div className="flex min-h-[360px] flex-col justify-between md:min-h-[420px] lg:min-h-[500px]">
-              <div>
-                <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8b6900] md:text-xs">
-                  {slideSelecionado?.tag || "Novidades"}
-                </span>
+          <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10">
+            <motion.div
+              className="flex flex-col justify-center py-2"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.55, delay: 0.1, ease: "easeOut" }}
+            >
+              <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
+                {slideSelecionado?.tag || "Novidades"}
+              </span>
 
-                <h3 className="mt-4 max-w-3xl text-2xl font-bold leading-tight sm:text-3xl md:text-4xl lg:text-5xl">
-                  {slideSelecionado?.titulo}
-                </h3>
+              <h3 className="mt-5 max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
+                {slideSelecionado?.titulo}
+              </h3>
 
-                <div className="mt-4 min-h-[132px] sm:min-h-[120px] md:min-h-[170px] lg:min-h-[196px]">
-                  <p className="max-w-2xl text-sm leading-6 text-zinc-600 md:text-base md:leading-7 lg:text-lg">
-                    {slideSelecionado?.tag === "Em breve" ? (
-                      <>
-                        {slideSelecionado?.subtitulo?.split("Aguarde")[0]}
-                        <span className="mt-3 block font-semibold text-[#b38200]">
-                          Aguarde — em breve disponível para encomenda.
-                        </span>
-                      </>
-                    ) : (
-                      slideSelecionado?.subtitulo
-                    )}
-                  </p>
-                </div>
-              </div>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
+                {slideSelecionado?.tag === "Em breve" ? (
+                  <>
+                    {slideSelecionado.subtitulo.split("Aguarde")[0]}
+                    <span className="mt-3 block font-semibold text-[#b38200]">
+                      Aguarde — em breve disponível para encomenda.
+                    </span>
+                  </>
+                ) : (
+                  slideSelecionado?.subtitulo
+                )}
+              </p>
 
-              <div className="mt-5 space-y-4">
-                <div className="flex items-center gap-2">
-                  {slidesDestaque.map((slide, index) => (
-                    <button
-                      key={slide.id}
-                      type="button"
-                      onClick={() => setSlideAtual(index)}
-                      className={`h-2.5 rounded-full transition-all ${
-                        slideAtual === index ? "w-10 bg-[#f4b400]" : "w-2.5 bg-zinc-300"
-                      }`}
-                      aria-label={`Ir para slide ${index + 1}`}
-                    />
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
+              <div className="mt-6 flex items-center gap-2">
+                {slidesDestaque.map((slide, index) => (
                   <button
+                    key={slide.id}
                     type="button"
-                    onClick={slideAnterior}
-                    className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
-                  >
-                    ←
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={proximoSlide}
-                    className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="self-center">
-              <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
-                <div className="relative h-[240px] w-full overflow-hidden bg-zinc-100 sm:h-[300px] md:h-[360px] lg:h-[500px]">
-                  <ImagemProduto
-                    src={slideSelecionado?.imagem}
-                    alt={slideSelecionado?.titulo || "Banner em destaque"}
-                    className="absolute inset-0 h-full w-full object-cover"
+                    onClick={() => setSlideAtual(index)}
+                    className={`h-2.5 rounded-full transition-all ${
+                      slideAtual === index ? "w-10 bg-[#f4b400]" : "w-2.5 bg-zinc-300"
+                    }`}
+                    aria-label={`Ir para slide ${index + 1}`}
                   />
-                </div>
+                ))}
               </div>
-            </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={slideAnterior}
+                  className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+                >
+                  ←
+                </button>
+
+                <button
+                  type="button"
+                  onClick={proximoSlide}
+                  className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+                >
+                  →
+                </button>
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="self-center"
+              initial={{ opacity: 0, x: 24, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
+            >
+              <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
+                <div className="relative h-[220px] w-full overflow-hidden bg-zinc-100 sm:h-[300px] lg:h-[500px]">
+  <ImagemProduto
+    src={slideSelecionado?.imagem}
+    alt={slideSelecionado?.titulo || "Banner em destaque"}
+    className="h-full w-full object-cover"
+  />
+</div>
+              </div>
+            </motion.div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <main id="catalogo" className="mx-auto max-w-7xl px-4 pb-16 pt-8">
+      <main id="catalogo" className={`mx-auto max-w-7xl px-4 pt-8 ${mostrarBarraCarrinhoMobile ? "pb-28" : "pb-16"} lg:pb-16`}>
         <div className="mb-6 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
@@ -1423,47 +1394,23 @@ export default function CatalogoOnline() {
               profissional para transformar ideias em produtos com identidade.
             </p>
 
-            <div className="fixed inset-x-0 bottom-4 z-40 px-4 lg:hidden">
-  <div className="mx-auto flex max-w-md items-center gap-3">
-    <button
-      type="button"
-      onClick={() => setCarrinhoAberto(true)}
-      className="flex-1 rounded-2xl bg-[#f4b400] px-4 py-3 text-left text-black shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition active:scale-[0.98]"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-white">
-            <IconeCarrinho className="h-5 w-5" />
-          </span>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a
+                href={`https://wa.me/${whatsapp}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl bg-[#f4b400] px-6 py-3 font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+              >
+                Falar no WhatsApp
+              </a>
 
-          <div className="min-w-0">
-            <p className="text-sm font-bold leading-none">
-              {totalItensCarrinho > 0 ? "Ver carrinho" : "Carrinho vazio"}
-            </p>
-            <p className="mt-1 text-xs font-medium text-black/75">
-              {totalItensCarrinho} item(ns) • R$ {totalCarrinho.toFixed(2)}
-            </p>
-          </div>
-        </div>
-
-        {totalItensCarrinho > 0 && (
-          <span className="inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-black px-2 text-xs font-bold text-white">
-            {totalItensCarrinho}
-          </span>
-        )}
-      </div>
-    </button>
-
-    <a
-      href={`https://wa.me/${whatsapp}`}
-      target="_blank"
-      rel="noreferrer"
-      className="shrink-0 rounded-2xl bg-[#25D366] px-4 py-3 font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition active:scale-[0.98]"
-    >
-      WhatsApp
-    </a>
-  </div>
-</div>
+              <button
+                onClick={irParaCatalogo}
+                className="rounded-2xl border border-zinc-300 bg-white px-6 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+              >
+                Ver produtos
+              </button>
+            </div>
 
             <div className="mt-6 border-t border-zinc-200 pt-5">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
@@ -1505,12 +1452,64 @@ export default function CatalogoOnline() {
         </div>
       </footer>
 
+      <AnimatePresence>
+        {mostrarBarraCarrinhoMobile && (
+          <motion.div
+            className="fixed inset-x-0 bottom-4 z-40 px-4 lg:hidden"
+            initial={{ opacity: 0, y: 90 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 90 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+          >
+            <div className="mx-auto flex max-w-md items-center gap-3">
+              <motion.button
+                type="button"
+                onClick={() => setCarrinhoAberto(true)}
+                initial={{ scale: 0.96 }}
+                animate={{ scale: [1, 1.03, 1] }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="flex-1 rounded-2xl bg-[#f4b400] px-4 py-3 text-left text-black shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition active:scale-[0.98]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white">
+                      <IconeCarrinho className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold leading-none">
+                        Ver carrinho
+                      </p>
+                      <p className="mt-1 text-xs text-black/75">
+                        {totalItensCarrinho} item(ns) • R$ {totalCarrinho.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-black px-2 text-xs font-bold text-white">
+                    {totalItensCarrinho}
+                  </span>
+                </div>
+              </motion.button>
+</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <a
         href={`https://wa.me/${whatsapp}`}
         target="_blank"
         rel="noreferrer"
-        className="fixed bottom-5 right-5 z-40 rounded-full bg-[#f4b400] px-5 py-3 font-semibold text-black shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:opacity-90"
+        className={`fixed right-5 z-40 flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3 font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:opacity-90 active:scale-[0.95] ${
+          mostrarBarraCarrinhoMobile ? "bottom-24" : "bottom-5"
+        }`}
       >
+        <svg
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="h-5 w-5"
+          aria-hidden="true"
+        >
+          <path d="M12 0a12 12 0 0 0-10.3 18.2L0 24l5.9-1.6A12 12 0 1 0 12 0zm0 21.8a9.8 9.8 0 0 1-5-1.4l-.4-.2-3.5.9.9-3.4-.3-.4A9.8 9.8 0 1 1 12 21.8zm5.4-7.3c-.3-.2-1.7-.8-2-.9-.3-.1-.5-.2-.7.2-.2.3-.8.9-1 .1-.2-.2-.3-.3-.6-.5-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9-.2-.3 0-.5.1-.7.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.2-.7-1.7-1-2.3-.2-.5-.5-.4-.7-.4h-.6c-.2 0-.5.1-.7.4-.2.3-1 1-.9 2.5.1 1.5 1 2.9 1.1 3.1.2.2 2.1 3.3 5.1 4.5.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4 0-.1-.2-.2-.5-.3z"/>
+        </svg>
         WhatsApp
       </a>
 
