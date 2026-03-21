@@ -11,6 +11,15 @@ from tkinter import filedialog, messagebox, ttk
 from openpyxl import load_workbook
 
 
+STATUS_ATIVO = {"ativo"}
+
+
+def valor_status_ativo(valor) -> bool:
+    if valor is None:
+        return False
+    return str(valor).strip().lower() in STATUS_ATIVO
+
+
 def slugify(texto: str) -> str:
     texto = texto.strip().lower()
     texto = unicodedata.normalize("NFD", texto)
@@ -58,6 +67,7 @@ class GeradorCatalogoApp:
         self.produtos_csv_cache = []
 
         self.var_pasta_projeto = tk.StringVar()
+        self.var_status = tk.StringVar(value="ativo")
         self.var_id = tk.StringVar()
         self.var_nome_produto = tk.StringVar()
         self.var_categoria = tk.StringVar(value="Chaveiro")
@@ -325,6 +335,18 @@ class GeradorCatalogoApp:
         )
         self.combo_produtos.pack(side="left", fill="x", expand=True)
         self.combo_produtos.bind("<<ComboboxSelected>>", self.carregar_produto_existente)
+
+        linha_status = ttk.Frame(form)
+        linha_status.pack(fill="x", pady=4)
+        ttk.Label(linha_status, text="Status", width=20).pack(side="left")
+        self.combo_status = ttk.Combobox(
+            linha_status,
+            textvariable=self.var_status,
+            values=["ativo", "inativo"],
+            state="readonly",
+            width=18,
+        )
+        self.combo_status.pack(side="left", fill="x")
 
         linha2 = ttk.Frame(form)
         linha2.pack(fill="x", pady=4)
@@ -656,6 +678,7 @@ class GeradorCatalogoApp:
             )
 
             linha = [
+                self.var_status.get().strip() or "ativo",
                 self.var_id.get().strip(),
                 self.var_nome_produto.get().strip(),
                 self.var_categoria.get().strip(),
@@ -707,6 +730,7 @@ class GeradorCatalogoApp:
             )
 
             cabecalho = [
+                "status",
                 "id",
                 "nome",
                 "categoria",
@@ -721,6 +745,7 @@ class GeradorCatalogoApp:
                 "variacoes_2",
             ]
             linha = [
+                self.var_status.get().strip() or "ativo",
                 self.var_id.get().strip(),
                 self.var_nome_produto.get().strip(),
                 self.var_categoria.get().strip(),
@@ -800,6 +825,7 @@ class GeradorCatalogoApp:
             if not produto:
                 return
 
+            self.var_status.set(produto.get("status", "ativo").strip() or "ativo")
             self.var_id.set(produto.get("id", "").strip())
             self.var_nome_produto.set(produto.get("nome", "").strip())
             self.var_categoria.set(produto.get("categoria", "").strip() or "Chaveiro")
@@ -878,6 +904,9 @@ class GeradorCatalogoApp:
                 for col in linhas[0]
             ]
 
+            if not cabecalhos or cabecalhos[0].strip().lower() != "status":
+                raise ValueError('A primeira coluna da planilha deve ser "status".')
+
             dados = []
             for linha in linhas[1:]:
                 if linha is None:
@@ -936,6 +965,7 @@ class GeradorCatalogoApp:
                 raise ValueError("A planilha está vazia.")
 
             colunas_necessarias = {
+                "status",
                 "id",
                 "nome",
                 "categoria",
@@ -959,6 +989,13 @@ class GeradorCatalogoApp:
                 )
 
             for numero_linha, row in enumerate(linhas_planilha, start=2):
+                status = row.get("status", "").strip()
+                if not valor_status_ativo(status):
+                    relatorio.append(
+                        f"Linha {numero_linha}: produto ignorado por status diferente de 'ativo'."
+                    )
+                    continue
+
                 nome = row.get("nome", "").strip()
                 categoria = row.get("categoria", "").strip()
                 subcategoria = row.get("subcategoria", "").strip()
@@ -1039,6 +1076,7 @@ class GeradorCatalogoApp:
                     arquivos_copiados.append(f"{arquivo.name} -> {novo_nome}")
 
                 produtos_saida.append([
+                    "ativo",
                     id_produto,
                     nome,
                     categoria,
@@ -1069,6 +1107,7 @@ class GeradorCatalogoApp:
                 )
 
                 writer.writerow([
+                    "status",
                     "id",
                     "nome",
                     "categoria",
@@ -1140,6 +1179,7 @@ class GeradorCatalogoApp:
 
     def limpar_tudo(self):
         self.var_produto_existente.set("")
+        self.var_status.set("ativo")
         self.var_id.set("")
         self.var_nome_produto.set("")
         self.var_categoria.set("Chaveiro")

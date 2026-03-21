@@ -17,9 +17,9 @@ const menuCategorias = [
   },
   {
     nome: "Decoração",
-    itens: ["Imãs", "Miniaturas", "Funko-Pop", "Esqueletos", "Itens Temáticos"],
+    itens: ["Imãs", "Miniaturas", "Funko-Pop", "Esqueletos", "Letreiros"],
   },
-  {
+  /* {
     nome: "Cozinha & Confeitaria",
     itens: [
       "Cortadores de biscoito",
@@ -27,7 +27,7 @@ const menuCategorias = [
       "Carimbos para doces",
       "Utensílios personalizados",
     ],
-  },
+  }, */
   {
     nome: "Utilidades",
     itens: [
@@ -37,10 +37,10 @@ const menuCategorias = [
       "Suportes para Fone",
     ],
   },
-  {
+  /* {
     nome: "Personalizados",
     itens: ["Projetos sob medida", "Brindes para empresas", "Datas comemorativas"],
-  },
+  }, */
   {
     nome: "Quem somos",
     itens: [],
@@ -141,9 +141,9 @@ const slidesDestaque = [
   {
     id: 1,
     tag: "Novidades",
-    titulo: "Especial de Páscoa 3D",
+    titulo: "Miniaturas Colecionáveis em 3D",
     subtitulo:
-      "Prepare-se para a Páscoa com peças criativas e personalizadas. Temos porta-ovos, lembrancinhas, brindes e itens exclusivos em impressão 3D, perfeitos para presentear, vender ou decorar. Produção sob demanda com possibilidade de personalização em cores e nomes.",
+      "Explore uma coleção exclusiva de miniaturas inspiradas nos maiores clássicos do terror. Cada peça é produzida em impressão 3D com alto nível de detalhe, acabamento de qualidade e design marcante, perfeita para colecionadores e fãs do gênero.",
     imagem: "/imagens/banners/banner-1.png",
     produtoId: 1,
   },
@@ -165,6 +165,15 @@ const slidesDestaque = [
     imagem: "/imagens/banners/banner-3.png",
     produtoId: 3,
   },
+  /* {
+    id: 4,
+    tag: "Novidades",
+    titulo: "Especial de Páscoa 3D",
+    subtitulo:
+      "Prepare-se para a Páscoa com peças criativas e personalizadas. Temos porta-ovos, lembrancinhas, brindes e itens exclusivos em impressão 3D, perfeitos para presentear, vender ou decorar. Produção sob demanda com possibilidade de personalização em cores e nomes.",
+    imagem: "/imagens/banners/banner-4.png",
+    produtoId: 4,
+  }, */
 ];
 
 function IconeCarrinho({ className = "h-5 w-5" }) {
@@ -769,7 +778,7 @@ export default function CatalogoOnline() {
     >
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4">
-          <div className="flex items-center gap-4 md:gap-12">
+          <div className="flex items-center gap-4 md:gap-12 flex-1">
             <div className="flex items-center gap-3">
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
@@ -787,7 +796,7 @@ export default function CatalogoOnline() {
               </div>
             </div>
 
-            <nav className="ml-8 hidden items-center gap-1 lg:flex">
+            <nav className="ml-8 hidden flex-1 items-center justify-evenly lg:flex">
               {menuCategorias.map((categoria) => {
                 const temSubmenu = categoria.itens.length > 0;
 
