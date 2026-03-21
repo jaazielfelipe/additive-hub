@@ -447,6 +447,25 @@ export default function CatalogoOnline() {
   }, []);
 
   useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    const htmlOverflowAnchor = html.style.overflowAnchor;
+    const bodyOverflowAnchor = body.style.overflowAnchor;
+    const bodyOverscrollX = body.style.overscrollBehaviorX;
+
+    html.style.overflowAnchor = "none";
+    body.style.overflowAnchor = "none";
+    body.style.overscrollBehaviorX = "none";
+
+    return () => {
+      html.style.overflowAnchor = htmlOverflowAnchor;
+      body.style.overflowAnchor = bodyOverflowAnchor;
+      body.style.overscrollBehaviorX = bodyOverscrollX;
+    };
+  }, []);
+
+  useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}produtos.csv`)
       .then((res) => {
         if (!res.ok) {
@@ -788,7 +807,7 @@ export default function CatalogoOnline() {
 
   return (
     <div
-      className="min-h-screen bg-[#fcfcfc] text-zinc-900"
+      className="min-h-screen overflow-x-hidden bg-[#fcfcfc] text-zinc-900"
       lang="pt-BR"
       translate="no"
     >
@@ -1069,9 +1088,9 @@ export default function CatalogoOnline() {
         transition={{ duration: 0.5, ease: "easeOut" }}
       >
         <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10">
+          <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10 lg:items-stretch">
             <motion.div
-              className="flex flex-col justify-center py-2"
+              className="flex min-h-[380px] flex-col justify-center py-2 sm:min-h-[430px] lg:min-h-[500px]"
               initial={{ opacity: 0, x: -24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.55, delay: 0.1, ease: "easeOut" }}
@@ -1084,7 +1103,8 @@ export default function CatalogoOnline() {
                 {slideSelecionado?.titulo}
               </h3>
 
-              <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
+              <div className="mt-5 min-h-[190px] sm:min-h-[170px] lg:min-h-[210px]">
+                <p className="max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
                 {slideSelecionado?.tag === "Em breve" ? (
                   <>
                     {slideSelecionado.subtitulo.split("Aguarde")[0]}
@@ -1095,7 +1115,8 @@ export default function CatalogoOnline() {
                 ) : (
                   slideSelecionado?.subtitulo
                 )}
-              </p>
+                </p>
+              </div>
 
               <div className="mt-6 flex items-center gap-2">
                 {slidesDestaque.map((slide, index) => (
@@ -1131,19 +1152,19 @@ export default function CatalogoOnline() {
             </motion.div>
 
             <motion.div
-              className="self-center"
+              className="self-center lg:self-stretch"
               initial={{ opacity: 0, x: 24, scale: 0.98 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
             >
               <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
                 <div className="relative h-[220px] w-full overflow-hidden bg-zinc-100 sm:h-[300px] lg:h-[500px]">
-  <ImagemProduto
-    src={slideSelecionado?.imagem}
-    alt={slideSelecionado?.titulo || "Banner em destaque"}
-    className="h-full w-full object-cover"
-  />
-</div>
+                  <ImagemProduto
+                    src={slideSelecionado?.imagem}
+                    alt={slideSelecionado?.titulo || "Banner em destaque"}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                </div>
               </div>
             </motion.div>
           </div>
