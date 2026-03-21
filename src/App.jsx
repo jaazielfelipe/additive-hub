@@ -1423,23 +1423,47 @@ export default function CatalogoOnline() {
               profissional para transformar ideias em produtos com identidade.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href={`https://wa.me/${whatsapp}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl bg-[#f4b400] px-6 py-3 font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
-              >
-                Falar no WhatsApp
-              </a>
+            <div className="fixed inset-x-0 bottom-4 z-40 px-4 lg:hidden">
+  <div className="mx-auto flex max-w-md items-center gap-3">
+    <button
+      type="button"
+      onClick={() => setCarrinhoAberto(true)}
+      className="flex-1 rounded-2xl bg-[#f4b400] px-4 py-3 text-left text-black shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition active:scale-[0.98]"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-white">
+            <IconeCarrinho className="h-5 w-5" />
+          </span>
 
-              <button
-                onClick={irParaCatalogo}
-                className="rounded-2xl border border-zinc-300 bg-white px-6 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
-              >
-                Ver produtos
-              </button>
-            </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold leading-none">
+              {totalItensCarrinho > 0 ? "Ver carrinho" : "Carrinho vazio"}
+            </p>
+            <p className="mt-1 text-xs font-medium text-black/75">
+              {totalItensCarrinho} item(ns) • R$ {totalCarrinho.toFixed(2)}
+            </p>
+          </div>
+        </div>
+
+        {totalItensCarrinho > 0 && (
+          <span className="inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-full bg-black px-2 text-xs font-bold text-white">
+            {totalItensCarrinho}
+          </span>
+        )}
+      </div>
+    </button>
+
+    <a
+      href={`https://wa.me/${whatsapp}`}
+      target="_blank"
+      rel="noreferrer"
+      className="shrink-0 rounded-2xl bg-[#25D366] px-4 py-3 font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition active:scale-[0.98]"
+    >
+      WhatsApp
+    </a>
+  </div>
+</div>
 
             <div className="mt-6 border-t border-zinc-200 pt-5">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
