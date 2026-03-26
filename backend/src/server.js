@@ -14,6 +14,26 @@ const SUPERFRETE_USER_AGENT = process.env.SUPERFRETE_USER_AGENT;
 const CEP_ORIGEM = process.env.CEP_ORIGEM;
 const SERVICES = "1,2,3,17";
 
+const SUPERFRETE_ENV = process.env.SUPERFRETE_ENV || "production";
+const SUPERFRETE_BASE_URL =
+  SUPERFRETE_ENV === "sandbox"
+    ? "https://sandbox.superfrete.com"
+    : "https://api.superfrete.com";
+
+const REMETENTE = {
+  name: process.env.REMETENTE_NOME || "",
+  phone: process.env.REMETENTE_TELEFONE || "",
+  email: process.env.REMETENTE_EMAIL || "",
+  document: process.env.REMETENTE_DOCUMENTO || "",
+  company_document: process.env.REMETENTE_DOCUMENTO || "",
+  address: process.env.REMETENTE_ENDERECO || "",
+  number: process.env.REMETENTE_NUMERO || "",
+  district: process.env.REMETENTE_BAIRRO || "",
+  city: process.env.REMETENTE_CIDADE || "",
+  state_abbr: process.env.REMETENTE_ESTADO || "",
+  postal_code: process.env.CEP_ORIGEM || "",
+};
+
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 const FRONT_URL = process.env.FRONT_URL || "http://localhost:5173";
 const NOTIFICATION_URL =
@@ -21,6 +41,7 @@ const NOTIFICATION_URL =
   "https://additive-hub.onrender.com/api/webhook";
 
 console.log("FRONT_URL:", FRONT_URL);
+console.log("SUPERFRETE_BASE_URL:", SUPERFRETE_BASE_URL);
 
 app.use(cors());
 app.use(express.json());
@@ -186,6 +207,50 @@ function buscarPedidoPorIdOuCodigo(pedidos, id) {
   );
 }
 
+function validarRemetente() {
+  const obrigatorios = [
+    "name",
+    "phone",
+    "email",
+    "document",
+    "address",
+    "number",
+    "district",
+    "city",
+    "state_abbr",
+    "postal_code",
+  ];
+
+  const faltando = obrigatorios.filter((campo) => !sanitizarString(REMETENTE[campo]));
+
+  return {
+    valido: faltando.length === 0,
+    faltando,
+  };
+}
+
+function obterEtiquetaUrl(data) {
+  return (
+    data?.label_url ||
+    data?.url ||
+    data?.pdf ||
+    data?.label ||
+    data?.print_url ||
+    data?.tracking_url ||
+    ""
+  );
+}
+
+function obterCodigoRastreio(data) {
+  return (
+    data?.tracking ||
+    data?.tracking_code ||
+    data?.code ||
+    data?.trackingCode ||
+    ""
+  );
+}
+
 app.get("/", (req, res) => {
   res.send("API Additive Hub online.");
 });
@@ -232,7 +297,7 @@ app.post("/api/frete", async (req, res) => {
     console.log("PACOTE ÚNICO:", JSON.stringify(pacoteUnico, null, 2));
     console.log("PRODUTOS ENVIADOS:", JSON.stringify(produtos, null, 2));
 
-    const freteResponse = await fetch("https://api.superfrete.com/api/v0/calculator", {
+    const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/calculator`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -319,7 +384,9 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
     const pedidos = lerPedidos();
 
     const pedidoExistenteIndex = pedidos.findIndex(
-      (p) => String(p.id) === String(pedidoId) || String(p.pedidoLocalId) === String(pedidoId)
+      (p) =>
+        String(p.id) === String(pedidoId) ||
+        String(p.pedidoLocalId) === String(pedidoId)
     );
 
     const pedidoSalvo = {
@@ -357,8 +424,14 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
 
       etiquetaGerada: false,
       etiquetaEmitida: false,
+      statusEtiqueta: null,
       urlEtiqueta: "",
       codigoRastreio: "",
+
+      superfreteService: Number(freteSelecionado?.service || 0),
+      superfretePackage: freteSelecionado?.package || null,
+      superfreteCartId: null,
+      superfreteCheckoutId: null,
 
       criadoEm: criadoEm || new Date().toISOString(),
       atualizadoEm: null,
@@ -475,30 +548,6 @@ app.post("/api/webhook", async (req, res) => {
 });
 
 /* =========================
-   PEDIDO INDIVIDUAL
-========================= */
-app.get("/api/pedidos/:id", (req, res) => {
-  try {
-    const { id } = req.params;
-    const pedidos = lerPedidos();
-    const pedido = buscarPedidoPorIdOuCodigo(pedidos, id);
-
-    if (!pedido) {
-      return res.status(404).json({ error: "Pedido não encontrado." });
-    }
-
-    return res.json(pedido);
-  } catch (error) {
-    console.error("Erro ao buscar pedido:", error);
-
-    return res.status(500).json({
-      error: "Erro ao buscar pedido.",
-      message: error.message,
-    });
-  }
-});
-
-/* =========================
    ACOMPANHAR PEDIDO
 ========================= */
 app.get("/api/pedidos/acompanhar", (req, res) => {
@@ -561,6 +610,30 @@ app.get("/api/pedidos", (req, res) => {
 });
 
 /* =========================
+   PEDIDO INDIVIDUAL
+========================= */
+app.get("/api/pedidos/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const pedidos = lerPedidos();
+    const pedido = buscarPedidoPorIdOuCodigo(pedidos, id);
+
+    if (!pedido) {
+      return res.status(404).json({ error: "Pedido não encontrado." });
+    }
+
+    return res.json(pedido);
+  } catch (error) {
+    console.error("Erro ao buscar pedido:", error);
+
+    return res.status(500).json({
+      error: "Erro ao buscar pedido.",
+      message: error.message,
+    });
+  }
+});
+
+/* =========================
    ATUALIZAR STATUS INTERNO
 ========================= */
 app.patch("/api/pedidos/:id/status", (req, res) => {
@@ -601,10 +674,9 @@ app.patch("/api/pedidos/:id/status", (req, res) => {
 });
 
 /* =========================
-   GERAR ETIQUETA
-   MOCK PRONTO PARA TROCAR PELA API REAL
+   GERAR ETIQUETA NA SUPERFRETE
 ========================= */
-app.post("/api/pedidos/:id/gerar-etiqueta", (req, res) => {
+app.post("/api/pedidos/:id/gerar-etiqueta", async (req, res) => {
   try {
     const { id } = req.params;
     const pedidos = lerPedidos();
@@ -639,37 +711,144 @@ app.post("/api/pedidos/:id/gerar-etiqueta", (req, res) => {
       });
     }
 
-    if (!pedido?.enderecoEntrega?.bairro || !pedido?.enderecoEntrega?.cidade || !pedido?.enderecoEntrega?.estado) {
+    if (
+      !pedido?.enderecoEntrega?.bairro ||
+      !pedido?.enderecoEntrega?.cidade ||
+      !pedido?.enderecoEntrega?.estado
+    ) {
       return res.status(400).json({
         error: "Endereço de entrega incompleto.",
       });
     }
 
-    /*
-      AQUI entra a integração real da sua API de etiquetas.
-      Exemplo do que você enviaria para a API:
+    if (!pedido?.dadosCliente?.nome) {
+      return res.status(400).json({
+        error: "Pedido sem nome do destinatário.",
+      });
+    }
 
-      const payloadEtiqueta = {
-        pedidoId: pedido.id,
-        destinatario: {
-          nome: pedido?.dadosCliente?.nome,
-          email: pedido?.dadosCliente?.email,
-          telefone: pedido?.dadosCliente?.telefone,
-          cpf: pedido?.dadosCliente?.cpf,
-        },
-        entrega: pedido?.enderecoEntrega,
-        itens: pedido?.carrinho,
-        frete: pedido?.freteSelecionado,
-        total: pedido?.totalComFrete,
-      };
-    */
+    if (!pedido?.dadosCliente?.cpf) {
+      return res.status(400).json({
+        error: "Pedido sem CPF do destinatário.",
+      });
+    }
 
-    const codigoRastreioFake = `ADD${Date.now()}`;
-    const urlEtiquetaFake = `${FRONT_URL}/etiquetas/${pedido.id}.pdf`;
+    if (!pedido?.freteSelecionado?.service) {
+      return res.status(400).json({
+        error: "Pedido sem código de serviço do frete.",
+      });
+    }
+
+    if (!pedido?.freteSelecionado?.package) {
+      return res.status(400).json({
+        error: "Pedido sem pacote retornado pela cotação do frete.",
+      });
+    }
+
+    const remetenteValidacao = validarRemetente();
+
+    if (!remetenteValidacao.valido) {
+      return res.status(400).json({
+        error: "Dados do remetente incompletos no servidor.",
+        faltando: remetenteValidacao.faltando,
+      });
+    }
+
+    const pacote = pedido.freteSelecionado.package;
+
+    const payloadEtiqueta = {
+      from: {
+        name: REMETENTE.name,
+        phone: REMETENTE.phone,
+        email: REMETENTE.email,
+        document: REMETENTE.document,
+        company_document: REMETENTE.company_document,
+        address: REMETENTE.address,
+        number: REMETENTE.number,
+        district: REMETENTE.district,
+        city: REMETENTE.city,
+        state_abbr: REMETENTE.state_abbr,
+        postal_code: REMETENTE.postal_code,
+      },
+      to: {
+        name: pedido?.dadosCliente?.nome,
+        phone: pedido?.dadosCliente?.telefone,
+        email: pedido?.dadosCliente?.email,
+        document: pedido?.dadosCliente?.cpf,
+        address: pedido?.enderecoEntrega?.rua,
+        number: pedido?.enderecoEntrega?.numero,
+        district: pedido?.enderecoEntrega?.bairro,
+        city: pedido?.enderecoEntrega?.cidade,
+        state_abbr: pedido?.enderecoEntrega?.estado,
+        postal_code: pedido?.enderecoEntrega?.cep,
+        complement: pedido?.enderecoEntrega?.complemento || "",
+      },
+      service: Number(pedido.freteSelecionado.service),
+      products: (pedido.carrinho || []).map((item, idx) => ({
+        id: String(item.id || idx + 1),
+        name: item.nome || "Produto",
+        quantity: Number(item.quantidade || 1),
+        unitary_value: Number(item.preco || 0),
+      })),
+      volume: {
+        width: Number(pacote.width || 0),
+        height: Number(pacote.height || 0),
+        length: Number(pacote.length || 0),
+        weight: Number(pacote.weight || 0),
+      },
+      options: {
+        insurance_value: Number(pedido.totalComFrete || 0),
+        receipt: Boolean(pedido?.freteSelecionado?.additional_services?.receipt),
+        own_hand: Boolean(pedido?.freteSelecionado?.additional_services?.own_hand),
+        reverse: false,
+        non_commercial: true,
+      },
+      tag: String(pedido.pedidoLocalId || pedido.id),
+      platform: "Additive Hub",
+    };
+
+    console.log(
+      "PAYLOAD GERAR ETIQUETA:",
+      JSON.stringify(payloadEtiqueta, null, 2)
+    );
+
+    const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/cart`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
+        "User-Agent": SUPERFRETE_USER_AGENT,
+      },
+      body: JSON.stringify(payloadEtiqueta),
+    });
+
+    const data = await superfreteResponse.json();
+
+    console.log(
+      "RESPOSTA GERAR ETIQUETA:",
+      JSON.stringify(data, null, 2)
+    );
+
+    if (!superfreteResponse.ok) {
+      return res.status(superfreteResponse.status).json({
+        error: "Erro ao gerar etiqueta na SuperFrete.",
+        message: data?.message || "Falha ao criar etiqueta.",
+        details: data,
+      });
+    }
 
     pedidos[index].etiquetaGerada = true;
-    pedidos[index].codigoRastreio = pedido.codigoRastreio || codigoRastreioFake;
-    pedidos[index].urlEtiqueta = pedido.urlEtiqueta || urlEtiquetaFake;
+    pedidos[index].statusEtiqueta = data?.status || "pending";
+    pedidos[index].superfreteCartId = data?.id || pedidos[index].superfreteCartId || null;
+    pedidos[index].superfreteService = Number(
+      pedido?.freteSelecionado?.service || pedidos[index].superfreteService || 0
+    );
+    pedidos[index].superfretePackage =
+      pedido?.freteSelecionado?.package || pedidos[index].superfretePackage || null;
+    pedidos[index].urlEtiqueta =
+      obterEtiquetaUrl(data) || pedidos[index].urlEtiqueta || "";
+    pedidos[index].codigoRastreio =
+      obterCodigoRastreio(data) || pedidos[index].codigoRastreio || "";
     pedidos[index].atualizadoEm = new Date().toISOString();
 
     salvarPedidos(pedidos);
@@ -679,6 +858,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", (req, res) => {
       urlEtiqueta: pedidos[index].urlEtiqueta,
       codigoRastreio: pedidos[index].codigoRastreio,
       pedido: pedidos[index],
+      superfrete: data,
     });
   } catch (error) {
     console.error("Erro ao gerar etiqueta:", error);
@@ -691,9 +871,9 @@ app.post("/api/pedidos/:id/gerar-etiqueta", (req, res) => {
 });
 
 /* =========================
-   EMITIR ETIQUETA
+   EMITIR ETIQUETA NA SUPERFRETE
 ========================= */
-app.post("/api/pedidos/:id/emitir-etiqueta", (req, res) => {
+app.post("/api/pedidos/:id/emitir-etiqueta", async (req, res) => {
   try {
     const { id } = req.params;
     const pedidos = lerPedidos();
@@ -708,14 +888,57 @@ app.post("/api/pedidos/:id/emitir-etiqueta", (req, res) => {
       });
     }
 
-    if (!pedidos[index].etiquetaGerada) {
+    const pedido = pedidos[index];
+
+    if (!pedido?.superfreteCartId) {
       return res.status(400).json({
         error: "Gere a etiqueta antes de emitir.",
       });
     }
 
+    const payloadCheckout = {
+      orders: [pedido.superfreteCartId],
+    };
+
+    console.log(
+      "PAYLOAD EMITIR ETIQUETA:",
+      JSON.stringify(payloadCheckout, null, 2)
+    );
+
+    const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
+        "User-Agent": SUPERFRETE_USER_AGENT,
+      },
+      body: JSON.stringify(payloadCheckout),
+    });
+
+    const data = await superfreteResponse.json();
+
+    console.log(
+      "RESPOSTA EMITIR ETIQUETA:",
+      JSON.stringify(data, null, 2)
+    );
+
+    if (!superfreteResponse.ok) {
+      return res.status(superfreteResponse.status).json({
+        error: "Erro ao emitir etiqueta na SuperFrete.",
+        message: data?.message || "Falha ao emitir etiqueta.",
+        details: data,
+      });
+    }
+
     pedidos[index].etiquetaEmitida = true;
     pedidos[index].statusInterno = "enviado";
+    pedidos[index].statusEtiqueta = data?.status || "paid";
+    pedidos[index].superfreteCheckoutId =
+      data?.id || pedidos[index].superfreteCheckoutId || null;
+    pedidos[index].codigoRastreio =
+      obterCodigoRastreio(data) || pedidos[index].codigoRastreio || "";
+    pedidos[index].urlEtiqueta =
+      obterEtiquetaUrl(data) || pedidos[index].urlEtiqueta || "";
     pedidos[index].atualizadoEm = new Date().toISOString();
 
     salvarPedidos(pedidos);
@@ -725,6 +948,7 @@ app.post("/api/pedidos/:id/emitir-etiqueta", (req, res) => {
       urlEtiqueta: pedidos[index].urlEtiqueta,
       codigoRastreio: pedidos[index].codigoRastreio,
       pedido: pedidos[index],
+      superfrete: data,
     });
   } catch (error) {
     console.error("Erro ao emitir etiqueta:", error);
