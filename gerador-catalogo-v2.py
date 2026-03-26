@@ -81,6 +81,10 @@ class GeradorCatalogoApp:
         self.var_variacoes_1 = tk.StringVar()
         self.var_nome_variacao_2 = tk.StringVar()
         self.var_variacoes_2 = tk.StringVar()
+        self.var_peso = tk.StringVar()
+        self.var_altura = tk.StringVar()
+        self.var_largura = tk.StringVar()
+        self.var_comprimento = tk.StringVar()
 
         self.var_planilha_massa = tk.StringVar()
         self.var_pasta_fotos = tk.StringVar()
@@ -419,6 +423,28 @@ class GeradorCatalogoApp:
             side="left", fill="x", expand=True
         )
 
+        linha9 = ttk.Frame(form)
+        linha9.pack(fill="x", pady=4)
+        ttk.Label(linha9, text="Peso (kg)", width=20).pack(side="left")
+        ttk.Entry(linha9, textvariable=self.var_peso).pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
+        ttk.Label(linha9, text="Altura (cm)", width=14).pack(side="left")
+        ttk.Entry(linha9, textvariable=self.var_altura).pack(
+            side="left", fill="x", expand=True
+        )
+
+        linha10 = ttk.Frame(form)
+        linha10.pack(fill="x", pady=4)
+        ttk.Label(linha10, text="Largura (cm)", width=20).pack(side="left")
+        ttk.Entry(linha10, textvariable=self.var_largura).pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
+        ttk.Label(linha10, text="Comprimento (cm)", width=14).pack(side="left")
+        ttk.Entry(linha10, textvariable=self.var_comprimento).pack(
+            side="left", fill="x", expand=True
+        )
+
         ttk.Label(form, text="Descrição").pack(anchor="w", pady=(8, 4))
         self.txt_descricao = tk.Text(form, height=5, wrap="word")
         self.txt_descricao.pack(fill="x")
@@ -691,6 +717,10 @@ class GeradorCatalogoApp:
                 self.var_variacoes_1.get().strip(),
                 self.var_nome_variacao_2.get().strip(),
                 self.var_variacoes_2.get().strip(),
+                self.var_peso.get().strip(),
+                self.var_altura.get().strip(),
+                self.var_largura.get().strip(),
+                self.var_comprimento.get().strip(),
             ]
 
             temp_path = Path("temp_linha.csv")
@@ -743,6 +773,10 @@ class GeradorCatalogoApp:
                 "variacoes_1",
                 "nome_variacao_2",
                 "variacoes_2",
+                "peso",
+                "altura",
+                "largura",
+                "comprimento",
             ]
             linha = [
                 self.var_status.get().strip() or "ativo",
@@ -758,6 +792,10 @@ class GeradorCatalogoApp:
                 self.var_variacoes_1.get().strip(),
                 self.var_nome_variacao_2.get().strip(),
                 self.var_variacoes_2.get().strip(),
+                self.var_peso.get().strip(),
+                self.var_altura.get().strip(),
+                self.var_largura.get().strip(),
+                self.var_comprimento.get().strip(),
             ]
 
             arquivo_existe = caminho_csv.exists()
@@ -838,6 +876,10 @@ class GeradorCatalogoApp:
             self.var_variacoes_1.set(produto.get("variacoes_1", "").strip())
             self.var_nome_variacao_2.set(produto.get("nome_variacao_2", "").strip())
             self.var_variacoes_2.set(produto.get("variacoes_2", "").strip())
+            self.var_peso.set(produto.get("peso", "").strip())
+            self.var_altura.set(produto.get("altura", "").strip())
+            self.var_largura.set(produto.get("largura", "").strip())
+            self.var_comprimento.set(produto.get("comprimento", "").strip())
 
             self.txt_descricao.delete("1.0", tk.END)
             self.txt_descricao.insert("1.0", produto.get("descricao", "").strip())
@@ -977,6 +1019,10 @@ class GeradorCatalogoApp:
                 "variacoes_1",
                 "nome_variacao_2",
                 "variacoes_2",
+                "peso",
+                "altura",
+                "largura",
+                "comprimento",
                 "caminho_origem",
                 "pasta_produto",
             }
@@ -1008,6 +1054,10 @@ class GeradorCatalogoApp:
                 variacoes_1 = row.get("variacoes_1", "").strip()
                 nome_variacao_2 = row.get("nome_variacao_2", "").strip()
                 variacoes_2 = row.get("variacoes_2", "").strip()
+                peso = row.get("peso", "").strip()
+                altura = row.get("altura", "").strip()
+                largura = row.get("largura", "").strip()
+                comprimento = row.get("comprimento", "").strip()
 
                 caminho_origem = row.get("caminho_origem", "").strip()
                 pasta_produto = row.get("pasta_produto", "").strip()
@@ -1089,6 +1139,10 @@ class GeradorCatalogoApp:
                     variacoes_1,
                     nome_variacao_2,
                     variacoes_2,
+                    peso,
+                    altura,
+                    largura,
+                    comprimento,
                 ])
 
                 relatorio.append(
@@ -1120,6 +1174,10 @@ class GeradorCatalogoApp:
                     "variacoes_1",
                     "nome_variacao_2",
                     "variacoes_2",
+                    "peso",
+                    "altura",
+                    "largura",
+                    "comprimento",
                 ])
                 writer.writerows(produtos_saida)
 
@@ -1192,6 +1250,10 @@ class GeradorCatalogoApp:
         self.var_variacoes_1.set("")
         self.var_nome_variacao_2.set("")
         self.var_variacoes_2.set("")
+        self.var_peso.set("")
+        self.var_altura.set("")
+        self.var_largura.set("")
+        self.var_comprimento.set("")
 
         self.txt_descricao.delete("1.0", tk.END)
         self.lista_imagens.delete(0, tk.END)

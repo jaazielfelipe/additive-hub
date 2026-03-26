@@ -291,18 +291,24 @@ function parseCSV(texto) {
     ].filter(Boolean);
 
     return {
-      id: item.id || String(index + 1),
-      nome: item.nome || "Produto sem nome",
-      categoria: item.categoria || "Outros",
-      subcategoria: item.subcategoria || "",
-      preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
-      destaque: item.destaque || "Produto em impressão 3D",
-      descricao:
-        item.descricao ||
-        "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
-      imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
-      variacoes,
-    };
+  id: item.id || String(index + 1),
+  nome: item.nome || "Produto sem nome",
+  categoria: item.categoria || "Outros",
+  subcategoria: item.subcategoria || "",
+  preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
+  destaque: item.destaque || "Produto em impressão 3D",
+  descricao:
+    item.descricao ||
+    "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
+  imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
+  variacoes,
+
+  // 🔥 NOVOS CAMPOS (FRETE)
+  peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
+altura: Number(String(item.altura || "0").replace(",", ".")) || 0,
+largura: Number(String(item.largura || "0").replace(",", ".")) || 0,
+comprimento: Number(String(item.comprimento || "0").replace(",", ".")) || 0,
+};
   });
 }
 
@@ -436,9 +442,16 @@ export default function CatalogoOnline() {
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
   const [mostrarBarraCarrinhoMobile, setMostrarBarraCarrinhoMobile] = useState(false);
   const [selecoesVariacao, setSelecoesVariacao] = useState({});
+  const [cepDestino, setCepDestino] = useState("");
+  const [fretes, setFretes] = useState([]);
+  const [freteSelecionado, setFreteSelecionado] = useState(null);
+  const [carregandoFrete, setCarregandoFrete] = useState(false);
+  const [erroFrete, setErroFrete] = useState("");
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
+  const apiFreteUrl =
+    import.meta.env.VITE_FRETE_API_URL || "http://localhost:3001/api/frete";
 
   useEffect(() => {
     document.documentElement.lang = "pt-BR";
@@ -576,6 +589,14 @@ export default function CatalogoOnline() {
       (total, item) => total + item.preco * item.quantidade,
       0
     );
+  }, [carrinho]);
+
+  const totalComFrete = totalCarrinho + (freteSelecionado?.preco || 0);
+
+  useEffect(() => {
+    setFretes([]);
+    setFreteSelecionado(null);
+    setErroFrete("");
   }, [carrinho]);
 
   useEffect(() => {
@@ -725,6 +746,113 @@ export default function CatalogoOnline() {
     }));
   };
 
+  const formatarCep = (valor) => {
+    const numeros = String(valor || "").replace(/\D/g, "").slice(0, 8);
+
+    if (numeros.length <= 5) return numeros;
+    return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
+  };
+
+  const extrairOpcoesFrete = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.shipping_services)) return payload.shipping_services;
+    if (Array.isArray(payload?.services)) return payload.services;
+    return [];
+  };
+
+  const obterPrecoFrete = (opcao) =>
+    Number(opcao?.price ?? opcao?.custom_price ?? opcao?.total_price ?? 0);
+
+  const calcularFrete = async () => {
+    try {
+      setErroFrete("");
+      setFretes([]);
+      setFreteSelecionado(null);
+
+      const cepLimpo = cepDestino.replace(/\D/g, "");
+
+      if (cepLimpo.length !== 8) {
+        setErroFrete("Digite um CEP válido com 8 números.");
+        return;
+      }
+
+      if (carrinho.length === 0) {
+        setErroFrete("Adicione produtos ao carrinho antes de calcular o frete.");
+        return;
+      }
+
+      setCarregandoFrete(true);
+
+      const response = await fetch(apiFreteUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cepDestino: cepLimpo,
+          carrinho,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const mensagemErro =
+          data?.error ||
+          data?.message ||
+          data?.details?.message ||
+          "Não foi possível calcular o frete.";
+
+        setErroFrete(mensagemErro);
+        return;
+      }
+
+      const opcoes = extrairOpcoesFrete(data);
+
+      if (!Array.isArray(opcoes) || opcoes.length === 0) {
+        setErroFrete("Nenhuma opção de frete encontrada para esse CEP.");
+        return;
+      }
+
+      const opcoesOrdenadas = [...opcoes].sort(
+        (a, b) => obterPrecoFrete(a) - obterPrecoFrete(b)
+      );
+
+      const primeiraOpcao = opcoesOrdenadas[0];
+      const nomePrimeiraOpcao =
+        primeiraOpcao.name ||
+        primeiraOpcao.service_description ||
+        primeiraOpcao.service ||
+        primeiraOpcao.company?.name ||
+        "Opção 1";
+
+      const prazoPrimeiraOpcao =
+        primeiraOpcao.delivery_time ??
+        primeiraOpcao.delivery_range?.max ??
+        primeiraOpcao.delivery_range?.days ??
+        primeiraOpcao.delivery_days ??
+        primeiraOpcao.days ??
+        primeiraOpcao.prazo ??
+        "-";
+
+      setFretes(opcoesOrdenadas);
+      setFreteSelecionado({
+        chave: `${nomePrimeiraOpcao}-0`,
+        nome: nomePrimeiraOpcao,
+        preco: obterPrecoFrete(primeiraOpcao),
+        prazo:
+          typeof prazoPrimeiraOpcao === "number"
+            ? `${prazoPrimeiraOpcao} dia(s)`
+            : String(prazoPrimeiraOpcao),
+      });
+    } catch (error) {
+      setErroFrete("Erro ao calcular frete.");
+    } finally {
+      setCarregandoFrete(false);
+    }
+  };
+
   const finalizarPedidoWhatsApp = () => {
     if (carrinho.length === 0) return;
 
@@ -742,13 +870,24 @@ export default function CatalogoOnline() {
       } | Unit: R$ ${item.preco.toFixed(2)} | Subtotal: R$ ${subtotal.toFixed(2)}`;
     });
 
+    const freteTexto = freteSelecionado
+      ? [
+          `CEP: ${formatarCep(cepDestino)}`,
+          `Frete escolhido: ${freteSelecionado.nome}`,
+          `Prazo: ${freteSelecionado.prazo}`,
+          `Valor do frete: R$ ${freteSelecionado.preco.toFixed(2)}`,
+        ]
+      : ["Frete: combinar"];
+
     const mensagem = [
       "Olá! Tenho interesse nos seguintes produtos:",
       "",
       ...linhas,
       "",
       `Total de itens: ${totalItensCarrinho}`,
-      `Valor total: R$ ${totalCarrinho.toFixed(2)}`,
+      `Subtotal dos produtos: R$ ${totalCarrinho.toFixed(2)}`,
+      ...freteTexto,
+      `Total final: R$ ${totalComFrete.toFixed(2)}`,
       "",
       "Gostaria de finalizar esse pedido.",
     ].join("\n");
@@ -1515,12 +1654,46 @@ export default function CatalogoOnline() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {totalItensCarrinho > 0 && (
+          <motion.div
+            className="fixed bottom-[5.5rem] right-5 z-40 hidden lg:block"
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.96 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            <button
+              type="button"
+              onClick={() => setCarrinhoAberto(true)}
+              className="group flex items-center gap-3 rounded-full bg-[#f4b400] px-4 py-3 text-left text-black shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(0,0,0,0.22)]"
+            >
+              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-white">
+                <IconeCarrinho className="h-5 w-5" />
+                <span className="absolute -right-1 -top-1 inline-flex min-w-[1.4rem] items-center justify-center rounded-full bg-white px-1.5 py-0.5 text-[11px] font-bold text-black">
+                  {totalItensCarrinho}
+                </span>
+              </span>
+
+              <span className="min-w-0 pr-1">
+                <span className="block text-sm font-bold leading-none">
+                  Ver carrinho
+                </span>
+                <span className="mt-1 block text-xs text-black/75">
+                  {totalItensCarrinho} item(ns) • R$ {totalComFrete.toFixed(2)}
+                </span>
+              </span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <a
         href={`https://wa.me/${whatsapp}`}
         target="_blank"
         rel="noreferrer"
-        className={`fixed right-5 z-40 flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3 font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:opacity-90 active:scale-[0.95] ${
-          mostrarBarraCarrinhoMobile ? "bottom-24" : "bottom-5"
+        className={`fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3 font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:opacity-90 active:scale-[0.95] ${
+          mostrarBarraCarrinhoMobile ? "bottom-24 lg:bottom-5" : ""
         }`}
       >
         <svg
@@ -1773,14 +1946,14 @@ export default function CatalogoOnline() {
       <AnimatePresence>
         {carrinhoAberto && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setCarrinhoAberto(false)}
           >
             <motion.div
-              className="w-full max-w-2xl rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)]"
+              className="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)] md:my-8 md:max-h-[85vh]"
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -1804,7 +1977,7 @@ export default function CatalogoOnline() {
                 </button>
               </div>
 
-              <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                 {carrinho.length === 0 ? (
                   <div className="py-10 text-center">
                     <p className="text-lg font-semibold text-zinc-700">
@@ -1815,73 +1988,209 @@ export default function CatalogoOnline() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {carrinho.map((item) => (
-                      <div
-                        key={item.carrinhoKey}
-                        className="flex gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
-                      >
-                        <ImagemProduto
-                          src={item.imagens?.[0]}
-                          alt={item.nome}
-                          className="h-20 w-20 rounded-xl object-cover"
-                        />
+                  <>
+                    <div className="space-y-4">
+                      {carrinho.map((item) => (
+                        <div
+                          key={item.carrinhoKey}
+                          className="flex gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+                        >
+                          <ImagemProduto
+                            src={item.imagens?.[0]}
+                            alt={item.nome}
+                            className="h-20 w-20 rounded-xl object-cover"
+                          />
 
-                        <div className="min-w-0 flex-1">
-                          <h4 className="truncate text-sm font-bold text-zinc-900 sm:text-base">
-                            {item.nome}
-                          </h4>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="truncate text-sm font-bold text-zinc-900 sm:text-base">
+                              {item.nome}
+                            </h4>
 
-                          {item.resumoVariacoes?.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {item.resumoVariacoes.map((variacao) => (
-                                <span
-                                  key={`${item.carrinhoKey}-${variacao.nome}`}
-                                  className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700"
-                                >
-                                  {variacao.nome}: {variacao.valor}
-                                </span>
-                              ))}
+                            {item.resumoVariacoes?.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {item.resumoVariacoes.map((variacao) => (
+                                  <span
+                                    key={`${item.carrinhoKey}-${variacao.nome}`}
+                                    className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700"
+                                  >
+                                    {variacao.nome}: {variacao.valor}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <p className="mt-2 text-xs text-zinc-500">
+                              R$ {item.preco.toFixed(2)} por unidade
+                            </p>
+
+                            <p className="mt-1 text-sm font-semibold text-[#8b6900]">
+                              Subtotal: R$ {(item.preco * item.quantidade).toFixed(2)}
+                            </p>
+
+                            <div className="mt-3">
+                              <ControleQuantidade
+                                quantidade={item.quantidade}
+                                onDiminuir={() => diminuirQuantidade(item)}
+                                onAumentar={() => aumentarQuantidade(item)}
+                                compacto
+                              />
                             </div>
-                          )}
-
-                          <p className="mt-2 text-xs text-zinc-500">
-                            R$ {item.preco.toFixed(2)} por unidade
-                          </p>
-
-                          <p className="mt-1 text-sm font-semibold text-[#8b6900]">
-                            Subtotal: R$ {(item.preco * item.quantidade).toFixed(2)}
-                          </p>
-
-                          <div className="mt-3">
-                            <ControleQuantidade
-                              quantidade={item.quantidade}
-                              onDiminuir={() => diminuirQuantidade(item)}
-                              onAumentar={() => aumentarQuantidade(item)}
-                              compacto
-                            />
                           </div>
                         </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-5 space-y-4 border-t border-zinc-200 pt-5">
+                      <div className="space-y-2 rounded-2xl bg-zinc-50 p-4">
+                        <div className="flex items-center justify-between text-sm text-zinc-600">
+                          <span>{totalItensCarrinho} item(ns)</span>
+                          <span>Subtotal: R$ {totalCarrinho.toFixed(2)}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm text-zinc-600">
+                          <span>Frete</span>
+                          <span>
+                            {freteSelecionado
+                              ? `R$ ${freteSelecionado.preco.toFixed(2)}`
+                              : "Não selecionado"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-lg font-bold text-zinc-900">
+                          <span>Total final</span>
+                          <span>R$ {totalComFrete.toFixed(2)}</span>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                        <p className="text-sm font-semibold text-zinc-900">Calcular frete</p>
+
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                          <input
+                            type="text"
+                            value={cepDestino}
+                            onChange={(e) => setCepDestino(formatarCep(e.target.value))}
+                            placeholder="Digite seu CEP"
+                            inputMode="numeric"
+                            maxLength={9}
+                            className="flex-1 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#f4b400]"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={calcularFrete}
+                            disabled={carregandoFrete || carrinho.length === 0}
+                            className="rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                          >
+                            {carregandoFrete ? "Calculando..." : "Calcular frete"}
+                          </button>
+                        </div>
+
+                        {erroFrete && (
+                          <p className="mt-3 text-sm text-red-600">{erroFrete}</p>
+                        )}
+
+                        {fretes.length > 0 && (
+                          <div className="mt-4">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <p className="text-sm font-semibold text-zinc-900">
+                                Escolha o frete
+                              </p>
+                              <p className="text-xs text-zinc-500">
+                                Role para ver todas as opções
+                              </p>
+                            </div>
+
+                            <div className="max-h-72 space-y-2 overflow-y-auto pr-1 overscroll-contain">
+                              {fretes.map((opcao, index) => {
+                                const nome =
+                                  opcao.name ||
+                                  opcao.service_description ||
+                                  opcao.service ||
+                                  opcao.company?.name ||
+                                  `Opção ${index + 1}`;
+
+                                const preco = obterPrecoFrete(opcao);
+
+                                const prazoBruto =
+                                  opcao.delivery_time ??
+                                  opcao.delivery_range?.max ??
+                                  opcao.delivery_range?.days ??
+                                  opcao.delivery_days ??
+                                  opcao.days ??
+                                  opcao.prazo ??
+                                  "-";
+
+                                const prazo =
+                                  typeof prazoBruto === "number"
+                                    ? `${prazoBruto} dia(s)`
+                                    : String(prazoBruto);
+
+                                const chave = `${nome}-${index}`;
+                                const recomendado = index === 0;
+
+                                return (
+                                  <button
+                                    key={chave}
+                                    type="button"
+                                    onClick={() =>
+                                      setFreteSelecionado({
+                                        chave,
+                                        nome,
+                                        preco,
+                                        prazo,
+                                      })
+                                    }
+                                    className={`w-full rounded-2xl border p-4 text-left transition ${
+                                      freteSelecionado?.chave === chave
+                                        ? "border-[#f4b400] bg-[#fff8df]"
+                                        : "border-zinc-200 bg-white hover:border-zinc-300"
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <p className="font-semibold text-zinc-900">{nome}</p>
+
+                                          {recomendado && (
+                                            <span className="rounded-full bg-[#f4b400] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-black">
+                                              Recomendado
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <p className="mt-1 text-sm text-zinc-600">
+                                          Prazo: {prazo}
+                                        </p>
+                                      </div>
+
+                                      <p className="shrink-0 text-sm font-bold text-zinc-900">
+                                        R$ {preco.toFixed(2)}
+                                      </p>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 
-              <div className="border-t border-zinc-200 px-6 py-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="text-sm text-zinc-500">
-                    {totalItensCarrinho} item(ns)
-                  </span>
-                  <span className="text-2xl font-bold text-zinc-900">
-                    R$ {totalCarrinho.toFixed(2)}
-                  </span>
-                </div>
-
+              <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4">
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     type="button"
-                    onClick={() => setCarrinho([])}
+                    onClick={() => {
+                      setCarrinho([]);
+                      setCepDestino("");
+                      setFretes([]);
+                      setFreteSelecionado(null);
+                      setErroFrete("");
+                    }}
                     className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
                   >
                     Limpar carrinho
@@ -1890,7 +2199,7 @@ export default function CatalogoOnline() {
                   <button
                     type="button"
                     onClick={finalizarPedidoWhatsApp}
-                    disabled={carrinho.length === 0}
+                    disabled={carrinho.length === 0 || !freteSelecionado}
                     className="flex-1 rounded-2xl bg-[#25D366] px-5 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Finalizar no WhatsApp
