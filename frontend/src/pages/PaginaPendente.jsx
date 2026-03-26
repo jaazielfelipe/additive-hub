@@ -13,8 +13,10 @@ export default function PaginaPendente() {
   const [erro, setErro] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const pedidoId = params.get("pedido_id");
+    const hash = window.location.hash || "";
+const queryString = hash.includes("?") ? hash.split("?")[1] : "";
+const params = new URLSearchParams(queryString);
+const pedidoId = params.get("pedido_id");
 
     if (!pedidoId) {
       setErro("Pedido não encontrado na URL.");
