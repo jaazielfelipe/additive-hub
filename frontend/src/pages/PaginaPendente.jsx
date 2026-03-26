@@ -13,35 +13,36 @@ export default function PaginaPendente() {
   const [erro, setErro] = useState("");
 
   useEffect(() => {
-    const hash = window.location.hash || "";
-const queryString = hash.includes("?") ? hash.split("?")[1] : "";
-const params = new URLSearchParams(queryString);
-const pedidoId = params.get("pedido_id");
+  const hash = window.location.hash || "";
+  const queryString = hash.includes("?") ? hash.split("?")[1] : "";
+  const params = new URLSearchParams(queryString);
+  const pedidoId = params.get("pedido_id");
 
-    if (!pedidoId) {
-      setErro("Pedido não encontrado na URL.");
+  if (!pedidoId) {
+    setErro("Pedido não encontrado na URL.");
+    setCarregando(false);
+    return;
+  }
+
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+  fetch(`${apiBaseUrl}/api/pedidos/${pedidoId}`)
+    .then(async (res) => {
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao buscar pedido.");
+      }
+
+      setPedido(data);
+    })
+    .catch((err) => {
+      setErro(err.message || "Erro ao carregar pedido.");
+    })
+    .finally(() => {
       setCarregando(false);
-      return;
-    }
-
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-fetch(`${apiBaseUrl}/api/pedidos/${pedidoId}`)
-      .then(async (res) => {
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data?.error || "Erro ao buscar pedido.");
-        }
-
-        setPedido(data);
-      })
-      .catch((err) => {
-        setErro(err.message || "Erro ao carregar pedido.");
-      })
-      .finally(() => {
-        setCarregando(false);
-      });
-  }, []);
+    });
+}, []);
 
   if (carregando) {
     return (
