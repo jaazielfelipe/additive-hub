@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import "./index.css"; // 👈 FALTAVA ISSO
+import { HashRouter, Routes, Route } from "react-router-dom";
+import "./index.css";
 
 import CatalogoOnline from "./pages/CatalogoOnline";
 import PaginaSucesso from "./pages/PaginaSucesso";
@@ -10,13 +10,13 @@ import PaginaPendente from "./pages/PaginaPendente";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<CatalogoOnline />} />
         <Route path="/pagamento/sucesso" element={<PaginaSucesso />} />
         <Route path="/pagamento/falha" element={<PaginaFalha />} />
         <Route path="/pagamento/pendente" element={<PaginaPendente />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   </React.StrictMode>
 );

@@ -22,7 +22,7 @@ export default function PaginaSucesso() {
       return;
     }
 
-    fetch(`https://additive-hub.onrender.com/api/pedidos/${pedidoId}`)
+    fetch(`http://localhost:3001/api/pedidos/${pedidoId}`)
       .then(async (res) => {
         const data = await res.json();
 

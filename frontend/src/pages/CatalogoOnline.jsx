@@ -458,6 +458,7 @@ export default function CatalogoOnline() {
   const apiPagamentoUrl =
     import.meta.env.VITE_PAGAMENTO_API_URL ||
     "https://additive-hub.onrender.com/api/pagamentos/criar-preferencia";
+    console.log("API PAGAMENTO:", apiPagamentoUrl);
 
   useEffect(() => {
     document.documentElement.lang = "pt-BR";
