@@ -201,6 +201,56 @@ function sanitizarString(valor) {
   return String(valor || "").trim();
 }
 
+// Helpers extras para a SuperFrete sandbox
+function somenteDigitos(valor) {
+  return String(valor || "").replace(/\D/g, "");
+}
+
+function limparTexto(valor) {
+  return String(valor || "").trim();
+}
+
+function normalizarUF(valor) {
+  const texto = String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+
+  const mapa = {
+    ACRE: "AC",
+    ALAGOAS: "AL",
+    AMAPA: "AP",
+    AMAZONAS: "AM",
+    BAHIA: "BA",
+    CEARA: "CE",
+    "DISTRITO FEDERAL": "DF",
+    ESPIRITO SANTO: "ES",
+    GOIAS: "GO",
+    MARANHAO: "MA",
+    "MATO GROSSO": "MT",
+    "MATO GROSSO DO SUL": "MS",
+    "MINAS GERAIS": "MG",
+    PARA: "PA",
+    PARAIBA: "PB",
+    PARANA: "PR",
+    PERNAMBUCO: "PE",
+    PIAUI: "PI",
+    "RIO DE JANEIRO": "RJ",
+    "RIO GRANDE DO NORTE": "RN",
+    "RIO GRANDE DO SUL": "RS",
+    RONDONIA: "RO",
+    RORAIMA: "RR",
+    "SANTA CATARINA": "SC",
+    "SAO PAULO": "SP",
+    SERGIPE: "SE",
+    TOCANTINS: "TO",
+  };
+
+  if (texto.length === 2) return texto;
+  return mapa[texto] || texto;
+}
+
 function buscarPedidoPorIdOuCodigo(pedidos, id) {
   return pedidos.find(
     (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
@@ -556,8 +606,6 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
 
     let pedido = null;
 
-    // 🔥 NOVA LÓGICA FLEXÍVEL
-
     if (tipo === "pedido" || id) {
       const numeroPedido = valor || id;
 
@@ -580,7 +628,7 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
       }
 
       pedido = await Pedido.findOne({ "dadosCliente.email": emailBusca })
-        .sort({ createdAt: -1 }); // pega o mais recente
+        .sort({ createdAt: -1 });
     }
 
     else if (tipo === "cpf" || cpf) {
@@ -602,14 +650,12 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
       });
     }
 
-    // ❌ não encontrado
     if (!pedido) {
       return res.status(404).json({
         error: "Pedido não encontrado."
       });
     }
 
-    // ✅ retorno
     return res.json(pedido);
 
   } catch (err) {
@@ -791,63 +837,61 @@ app.post("/api/pedidos/:id/gerar-etiqueta", async (req, res) => {
     const pacote = pedido.freteSelecionado.package;
 
     const payloadEtiqueta = {
-  from: {
-    name: REMETENTE.name,
-    phone: REMETENTE.phone,
-    email: REMETENTE.email,
-    document: REMETENTE.document,
-    company_document: REMETENTE.company_document,
-    address: REMETENTE.address,
-    number: REMETENTE.number,
-    district: REMETENTE.district,
-    city: REMETENTE.city,
-    state_abbr: REMETENTE.state_abbr,
-    postal_code: REMETENTE.postal_code,
-  },
-  to: {
-    name: pedido?.dadosCliente?.nome,
-    phone: pedido?.dadosCliente?.telefone,
-    email: pedido?.dadosCliente?.email,
-    document: pedido?.dadosCliente?.cpf,
-    address: pedido?.enderecoEntrega?.rua,
-    number: pedido?.enderecoEntrega?.numero,
-    district: pedido?.enderecoEntrega?.bairro,
-    city: pedido?.enderecoEntrega?.cidade,
-    state_abbr: pedido?.enderecoEntrega?.estado,
-    postal_code: pedido?.enderecoEntrega?.cep,
-    complement: pedido?.enderecoEntrega?.complemento || "",
-  },
-  service: Number(pedido.freteSelecionado.service),
-  products: (pedido.carrinho || []).map((item, idx) => ({
-    id: String(item.id || idx + 1),
-    name: item.nome || "Produto",
-    quantity: Number(item.quantidade || 1),
-    unitary_value: Number(item.preco || 0),
-  })),
-  volumes: [
-    {
-      category: "package",
-      width: Number(pacote.width || 0),
-      height: Number(pacote.height || 0),
-      length: Number(pacote.length || 0),
-      weight: Number(pacote.weight || 0),
-    },
-  ],
-  options: {
-    insurance_value: Number(pedido.totalComFrete || 0),
-    receipt: Boolean(pedido?.freteSelecionado?.additional_services?.receipt),
-    own_hand: Boolean(pedido?.freteSelecionado?.additional_services?.own_hand),
-    reverse: false,
-    non_commercial: true,
-  },
-  tag: String(pedido.pedidoLocalId || pedido.id),
-  platform: "Additive Hub",
-};
+      from: {
+        name: limparTexto(REMETENTE.name),
+        phone: somenteDigitos(REMETENTE.phone),
+        email: limparTexto(REMETENTE.email).toLowerCase(),
+        document: somenteDigitos(REMETENTE.document),
+        company_document: somenteDigitos(REMETENTE.company_document),
+        address: limparTexto(REMETENTE.address),
+        number: limparTexto(REMETENTE.number),
+        district: limparTexto(REMETENTE.district),
+        city: limparTexto(REMETENTE.city),
+        state_abbr: normalizarUF(REMETENTE.state_abbr),
+        postal_code: somenteDigitos(REMETENTE.postal_code),
+      },
+      to: {
+        name: limparTexto(pedido?.dadosCliente?.nome),
+        phone: somenteDigitos(pedido?.dadosCliente?.telefone),
+        email: limparTexto(pedido?.dadosCliente?.email).toLowerCase(),
+        document: somenteDigitos(pedido?.dadosCliente?.cpf),
+        address: limparTexto(pedido?.enderecoEntrega?.rua),
+        number: limparTexto(pedido?.enderecoEntrega?.numero),
+        district: limparTexto(pedido?.enderecoEntrega?.bairro),
+        city: limparTexto(pedido?.enderecoEntrega?.cidade),
+        state_abbr: normalizarUF(pedido?.enderecoEntrega?.estado),
+        postal_code: somenteDigitos(pedido?.enderecoEntrega?.cep),
+        complement: limparTexto(pedido?.enderecoEntrega?.complemento || ""),
+      },
+      service: Number(pedido?.freteSelecionado?.service),
+      products: (pedido?.carrinho || []).map((item, idx) => ({
+        id: String(item.id || idx + 1),
+        name: item.nome || "Produto",
+        quantity: Number(item.quantidade || 1),
+        unitary_value: Number(item.preco || 0),
+      })),
+      volumes: [
+        {
+          category: "package",
+          width: Number(pacote?.width || 10),
+          height: Number(pacote?.height || 10),
+          length: Number(pacote?.length || 10),
+          weight: Number(pacote?.weight || 1),
+        },
+      ],
+      options: {
+        insurance_value: Number(pedido?.subtotalProdutos || 1),
+        receipt: false,
+        own_hand: false,
+        reverse: false,
+        non_commercial: true,
+      },
+      tag: String(pedido?.pedidoLocalId || pedido?.id),
+      platform: "Additive Hub",
+    };
 
-    console.log(
-      "PAYLOAD GERAR ETIQUETA:",
-      JSON.stringify(payloadEtiqueta, null, 2)
-    );
+    console.log("=== PAYLOAD SANDBOX ===");
+    console.log(JSON.stringify(payloadEtiqueta, null, 2));
 
     const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/cart`, {
       method: "POST",
@@ -861,10 +905,8 @@ app.post("/api/pedidos/:id/gerar-etiqueta", async (req, res) => {
 
     const data = await superfreteResponse.json();
 
-    console.log(
-      "RESPOSTA GERAR ETIQUETA:",
-      JSON.stringify(data, null, 2)
-    );
+    console.log("=== RESPOSTA GERAR ETIQUETA ===");
+    console.log(JSON.stringify(data, null, 2));
 
     if (!superfreteResponse.ok) {
       return res.status(superfreteResponse.status).json({
