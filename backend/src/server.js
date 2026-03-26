@@ -416,12 +416,12 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       body: {
         items,
         back_urls: {
-          success: "https://catalogo-additive-hub.vercel.app/pagamento/sucesso",
-          failure: "https://catalogo-additive-hub.vercel.app/pagamento/falha",
-          pending: "https://catalogo-additive-hub.vercel.app/pagamento/pendente",
-        },
-        notification_url: "https://additive-hub.onrender.com/api/webhook",
-        auto_return: "approved",
+  success: "https://additivehub.com.br/",
+  failure: "https://additivehub.com.br/",
+  pending: "https://additivehub.com.br/",
+},
+notification_url: "https://additive-hub.onrender.com/api/webhook",
+auto_return: "approved",
         external_reference: pedidoId,
       },
     });
