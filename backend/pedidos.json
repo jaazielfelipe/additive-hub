@@ -1,0 +1,1010 @@
+[
+  {
+    "id": "pedido_1774537946336",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:12:26.337Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774537947691",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:12:27.692Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774537991933",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:13:11.933Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774537992718",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:13:12.803Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538018360",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:13:38.360Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538019364",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:13:39.365Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538096526",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:14:56.527Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538097340",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:14:57.340Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538139879",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:15:39.880Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538140684",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:15:40.684Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538189409",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:16:29.410Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538190177",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:16:30.178Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538345166",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:19:05.167Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538345724",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:19:05.724Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538494876",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:21:34.877Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538604754",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:23:24.754Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538615328",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:23:35.329Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774538939992",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:28:59.993Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774539045914",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:30:45.914Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774539326960",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:35:26.961Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774539420864",
+    "carrinho": [
+      {
+        "id": "1-1-002",
+        "nome": "Chaveiro Slim Luffy (Costas)",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 7.9,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-002-chaveiro-slim-luffy-costas/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.0027,
+        "altura": 6,
+        "largura": 0.2,
+        "comprimento": 3.57,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-002",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 7.9,
+    "totalComFrete": 7.9,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:37:00.865Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774540154181",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T15:49:14.183Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774540881658",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T16:01:21.660Z",
+    "atualizadoEm": null
+  },
+  {
+    "id": "pedido_1774540914544",
+    "carrinho": [
+      {
+        "id": "1-1-001",
+        "nome": "Chaveiro Slim Luffy",
+        "categoria": "Chaveiro",
+        "subcategoria": "Slim Classic",
+        "preco": 1,
+        "destaque": "One Piece",
+        "descricao": "Tamanho: 6,5 cm",
+        "imagens": [
+          "/imagens/produtos/chaveiros/1-1-001-chaveiro-slim-luffy/1.png"
+        ],
+        "variacoes": [],
+        "peso": 0.00342,
+        "altura": 6.5,
+        "largura": 0.2,
+        "comprimento": 3.8,
+        "quantidade": 1,
+        "carrinhoKey": "1-1-001",
+        "selecoesVariacao": {},
+        "resumoVariacoes": []
+      }
+    ],
+    "freteSelecionado": {
+      "chave": "frete-teste",
+      "nome": "Frete fixo de teste",
+      "preco": 0,
+      "prazo": "Teste"
+    },
+    "cepDestino": "12310500",
+    "totalItensCarrinho": 1,
+    "subtotalProdutos": 1,
+    "totalComFrete": 1,
+    "status": "pending",
+    "payment_id": null,
+    "status_detail": null,
+    "metodo_pagamento": null,
+    "criadoEm": "2026-03-26T16:01:54.545Z",
+    "atualizadoEm": null
+  }
+]

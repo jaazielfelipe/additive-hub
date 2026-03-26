@@ -8,21 +8,21 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORREÇÃO 1: Variáveis declaradas ANTES de serem usadas no cors
 const PORT = process.env.PORT || 3001;
 const SUPERFRETE_TOKEN = process.env.SUPERFRETE_TOKEN;
 const SUPERFRETE_USER_AGENT = process.env.SUPERFRETE_USER_AGENT;
 const CEP_ORIGEM = process.env.CEP_ORIGEM;
 const SERVICES = "1,2,17";
+
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 const FRONT_URL = process.env.FRONT_URL || "http://localhost:5173";
+const NOTIFICATION_URL =
+  process.env.NOTIFICATION_URL ||
+  "https://additive-hub.onrender.com/api/webhook";
 
-app.use(
-  cors({
-    origin: FRONT_URL,
-    methods: ["GET", "POST"],
-  })
-);
+console.log("FRONT_URL:", FRONT_URL);
+
+app.use(cors());
 app.use(express.json());
 
 const mpClient = new MercadoPagoConfig({
@@ -32,339 +32,70 @@ const mpClient = new MercadoPagoConfig({
 const PEDIDOS_FILE = "./pedidos.json";
 
 function lerPedidos() {
-  try {
-    if (!fs.existsSync(PEDIDOS_FILE)) {
-      fs.writeFileSync(PEDIDOS_FILE, "[]");
-    }
-
-    const conteudo = fs.readFileSync(PEDIDOS_FILE, "utf-8");
-    return JSON.parse(conteudo || "[]");
-  } catch (error) {
-    console.error("Erro ao ler pedidos.json:", error);
-    return [];
+  if (!fs.existsSync(PEDIDOS_FILE)) {
+    fs.writeFileSync(PEDIDOS_FILE, JSON.stringify([], null, 2));
   }
+
+  return JSON.parse(fs.readFileSync(PEDIDOS_FILE, "utf-8"));
 }
 
 function salvarPedidos(pedidos) {
   fs.writeFileSync(PEDIDOS_FILE, JSON.stringify(pedidos, null, 2));
 }
 
-function num(valor, fallback = 0) {
-  if (valor === null || valor === undefined || valor === "") return fallback;
-  const convertido = Number(String(valor).replace(",", "."));
-  return Number.isFinite(convertido) ? convertido : fallback;
-}
-
-function limparCep(valor) {
-  return String(valor || "").replace(/\D/g, "");
-}
-
-function calcularSubtotal(carrinho) {
-  if (!Array.isArray(carrinho)) return 0;
-
-  return carrinho.reduce((total, item) => {
-    const preco = num(item.preco, 0);
-    const quantidade = Math.max(1, Math.round(num(item.quantidade, 1)));
-    return total + preco * quantidade;
-  }, 0);
-}
-
-function validarConfiguracao() {
-  const faltando = [];
-
-  if (!SUPERFRETE_TOKEN) faltando.push("SUPERFRETE_TOKEN");
-  if (!SUPERFRETE_USER_AGENT) faltando.push("SUPERFRETE_USER_AGENT");
-  if (!CEP_ORIGEM) faltando.push("CEP_ORIGEM");
-  if (!MP_ACCESS_TOKEN) faltando.push("MP_ACCESS_TOKEN");
-
-  if (faltando.length > 0) {
-    throw new Error(`Variáveis de ambiente ausentes: ${faltando.join(", ")}`);
-  }
-}
-
-// ✅ CORREÇÃO 2: Função usada corretamente na criação da preferência
-function montarItensMercadoPago(carrinho, freteSelecionado) {
-  const items = carrinho.map((item) => {
-    const preco = num(item.preco, 0);
-    const quantidade = Math.max(1, Math.round(num(item.quantidade, 1)));
-
-    return {
-      id: String(item.id || item.nome),
-      title: item.nome || "Produto",
-      quantity: quantidade,
-      unit_price: Number(preco.toFixed(2)),
-      currency_id: "BRL",
-    };
-  });
-
-  if (freteSelecionado) {
-    // ✅ CORREÇÃO 3: Lê todos os campos possíveis de preço do frete
-    const precoFrete = num(
-      freteSelecionado.preco ??
-        freteSelecionado.price ??
-        freteSelecionado.custom_price ??
-        freteSelecionado.total_price,
-      0
-    );
-
-    if (precoFrete > 0) {
-      items.push({
-        id: "frete",
-        title: `Frete - ${
-          freteSelecionado.nome ||
-          freteSelecionado.name ||
-          freteSelecionado.service_description ||
-          "Entrega"
-        }`,
-        quantity: 1,
-        unit_price: Number(precoFrete.toFixed(2)),
-        currency_id: "BRL",
-      });
-    }
-  }
-
-  return items;
-}
-
-function montarPacoteUnico(carrinho) {
-  let pesoTotal = 0;
-  const caixas = [];
-
-  for (const item of carrinho) {
-    const quantidade = Math.max(1, Math.round(num(item.quantidade, 1)));
-
-    const peso = num(item.peso, 0);
-    const altura = num(item.altura, 0);
-    const largura = num(item.largura, 0);
-    const comprimento = num(item.comprimento, 0);
-
-    if (peso <= 0 || altura <= 0 || largura <= 0 || comprimento <= 0) {
-      throw new Error(`Produto com medidas inválidas: ${item.nome || item.id}`);
-    }
-
-    for (let i = 0; i < quantidade; i += 1) {
-      const lados = [altura, largura, comprimento].sort((a, b) => b - a);
-
-      caixas.push({
-        length: lados[0],
-        width: lados[1],
-        height: lados[2],
-      });
-
-      pesoTotal += peso;
-    }
-  }
-
-  caixas.sort((a, b) => b.length * b.width - a.length * a.width);
-
-  function montarComLarguraMaxima(larguraMaximaLinha) {
-    const linhas = [];
-    let linhaAtual = {
-      itens: [],
-      widthUsada: 0,
-      maxLength: 0,
-      maxHeight: 0,
-    };
-
-    for (const caixa of caixas) {
-      const cabeNaLinha =
-        linhaAtual.itens.length === 0 ||
-        linhaAtual.widthUsada + caixa.width <= larguraMaximaLinha;
-
-      if (cabeNaLinha) {
-        linhaAtual.itens.push(caixa);
-        linhaAtual.widthUsada += caixa.width;
-        linhaAtual.maxLength = Math.max(linhaAtual.maxLength, caixa.length);
-        linhaAtual.maxHeight = Math.max(linhaAtual.maxHeight, caixa.height);
-      } else {
-        linhas.push(linhaAtual);
-        linhaAtual = {
-          itens: [caixa],
-          widthUsada: caixa.width,
-          maxLength: caixa.length,
-          maxHeight: caixa.height,
-        };
-      }
-    }
-
-    if (linhaAtual.itens.length > 0) {
-      linhas.push(linhaAtual);
-    }
-
-    let comprimentoFinal = 0;
-    let larguraFinal = 0;
-    let alturaFinal = 0;
-
-    for (const linha of linhas) {
-      comprimentoFinal = Math.max(comprimentoFinal, linha.maxLength);
-      larguraFinal = Math.max(larguraFinal, linha.widthUsada);
-      alturaFinal += linha.maxHeight;
-    }
-
-    comprimentoFinal += 2;
-    larguraFinal += 2;
-    alturaFinal += 1;
-
-    const ladosFinais = [comprimentoFinal, larguraFinal, alturaFinal].sort(
-      (a, b) => b - a
-    );
-
-    const pacote = {
-      length: Number(ladosFinais[0].toFixed(1)),
-      width: Number(ladosFinais[1].toFixed(1)),
-      height: Number(Math.max(1, ladosFinais[2]).toFixed(1)),
-    };
-
-    const volume = pacote.length * pacote.width * pacote.height;
-
-    const custo =
-      volume +
-      pacote.length * 2 +
-      pacote.width * 1.5 +
-      pacote.height * 2;
-
-    return {
-      larguraMaximaLinha,
-      pacote,
-      volume: Number(volume.toFixed(2)),
-      custo: Number(custo.toFixed(2)),
-    };
-  }
-
-  const tentativas = [10, 12, 14, 16, 18].map(montarComLarguraMaxima);
-  const melhor = tentativas.reduce((a, b) => (b.custo < a.custo ? b : a));
-
-  return {
-    id: "pacote-unico",
-    name: "Pacote consolidado",
-    quantity: 1,
-    weight: Number((pesoTotal + 0.03).toFixed(3)),
-    length: melhor.pacote.length,
-    width: melhor.pacote.width,
-    height: melhor.pacote.height,
-    _arranjo: {
-      larguraMaximaLinha: melhor.larguraMaximaLinha,
-      volume: melhor.volume,
-      custo: melhor.custo,
-      tentativas,
-    },
-  };
-}
-
-app.get("/", (_req, res) => {
-  res.send("Servidor ativo.");
+app.get("/", (req, res) => {
+  res.send("API Additive Hub online.");
 });
 
 app.post("/api/frete", async (req, res) => {
   try {
-    validarConfiguracao();
-
     const { cepDestino, carrinho } = req.body || {};
 
     if (!cepDestino) {
-      return res.status(400).json({ error: "CEP de destino é obrigatório." });
+      return res.status(400).json({ error: "CEP de destino obrigatório." });
     }
 
     if (!Array.isArray(carrinho) || carrinho.length === 0) {
       return res.status(400).json({ error: "Carrinho vazio." });
     }
 
-    const cepOrigemLimpo = limparCep(CEP_ORIGEM);
-    const cepDestinoLimpo = limparCep(cepDestino);
+    const produtos = carrinho.map((item) => ({
+      id: String(item.id || "produto"),
+      width: Number(item.largura || 11),
+      height: Number(item.altura || 4),
+      length: Number(item.comprimento || 16),
+      weight: Number(item.peso || 0.3),
+      insurance_value: Number(item.preco || 1),
+      quantity: Number(item.quantidade || 1),
+    }));
 
-    if (cepOrigemLimpo.length !== 8) {
-      return res.status(400).json({ error: "CEP de origem inválido no .env." });
-    }
-
-    if (cepDestinoLimpo.length !== 8) {
-      return res.status(400).json({ error: "CEP de destino inválido." });
-    }
-
-    const subtotal = calcularSubtotal(carrinho);
-    const pacoteUnico = montarPacoteUnico(carrinho);
-
-    const products = [
-      {
-        id: pacoteUnico.id,
-        name: pacoteUnico.name,
-        quantity: pacoteUnico.quantity,
-        weight: pacoteUnico.weight,
-        height: pacoteUnico.height,
-        width: pacoteUnico.width,
-        length: pacoteUnico.length,
+    const freteResponse = await fetch("https://api.superfrete.com/api/v0/calculator", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
+        "User-Agent": SUPERFRETE_USER_AGENT,
       },
-    ];
+      body: JSON.stringify({
+        from: { postal_code: CEP_ORIGEM },
+        to: { postal_code: cepDestino },
+        services: SERVICES,
+        products: produtos,
+      }),
+    });
 
-    const payload = {
-      from: {
-        postal_code: cepOrigemLimpo,
-      },
-      to: {
-        postal_code: cepDestinoLimpo,
-      },
-      services: SERVICES,
-      options: {
-        own_hand: false,
-        receipt: false,
-        insurance_value: Number(subtotal.toFixed(2)),
-        use_insurance_value: false,
-      },
-      products,
-    };
+    const data = await freteResponse.json();
 
-    console.log("CEP origem:", cepOrigemLimpo);
-    console.log("CEP destino:", cepDestinoLimpo);
-    console.log("Pacote único:", JSON.stringify(pacoteUnico, null, 2));
-    console.log("Products enviados:", JSON.stringify(products, null, 2));
-    console.log("Subtotal / insurance_value:", subtotal);
-    console.log("Services:", payload.services);
-    console.log("Use insurance:", payload.options.use_insurance_value);
-    console.log("Payload final:", JSON.stringify(payload, null, 2));
-
-    const response = await fetch(
-      "https://sandbox.superfrete.com/api/v0/calculator",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
-          "User-Agent": SUPERFRETE_USER_AGENT,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const texto = await response.text();
-
-    console.log("Status SuperFrete:", response.status);
-    console.log("Resposta bruta SuperFrete:", texto);
-
-    let data;
-    try {
-      data = texto ? JSON.parse(texto) : {};
-    } catch {
-      data = { raw: texto };
-    }
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: "Erro ao consultar frete na SuperFrete.",
-        message:
-          data?.error ||
-          data?.message ||
-          data?.details?.message ||
-          "Erro ao consultar frete.",
+    if (!freteResponse.ok) {
+      return res.status(freteResponse.status).json({
+        error: "Erro ao calcular frete",
         details: data,
-        status: response.status,
-        payloadEnviado: payload,
-        pacoteUnico,
       });
     }
 
     return res.json(data);
   } catch (error) {
-    console.error("Erro interno no backend de frete:", error);
+    console.error("Erro no frete:", error);
 
     return res.status(500).json({
       error: "Erro interno ao calcular frete.",
@@ -374,8 +105,18 @@ app.post("/api/frete", async (req, res) => {
 });
 
 app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
+  console.log("ENTROU EM /api/pagamentos/criar-preferencia");
+  console.log("BODY:", req.body);
+
   try {
-    const { carrinho, freteSelecionado, cepDestino } = req.body || {};
+    const {
+      carrinho,
+      freteSelecionado,
+      cepDestino,
+      totalItensCarrinho,
+      subtotalProdutos,
+      totalComFrete,
+    } = req.body || {};
 
     if (!Array.isArray(carrinho) || carrinho.length === 0) {
       return res.status(400).json({ error: "Carrinho vazio." });
@@ -383,8 +124,23 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
 
     const pedidoId = `pedido_${Date.now()}`;
 
-    // ✅ CORREÇÃO 2: Usa montarItensMercadoPago para montar os itens corretamente
-    const items = montarItensMercadoPago(carrinho, freteSelecionado);
+    const items = carrinho.map((item) => ({
+      id: String(item.id || item.nome || "produto"),
+      title: item.nome || "Produto",
+      quantity: Number(item.quantidade || 1),
+      unit_price: Number(item.preco || 0),
+      currency_id: "BRL",
+    }));
+
+    if (freteSelecionado) {
+      items.push({
+        id: "frete",
+        title: `Frete - ${freteSelecionado.nome || "Entrega"}`,
+        quantity: 1,
+        unit_price: Number(freteSelecionado.preco || 0),
+        currency_id: "BRL",
+      });
+    }
 
     const pedidos = lerPedidos();
 
@@ -393,6 +149,9 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       carrinho,
       freteSelecionado: freteSelecionado || null,
       cepDestino: cepDestino || null,
+      totalItensCarrinho: totalItensCarrinho || 0,
+      subtotalProdutos: subtotalProdutos || 0,
+      totalComFrete: totalComFrete || 0,
       status: "pending",
       payment_id: null,
       status_detail: null,
@@ -405,24 +164,27 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
 
     const preference = new Preference(mpClient);
 
-    const response = await preference.create({
-      body: {
-        items,
-        back_urls: {
-          success: `${FRONT_URL}/pagamento/sucesso?pedido_id=${pedidoId}`,
-          failure: `${FRONT_URL}/pagamento/falha?pedido_id=${pedidoId}`,
-          pending: `${FRONT_URL}/pagamento/pendente?pedido_id=${pedidoId}`,
-        },
-        notification_url: "https://additive-hub.onrender.com/api/webhook",
-        // ✅ CORREÇÃO 4: "all" redireciona para qualquer status (aprovado, pendente, recusado)
-        auto_return: "all",
-        external_reference: pedidoId,
-      },
+    const preferenceBody = {
+      items,
+      back_urls: {
+  success: `${FRONT_URL}/#/pagamento/sucesso?pedido_id=${pedidoId}`,
+  failure: `${FRONT_URL}/#/pagamento/falha?pedido_id=${pedidoId}`,
+  pending: `${FRONT_URL}/#/pagamento/pendente?pedido_id=${pedidoId}`,
+},
+      notification_url: NOTIFICATION_URL,
+      auto_return: "approved",
+      external_reference: pedidoId,
+    };
+
+    console.log("PREFERENCE BODY:", JSON.stringify(preferenceBody, null, 2));
+
+    const mpResponse = await preference.create({
+      body: preferenceBody,
     });
 
     return res.json({
-      preferenceId: response.id,
-      initPoint: response.init_point,
+      preferenceId: mpResponse.id,
+      initPoint: mpResponse.init_point,
       pedidoId,
     });
   } catch (error) {
@@ -439,24 +201,16 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
 
 app.post("/api/webhook", async (req, res) => {
   try {
-    console.log("=== WEBHOOK RECEBIDO ===");
-    console.log("BODY:", JSON.stringify(req.body, null, 2));
+    console.log("Webhook recebido:", JSON.stringify(req.body, null, 2));
 
-    const { type, data } = req.body || {};
+    const paymentId = req.body?.data?.id || req.body?.id;
+    const topic = req.body?.type || req.body?.topic;
 
-    if (type !== "payment") {
-      console.log("Tipo ignorado:", type);
+    if (!paymentId || topic !== "payment") {
       return res.sendStatus(200);
     }
 
-    const paymentId = data?.id;
-
-    if (!paymentId) {
-      console.log("Sem paymentId");
-      return res.sendStatus(200);
-    }
-
-    const response = await fetch(
+    const paymentResponse = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
         headers: {
@@ -465,40 +219,41 @@ app.post("/api/webhook", async (req, res) => {
       }
     );
 
-    const pagamento = await response.json();
+    const payment = await paymentResponse.json();
 
-    console.log("Pagamento completo:", JSON.stringify(pagamento, null, 2));
-    console.log("External reference:", pagamento.external_reference);
-    console.log("Status:", pagamento.status);
+    if (!paymentResponse.ok) {
+      console.error("Erro ao consultar pagamento:", payment);
+      return res.sendStatus(200);
+    }
 
-    const pedidoId = pagamento.external_reference;
+    const pedidoId = payment.external_reference;
 
     if (!pedidoId) {
-      console.log("Pagamento sem external_reference");
+      console.warn("Pagamento sem external_reference.");
       return res.sendStatus(200);
     }
 
     const pedidos = lerPedidos();
-    const pedido = pedidos.find((p) => p.id === pedidoId);
+    const index = pedidos.findIndex((p) => p.id === pedidoId);
 
-    if (!pedido) {
-      console.log(`Pedido não encontrado: ${pedidoId}`);
+    if (index === -1) {
+      console.warn("Pedido não encontrado:", pedidoId);
       return res.sendStatus(200);
     }
 
-    pedido.status = pagamento.status;
-    pedido.payment_id = pagamento.id;
-    pedido.status_detail = pagamento.status_detail || null;
-    pedido.metodo_pagamento = pagamento.payment_method_id || null;
-    pedido.atualizadoEm = new Date().toISOString();
+    pedidos[index].status = payment.status || pedidos[index].status;
+    pedidos[index].payment_id = payment.id || null;
+    pedidos[index].status_detail = payment.status_detail || null;
+    pedidos[index].metodo_pagamento = payment.payment_method_id || null;
+    pedidos[index].atualizadoEm = new Date().toISOString();
 
     salvarPedidos(pedidos);
 
-    console.log(`Pedido ${pedidoId} atualizado para ${pagamento.status}`);
+    console.log(`Pedido ${pedidoId} atualizado para status ${payment.status}`);
 
     return res.sendStatus(200);
   } catch (error) {
-    console.error("Erro webhook:", error);
+    console.error("Erro no webhook:", error);
     return res.sendStatus(500);
   }
 });
@@ -525,5 +280,5 @@ app.get("/api/pedidos/:id", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor de frete rodando em http://localhost:${PORT}`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
