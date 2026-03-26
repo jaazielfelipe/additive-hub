@@ -451,8 +451,7 @@ export default function CatalogoOnline() {
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
-  const MODO_TESTE_SEM_FRETE =
-  import.meta.env.VITE_MODO_TESTE_SEM_FRETE === "true";
+  const MODO_TESTE_SEM_FRETE = true; // Defina como true para usar frete de teste sem chamadas à API
   
   const apiFreteUrl =
     import.meta.env.VITE_FRETE_API_URL || "https://additive-hub.onrender.com/api/frete";
@@ -917,7 +916,7 @@ export default function CatalogoOnline() {
     window.open(url, "_blank");
   };
 
-  const finalizarPedidoMercadoPago = async () => {
+ const finalizarPedidoMercadoPago = async () => {
   if (carrinho.length === 0) {
     alert("Seu carrinho está vazio.");
     return;
@@ -931,19 +930,27 @@ export default function CatalogoOnline() {
   try {
     setCarregandoPagamento(true);
 
+    const pedidoLocalId = `ADD-${Date.now()}`;
+
+    const resumoPedido = {
+      pedidoLocalId,
+      criadoEm: new Date().toISOString(),
+      carrinho,
+      cepDestino: cepDestino.replace(/\D/g, ""),
+      freteSelecionado,
+      totalItensCarrinho,
+      subtotalProdutos: totalCarrinho,
+      totalComFrete,
+    };
+
+    localStorage.setItem("ultimoPedidoAdditiveHub", JSON.stringify(resumoPedido));
+
     const response = await fetch(apiPagamentoUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        carrinho,
-        cepDestino: cepDestino.replace(/\D/g, ""),
-        freteSelecionado,
-        totalItensCarrinho,
-        subtotalProdutos: totalCarrinho,
-        totalComFrete,
-      }),
+      body: JSON.stringify(resumoPedido),
     });
 
     const data = await response.json();
@@ -956,7 +963,6 @@ export default function CatalogoOnline() {
       );
     }
 
-    // 🔥 REDIRECIONAMENTO DIRETO (CORRETO)
     if (data?.initPoint) {
       window.location.href = data.initPoint;
       return;
