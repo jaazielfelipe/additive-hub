@@ -8,21 +8,27 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-
+// ✅ CORREÇÃO 1: Variáveis declaradas ANTES de serem usadas no cors
 const PORT = process.env.PORT || 3001;
 const SUPERFRETE_TOKEN = process.env.SUPERFRETE_TOKEN;
 const SUPERFRETE_USER_AGENT = process.env.SUPERFRETE_USER_AGENT;
 const CEP_ORIGEM = process.env.CEP_ORIGEM;
 const SERVICES = "1,2,17";
-
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 const FRONT_URL = process.env.FRONT_URL || "http://localhost:5173";
+
+app.use(
+  cors({
+    origin: FRONT_URL,
+    methods: ["GET", "POST"],
+  })
+);
+app.use(express.json());
 
 const mpClient = new MercadoPagoConfig({
   accessToken: MP_ACCESS_TOKEN,
 });
+
 const PEDIDOS_FILE = "./pedidos.json";
 
 function lerPedidos() {
@@ -76,6 +82,7 @@ function validarConfiguracao() {
   }
 }
 
+// ✅ CORREÇÃO 2: Função usada corretamente na criação da preferência
 function montarItensMercadoPago(carrinho, freteSelecionado) {
   const items = carrinho.map((item) => {
     const preco = num(item.preco, 0);
@@ -91,6 +98,7 @@ function montarItensMercadoPago(carrinho, freteSelecionado) {
   });
 
   if (freteSelecionado) {
+    // ✅ CORREÇÃO 3: Lê todos os campos possíveis de preço do frete
     const precoFrete = num(
       freteSelecionado.preco ??
         freteSelecionado.price ??
@@ -147,7 +155,7 @@ function montarPacoteUnico(carrinho) {
     }
   }
 
-  caixas.sort((a, b) => (b.length * b.width) - (a.length * a.width));
+  caixas.sort((a, b) => b.length * b.width - a.length * a.width);
 
   function montarComLarguraMaxima(larguraMaximaLinha) {
     const linhas = [];
@@ -193,12 +201,13 @@ function montarPacoteUnico(carrinho) {
       alturaFinal += linha.maxHeight;
     }
 
-    // folga
     comprimentoFinal += 2;
     larguraFinal += 2;
     alturaFinal += 1;
 
-    const ladosFinais = [comprimentoFinal, larguraFinal, alturaFinal].sort((a, b) => b - a);
+    const ladosFinais = [comprimentoFinal, larguraFinal, alturaFinal].sort(
+      (a, b) => b - a
+    );
 
     const pacote = {
       length: Number(ladosFinais[0].toFixed(1)),
@@ -208,7 +217,6 @@ function montarPacoteUnico(carrinho) {
 
     const volume = pacote.length * pacote.width * pacote.height;
 
-    // custo ponderado para evitar pacotes muito largos/altos
     const custo =
       volume +
       pacote.length * 2 +
@@ -375,23 +383,8 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
 
     const pedidoId = `pedido_${Date.now()}`;
 
-    const items = carrinho.map((item) => ({
-      id: String(item.id || item.nome),
-      title: item.nome || "Produto",
-      quantity: Number(item.quantidade || 1),
-      unit_price: Number(item.preco || 0),
-      currency_id: "BRL",
-    }));
-
-    if (freteSelecionado?.preco) {
-      items.push({
-        id: "frete",
-        title: `Frete - ${freteSelecionado.nome || "Entrega"}`,
-        quantity: 1,
-        unit_price: Number(freteSelecionado.preco),
-        currency_id: "BRL",
-      });
-    }
+    // ✅ CORREÇÃO 2: Usa montarItensMercadoPago para montar os itens corretamente
+    const items = montarItensMercadoPago(carrinho, freteSelecionado);
 
     const pedidos = lerPedidos();
 
@@ -416,12 +409,13 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       body: {
         items,
         back_urls: {
-  success: "https://additivehub.com.br/pagamento/sucesso",
-  failure: "https://additivehub.com.br/pagamento/falha",
-  pending: "https://additivehub.com.br/pagamento/pendente",
-},
-notification_url: "https://additive-hub.onrender.com/api/webhook",
-auto_return: "approved",
+          success: `${FRONT_URL}/pagamento/sucesso?pedido_id=${pedidoId}`,
+          failure: `${FRONT_URL}/pagamento/falha?pedido_id=${pedidoId}`,
+          pending: `${FRONT_URL}/pagamento/pendente?pedido_id=${pedidoId}`,
+        },
+        notification_url: "https://additive-hub.onrender.com/api/webhook",
+        // ✅ CORREÇÃO 4: "all" redireciona para qualquer status (aprovado, pendente, recusado)
+        auto_return: "all",
         external_reference: pedidoId,
       },
     });
@@ -506,6 +500,27 @@ app.post("/api/webhook", async (req, res) => {
   } catch (error) {
     console.error("Erro webhook:", error);
     return res.sendStatus(500);
+  }
+});
+
+app.get("/api/pedidos/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const pedidos = lerPedidos();
+    const pedido = pedidos.find((p) => p.id === id);
+
+    if (!pedido) {
+      return res.status(404).json({ error: "Pedido não encontrado." });
+    }
+
+    return res.json(pedido);
+  } catch (error) {
+    console.error("Erro ao buscar pedido:", error);
+
+    return res.status(500).json({
+      error: "Erro ao buscar pedido.",
+      message: error.message,
+    });
   }
 });
 
