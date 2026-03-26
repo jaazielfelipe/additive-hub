@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3001;
 const SUPERFRETE_TOKEN = process.env.SUPERFRETE_TOKEN;
 const SUPERFRETE_USER_AGENT = process.env.SUPERFRETE_USER_AGENT;
 const CEP_ORIGEM = process.env.CEP_ORIGEM;
-const SERVICES = "1,2,17";
+const SERVICES = "1,2,3,17";
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 const FRONT_URL = process.env.FRONT_URL || "http://localhost:5173";
@@ -78,7 +78,7 @@ function montarPacoteUnico(carrinho) {
     }
   }
 
-  caixas.sort((a, b) => (b.length * b.width) - (a.length * a.width));
+  caixas.sort((a, b) => b.length * b.width - a.length * a.width);
 
   function montarComLarguraMaxima(larguraMaximaLinha) {
     const linhas = [];
@@ -124,7 +124,6 @@ function montarPacoteUnico(carrinho) {
       alturaFinal += linha.maxHeight;
     }
 
-    // folga de embalagem
     comprimentoFinal += 2;
     larguraFinal += 2;
     alturaFinal += 1;
@@ -167,10 +166,34 @@ function montarPacoteUnico(carrinho) {
   };
 }
 
+function normalizarStatusInterno(statusInterno) {
+  const valor = String(statusInterno || "").trim().toLowerCase();
+
+  if (valor === "chegou") return "chegou";
+  if (valor === "emitido") return "emitido";
+  if (valor === "enviado") return "enviado";
+
+  return "chegou";
+}
+
+function sanitizarString(valor) {
+  return String(valor || "").trim();
+}
+
+function buscarPedidoPorIdOuCodigo(pedidos, id) {
+  return pedidos.find(
+    (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
+  );
+}
+
 app.get("/", (req, res) => {
   res.send("API Additive Hub online.");
 });
 
+/* =========================
+   FRETE
+   NÃO ALTERADO
+========================= */
 app.post("/api/frete", async (req, res) => {
   console.log("ENTROU EM /api/frete");
   console.log("BODY FRETE:", req.body);
@@ -186,7 +209,6 @@ app.post("/api/frete", async (req, res) => {
       return res.status(400).json({ error: "Carrinho vazio." });
     }
 
-    // ajuste inteligente: consolida tudo em um pacote único
     const pacoteUnico = montarPacoteUnico(carrinho);
 
     const produtos = [
@@ -248,6 +270,9 @@ app.post("/api/frete", async (req, res) => {
   }
 });
 
+/* =========================
+   CRIAR PREFERÊNCIA + SALVAR PEDIDO
+========================= */
 app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
   console.log("ENTROU EM /api/pagamentos/criar-preferencia");
   console.log("BODY:", req.body);
@@ -260,13 +285,17 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       totalItensCarrinho,
       subtotalProdutos,
       totalComFrete,
+      dadosCliente,
+      enderecoEntrega,
+      pedidoLocalId,
+      criadoEm,
     } = req.body || {};
 
     if (!Array.isArray(carrinho) || carrinho.length === 0) {
       return res.status(400).json({ error: "Carrinho vazio." });
     }
 
-    const pedidoId = `pedido_${Date.now()}`;
+    const pedidoId = pedidoLocalId || `pedido_${Date.now()}`;
 
     const items = carrinho.map((item) => ({
       id: String(item.id || item.nome || "produto"),
@@ -288,21 +317,60 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
 
     const pedidos = lerPedidos();
 
-    pedidos.push({
+    const pedidoExistenteIndex = pedidos.findIndex(
+      (p) => String(p.id) === String(pedidoId) || String(p.pedidoLocalId) === String(pedidoId)
+    );
+
+    const pedidoSalvo = {
       id: pedidoId,
+      pedidoLocalId: pedidoId,
       carrinho,
       freteSelecionado: freteSelecionado || null,
       cepDestino: cepDestino || null,
       totalItensCarrinho: totalItensCarrinho || 0,
       subtotalProdutos: subtotalProdutos || 0,
       totalComFrete: totalComFrete || 0,
+
+      dadosCliente: {
+        nome: sanitizarString(dadosCliente?.nome),
+        email: sanitizarString(dadosCliente?.email).toLowerCase(),
+        telefone: sanitizarString(dadosCliente?.telefone),
+        cpf: sanitizarString(dadosCliente?.cpf),
+      },
+
+      enderecoEntrega: {
+        cep: sanitizarString(enderecoEntrega?.cep || cepDestino),
+        rua: sanitizarString(enderecoEntrega?.rua),
+        bairro: sanitizarString(enderecoEntrega?.bairro),
+        cidade: sanitizarString(enderecoEntrega?.cidade),
+        estado: sanitizarString(enderecoEntrega?.estado),
+        numero: sanitizarString(enderecoEntrega?.numero),
+        complemento: sanitizarString(enderecoEntrega?.complemento),
+      },
+
       status: "pending",
+      statusInterno: "chegou",
       payment_id: null,
       status_detail: null,
       metodo_pagamento: null,
-      criadoEm: new Date().toISOString(),
+
+      etiquetaGerada: false,
+      etiquetaEmitida: false,
+      urlEtiqueta: "",
+      codigoRastreio: "",
+
+      criadoEm: criadoEm || new Date().toISOString(),
       atualizadoEm: null,
-    });
+    };
+
+    if (pedidoExistenteIndex >= 0) {
+      pedidos[pedidoExistenteIndex] = {
+        ...pedidos[pedidoExistenteIndex],
+        ...pedidoSalvo,
+      };
+    } else {
+      pedidos.push(pedidoSalvo);
+    }
 
     salvarPedidos(pedidos);
 
@@ -343,6 +411,9 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
   }
 });
 
+/* =========================
+   WEBHOOK MERCADO PAGO
+========================= */
 app.post("/api/webhook", async (req, res) => {
   try {
     console.log("Webhook recebido:", JSON.stringify(req.body, null, 2));
@@ -402,11 +473,14 @@ app.post("/api/webhook", async (req, res) => {
   }
 });
 
+/* =========================
+   PEDIDO INDIVIDUAL
+========================= */
 app.get("/api/pedidos/:id", (req, res) => {
   try {
     const { id } = req.params;
     const pedidos = lerPedidos();
-    const pedido = pedidos.find((p) => p.id === id);
+    const pedido = buscarPedidoPorIdOuCodigo(pedidos, id);
 
     if (!pedido) {
       return res.status(404).json({ error: "Pedido não encontrado." });
@@ -423,6 +497,9 @@ app.get("/api/pedidos/:id", (req, res) => {
   }
 });
 
+/* =========================
+   ACOMPANHAR PEDIDO
+========================= */
 app.get("/api/pedidos/acompanhar", (req, res) => {
   try {
     const { id, email } = req.query;
@@ -437,7 +514,8 @@ app.get("/api/pedidos/acompanhar", (req, res) => {
 
     const pedido = pedidos.find(
       (p) =>
-        String(p.id || "").trim() === String(id || "").trim() &&
+        (String(p.id || "").trim() === String(id || "").trim() ||
+          String(p.pedidoLocalId || "").trim() === String(id || "").trim()) &&
         String(p?.dadosCliente?.email || "").trim().toLowerCase() ===
           String(email || "").trim().toLowerCase()
     );
@@ -454,6 +532,204 @@ app.get("/api/pedidos/acompanhar", (req, res) => {
 
     return res.status(500).json({
       error: "Erro ao buscar pedido.",
+      message: error.message,
+    });
+  }
+});
+
+/* =========================
+   LISTAR PEDIDOS PARA O PAINEL
+========================= */
+app.get("/api/pedidos", (req, res) => {
+  try {
+    const pedidos = lerPedidos();
+
+    const pedidosOrdenados = [...pedidos].sort(
+      (a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
+    );
+
+    return res.json(pedidosOrdenados);
+  } catch (error) {
+    console.error("Erro ao listar pedidos:", error);
+
+    return res.status(500).json({
+      error: "Erro ao listar pedidos.",
+      message: error.message,
+    });
+  }
+});
+
+/* =========================
+   ATUALIZAR STATUS INTERNO
+========================= */
+app.patch("/api/pedidos/:id/status", (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body || {};
+
+    const novoStatus = normalizarStatusInterno(status);
+    const pedidos = lerPedidos();
+
+    const index = pedidos.findIndex(
+      (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
+    );
+
+    if (index === -1) {
+      return res.status(404).json({
+        error: "Pedido não encontrado.",
+      });
+    }
+
+    pedidos[index].statusInterno = novoStatus;
+    pedidos[index].atualizadoEm = new Date().toISOString();
+
+    salvarPedidos(pedidos);
+
+    return res.json({
+      message: "Status interno atualizado com sucesso.",
+      pedido: pedidos[index],
+    });
+  } catch (error) {
+    console.error("Erro ao atualizar status interno:", error);
+
+    return res.status(500).json({
+      error: "Erro ao atualizar status interno.",
+      message: error.message,
+    });
+  }
+});
+
+/* =========================
+   GERAR ETIQUETA
+   MOCK PRONTO PARA TROCAR PELA API REAL
+========================= */
+app.post("/api/pedidos/:id/gerar-etiqueta", (req, res) => {
+  try {
+    const { id } = req.params;
+    const pedidos = lerPedidos();
+
+    const index = pedidos.findIndex(
+      (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
+    );
+
+    if (index === -1) {
+      return res.status(404).json({
+        error: "Pedido não encontrado.",
+      });
+    }
+
+    const pedido = pedidos[index];
+
+    if (!pedido?.enderecoEntrega?.cep) {
+      return res.status(400).json({
+        error: "Pedido sem CEP de entrega.",
+      });
+    }
+
+    if (!pedido?.enderecoEntrega?.rua) {
+      return res.status(400).json({
+        error: "Pedido sem rua de entrega.",
+      });
+    }
+
+    if (!pedido?.enderecoEntrega?.numero) {
+      return res.status(400).json({
+        error: "Pedido sem número de entrega.",
+      });
+    }
+
+    if (!pedido?.enderecoEntrega?.bairro || !pedido?.enderecoEntrega?.cidade || !pedido?.enderecoEntrega?.estado) {
+      return res.status(400).json({
+        error: "Endereço de entrega incompleto.",
+      });
+    }
+
+    /*
+      AQUI entra a integração real da sua API de etiquetas.
+      Exemplo do que você enviaria para a API:
+
+      const payloadEtiqueta = {
+        pedidoId: pedido.id,
+        destinatario: {
+          nome: pedido?.dadosCliente?.nome,
+          email: pedido?.dadosCliente?.email,
+          telefone: pedido?.dadosCliente?.telefone,
+          cpf: pedido?.dadosCliente?.cpf,
+        },
+        entrega: pedido?.enderecoEntrega,
+        itens: pedido?.carrinho,
+        frete: pedido?.freteSelecionado,
+        total: pedido?.totalComFrete,
+      };
+    */
+
+    const codigoRastreioFake = `ADD${Date.now()}`;
+    const urlEtiquetaFake = `${FRONT_URL}/etiquetas/${pedido.id}.pdf`;
+
+    pedidos[index].etiquetaGerada = true;
+    pedidos[index].codigoRastreio = pedido.codigoRastreio || codigoRastreioFake;
+    pedidos[index].urlEtiqueta = pedido.urlEtiqueta || urlEtiquetaFake;
+    pedidos[index].atualizadoEm = new Date().toISOString();
+
+    salvarPedidos(pedidos);
+
+    return res.json({
+      message: "Etiqueta gerada com sucesso.",
+      urlEtiqueta: pedidos[index].urlEtiqueta,
+      codigoRastreio: pedidos[index].codigoRastreio,
+      pedido: pedidos[index],
+    });
+  } catch (error) {
+    console.error("Erro ao gerar etiqueta:", error);
+
+    return res.status(500).json({
+      error: "Erro ao gerar etiqueta.",
+      message: error.message,
+    });
+  }
+});
+
+/* =========================
+   EMITIR ETIQUETA
+========================= */
+app.post("/api/pedidos/:id/emitir-etiqueta", (req, res) => {
+  try {
+    const { id } = req.params;
+    const pedidos = lerPedidos();
+
+    const index = pedidos.findIndex(
+      (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
+    );
+
+    if (index === -1) {
+      return res.status(404).json({
+        error: "Pedido não encontrado.",
+      });
+    }
+
+    if (!pedidos[index].etiquetaGerada) {
+      return res.status(400).json({
+        error: "Gere a etiqueta antes de emitir.",
+      });
+    }
+
+    pedidos[index].etiquetaEmitida = true;
+    pedidos[index].statusInterno = "enviado";
+    pedidos[index].atualizadoEm = new Date().toISOString();
+
+    salvarPedidos(pedidos);
+
+    return res.json({
+      message: "Etiqueta emitida com sucesso.",
+      urlEtiqueta: pedidos[index].urlEtiqueta,
+      codigoRastreio: pedidos[index].codigoRastreio,
+      pedido: pedidos[index],
+    });
+  } catch (error) {
+    console.error("Erro ao emitir etiqueta:", error);
+
+    return res.status(500).json({
+      error: "Erro ao emitir etiqueta.",
       message: error.message,
     });
   }
