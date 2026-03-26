@@ -7,6 +7,104 @@ function formatarMoeda(valor) {
   });
 }
 
+function formatarCPF(valor) {
+  const numeros = String(valor || "")
+    .replace(/\D/g, "")
+    .slice(0, 11);
+
+  if (numeros.length <= 3) return numeros;
+  if (numeros.length <= 6) return `${numeros.slice(0, 3)}.${numeros.slice(3)}`;
+  if (numeros.length <= 9) {
+    return `${numeros.slice(0, 3)}.${numeros.slice(3, 6)}.${numeros.slice(6)}`;
+  }
+
+  return `${numeros.slice(0, 3)}.${numeros.slice(3, 6)}.${numeros.slice(
+    6,
+    9
+  )}-${numeros.slice(9, 11)}`;
+}
+
+function validarCPF(cpf) {
+  const cpfLimpo = String(cpf || "").replace(/\D/g, "");
+
+  if (cpfLimpo.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpfLimpo)) return false;
+
+  let soma = 0;
+  for (let i = 0; i < 9; i++) {
+    soma += Number(cpfLimpo[i]) * (10 - i);
+  }
+
+  let digito1 = (soma * 10) % 11;
+  if (digito1 === 10) digito1 = 0;
+  if (digito1 !== Number(cpfLimpo[9])) return false;
+
+  soma = 0;
+  for (let i = 0; i < 10; i++) {
+    soma += Number(cpfLimpo[i]) * (11 - i);
+  }
+
+  let digito2 = (soma * 10) % 11;
+  if (digito2 === 10) digito2 = 0;
+
+  return digito2 === Number(cpfLimpo[10]);
+}
+
+function formatarTelefone(valor) {
+  const numeros = String(valor || "")
+    .replace(/\D/g, "")
+    .slice(0, 11);
+
+  if (numeros.length === 0) return "";
+  if (numeros.length <= 2) return `(${numeros}`;
+  if (numeros.length <= 7) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
+  }
+
+  return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(
+    7,
+    11
+  )}`;
+}
+
+function validarCelular(valor) {
+  const numeros = String(valor || "").replace(/\D/g, "");
+
+  if (numeros.length !== 11) return false;
+
+  const ddd = Number(numeros.slice(0, 2));
+  const primeiroDigitoCelular = numeros[2];
+
+  if (ddd < 11 || ddd > 99) return false;
+  if (primeiroDigitoCelular !== "9") return false;
+
+  return true;
+}
+
+function validarEmail(email) {
+  const valor = String(email || "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(valor);
+}
+
+function validarNomeCompleto(nome) {
+  const valor = String(nome || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  if (!valor) return false;
+
+  const partes = valor.split(" ").filter(Boolean);
+  if (partes.length < 2) return false;
+
+  return partes.every((parte) => parte.length >= 2);
+}
+
+function formatarCep(valor) {
+  const numeros = String(valor || "").replace(/\D/g, "").slice(0, 8);
+  if (numeros.length <= 5) return numeros;
+  return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
+}
+
 export default function Checkout() {
   const [carrinho, setCarrinho] = useState([]);
   const [dadosCliente, setDadosCliente] = useState({
@@ -14,6 +112,13 @@ export default function Checkout() {
     email: "",
     telefone: "",
     cpf: "",
+  });
+
+  const [camposTocados, setCamposTocados] = useState({
+    nome: false,
+    email: false,
+    telefone: false,
+    cpf: false,
   });
 
   const [cepDestino, setCepDestino] = useState("");
@@ -26,8 +131,6 @@ export default function Checkout() {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const apiFreteUrl =
     import.meta.env.VITE_FRETE_API_URL || `${apiBaseUrl}/api/frete`;
-    console.log("API BASE URL:", apiBaseUrl);
-console.log("API FRETE URL:", apiFreteUrl);
   const apiPagamentoUrl =
     import.meta.env.VITE_PAGAMENTO_API_URL ||
     `${apiBaseUrl}/api/pagamentos/criar-preferencia`;
@@ -47,7 +150,14 @@ console.log("API FRETE URL:", apiFreteUrl);
       }
 
       if (dadosClienteSalvos) {
-        setDadosCliente(JSON.parse(dadosClienteSalvos));
+        const dados = JSON.parse(dadosClienteSalvos);
+
+        setDadosCliente({
+          nome: dados?.nome || "",
+          email: dados?.email || "",
+          telefone: formatarTelefone(dados?.telefone || ""),
+          cpf: formatarCPF(dados?.cpf || ""),
+        });
       }
 
       if (cepSalvo) {
@@ -95,24 +205,121 @@ console.log("API FRETE URL:", apiFreteUrl);
 
   const totalComFrete = subtotalProdutos + Number(freteSelecionado?.preco || 0);
 
-  const atualizarDadosCliente = (campo, valor) => {
-    setDadosCliente((anterior) => ({
-      ...anterior,
-      [campo]: valor,
-    }));
-  };
+  const obterErroCampo = (campo, valor) => {
+    const valorTexto = String(valor || "").trim();
 
-  const dadosClienteValidos = () => {
-    if (!dadosCliente.nome.trim()) return "Digite o nome completo.";
-    if (!dadosCliente.email.trim()) return "Digite o e-mail.";
-    if (!dadosCliente.telefone.trim()) return "Digite o telefone/WhatsApp.";
+    if (campo === "nome") {
+      if (!valorTexto) return "Nome completo é obrigatório.";
+      if (!validarNomeCompleto(valorTexto)) {
+        return "Digite nome e sobrenome.";
+      }
+      return "";
+    }
+
+    if (campo === "email") {
+      if (!valorTexto) return "E-mail é obrigatório.";
+      if (!validarEmail(valorTexto)) {
+        return "Digite um e-mail válido. Ex.: nome@dominio.com";
+      }
+      return "";
+    }
+
+    if (campo === "telefone") {
+      if (!valorTexto) return "Telefone/WhatsApp é obrigatório.";
+      if (!validarCelular(valorTexto)) {
+        return "Digite um celular válido no padrão (11) 99999-9999.";
+      }
+      return "";
+    }
+
+    if (campo === "cpf") {
+      if (!valorTexto) return "CPF é obrigatório.";
+      if (!validarCPF(valorTexto)) {
+        return "Digite um CPF válido.";
+      }
+      return "";
+    }
+
     return "";
   };
 
-  const formatarCep = (valor) => {
-    const numeros = String(valor || "").replace(/\D/g, "").slice(0, 8);
-    if (numeros.length <= 5) return numeros;
-    return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
+  const errosCampos = useMemo(() => {
+    return {
+      nome: obterErroCampo("nome", dadosCliente.nome),
+      email: obterErroCampo("email", dadosCliente.email),
+      telefone: obterErroCampo("telefone", dadosCliente.telefone),
+      cpf: obterErroCampo("cpf", dadosCliente.cpf),
+    };
+  }, [dadosCliente]);
+
+  const formularioValido = useMemo(() => {
+    return (
+      !errosCampos.nome &&
+      !errosCampos.email &&
+      !errosCampos.telefone &&
+      !errosCampos.cpf
+    );
+  }, [errosCampos]);
+
+  const podePagar = useMemo(() => {
+    return (
+      formularioValido &&
+      carrinho.length > 0 &&
+      !!freteSelecionado &&
+      fretes.length > 0 &&
+      !carregandoPagamento
+    );
+  }, [
+    formularioValido,
+    carrinho.length,
+    freteSelecionado,
+    fretes.length,
+    carregandoPagamento,
+  ]);
+
+  const atualizarDadosCliente = (campo, valor) => {
+    let valorFormatado = valor;
+
+    if (campo === "telefone") {
+      valorFormatado = formatarTelefone(valor);
+    }
+
+    if (campo === "cpf") {
+      valorFormatado = formatarCPF(valor);
+    }
+
+    if (campo === "nome") {
+      valorFormatado = valor.replace(/\s+/g, " ");
+    }
+
+    setDadosCliente((anterior) => ({
+      ...anterior,
+      [campo]: valorFormatado,
+    }));
+  };
+
+  const marcarCampoComoTocado = (campo) => {
+    setCamposTocados((anterior) => ({
+      ...anterior,
+      [campo]: true,
+    }));
+  };
+
+  const marcarTodosCamposComoTocados = () => {
+    setCamposTocados({
+      nome: true,
+      email: true,
+      telefone: true,
+      cpf: true,
+    });
+  };
+
+  const dadosClienteValidos = () => {
+    if (errosCampos.nome) return errosCampos.nome;
+    if (errosCampos.email) return errosCampos.email;
+    if (errosCampos.telefone) return errosCampos.telefone;
+    if (errosCampos.cpf) return errosCampos.cpf;
+    return "";
   };
 
   const extrairOpcoesFrete = (payload) => {
@@ -126,7 +333,7 @@ console.log("API FRETE URL:", apiFreteUrl);
   const obterPrecoFrete = (opcao) =>
     Number(opcao?.price ?? opcao?.custom_price ?? opcao?.total_price ?? 0);
 
-  const mapearOpcaoFrete = (opcao, index) => {
+  const mapearOpcaoFrete = (opcao, index, recomendado = false) => {
     const nome =
       opcao.name ||
       opcao.service_description ||
@@ -147,7 +354,9 @@ console.log("API FRETE URL:", apiFreteUrl);
       chave: `${nome}-${index}`,
       nome,
       preco: obterPrecoFrete(opcao),
-      prazo: typeof prazoBruto === "number" ? `${prazoBruto} dia(s)` : String(prazoBruto),
+      prazo:
+        typeof prazoBruto === "number" ? `${prazoBruto} dia(s)` : String(prazoBruto),
+      recomendado,
     };
   };
 
@@ -163,6 +372,7 @@ console.log("API FRETE URL:", apiFreteUrl);
           nome: "Frete fixo de teste",
           preco: 0,
           prazo: "Teste",
+          recomendado: true,
         };
 
         setFretes([freteTeste]);
@@ -215,9 +425,13 @@ console.log("API FRETE URL:", apiFreteUrl);
         return;
       }
 
-      const opcoes = opcoesBrutas
-        .sort((a, b) => obterPrecoFrete(a) - obterPrecoFrete(b))
-        .map(mapearOpcaoFrete);
+      const opcoesOrdenadas = opcoesBrutas.sort(
+        (a, b) => obterPrecoFrete(a) - obterPrecoFrete(b)
+      );
+
+      const opcoes = opcoesOrdenadas.map((opcao, index) =>
+        mapearOpcaoFrete(opcao, index, index === 0)
+      );
 
       setFretes(opcoes);
       setFreteSelecionado(opcoes[0] || null);
@@ -235,6 +449,8 @@ console.log("API FRETE URL:", apiFreteUrl);
       return;
     }
 
+    marcarTodosCamposComoTocados();
+
     const erroDadosCliente = dadosClienteValidos();
 
     if (erroDadosCliente) {
@@ -242,8 +458,8 @@ console.log("API FRETE URL:", apiFreteUrl);
       return;
     }
 
-    if (!freteSelecionado) {
-      alert("Selecione um frete antes de continuar.");
+    if (!freteSelecionado || fretes.length === 0) {
+      alert("Calcule e selecione um frete antes de continuar.");
       return;
     }
 
@@ -255,7 +471,13 @@ console.log("API FRETE URL:", apiFreteUrl);
       const resumoPedido = {
         pedidoLocalId,
         criadoEm: new Date().toISOString(),
-        dadosCliente,
+        dadosCliente: {
+          ...dadosCliente,
+          nome: dadosCliente.nome.trim().replace(/\s+/g, " "),
+          email: dadosCliente.email.trim(),
+          telefone: dadosCliente.telefone.replace(/\D/g, ""),
+          cpf: dadosCliente.cpf.replace(/\D/g, ""),
+        },
         carrinho,
         cepDestino: cepDestino.replace(/\D/g, ""),
         freteSelecionado,
@@ -326,6 +548,13 @@ console.log("API FRETE URL:", apiFreteUrl);
     setFreteSelecionado(null);
     setFretes([]);
   };
+
+  const classeInput = (campo) =>
+    `w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-black ${
+      camposTocados[campo] && errosCampos[campo]
+        ? "border-red-500 bg-red-50"
+        : "border-zinc-300"
+    }`;
 
   return (
     <div className="min-h-screen bg-[#fcfcfc] px-4 py-8 text-zinc-900">
@@ -415,37 +644,63 @@ console.log("API FRETE URL:", apiFreteUrl);
               </p>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <input
-                  type="text"
-                  placeholder="Nome completo"
-                  value={dadosCliente.nome}
-                  onChange={(e) => atualizarDadosCliente("nome", e.target.value)}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                />
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Nome completo"
+                    value={dadosCliente.nome}
+                    onChange={(e) => atualizarDadosCliente("nome", e.target.value)}
+                    onBlur={() => marcarCampoComoTocado("nome")}
+                    className={classeInput("nome")}
+                  />
+                  {camposTocados.nome && errosCampos.nome && (
+                    <p className="mt-1 text-sm text-red-600">{errosCampos.nome}</p>
+                  )}
+                </div>
 
-                <input
-                  type="email"
-                  placeholder="E-mail"
-                  value={dadosCliente.email}
-                  onChange={(e) => atualizarDadosCliente("email", e.target.value)}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                />
+                <div>
+                  <input
+                    type="email"
+                    placeholder="E-mail"
+                    value={dadosCliente.email}
+                    onChange={(e) => atualizarDadosCliente("email", e.target.value)}
+                    onBlur={() => marcarCampoComoTocado("email")}
+                    className={classeInput("email")}
+                  />
+                  {camposTocados.email && errosCampos.email && (
+                    <p className="mt-1 text-sm text-red-600">{errosCampos.email}</p>
+                  )}
+                </div>
 
-                <input
-                  type="text"
-                  placeholder="Telefone / WhatsApp"
-                  value={dadosCliente.telefone}
-                  onChange={(e) => atualizarDadosCliente("telefone", e.target.value)}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                />
+                <div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Telefone / WhatsApp"
+                    value={dadosCliente.telefone}
+                    onChange={(e) => atualizarDadosCliente("telefone", e.target.value)}
+                    onBlur={() => marcarCampoComoTocado("telefone")}
+                    className={classeInput("telefone")}
+                  />
+                  {camposTocados.telefone && errosCampos.telefone && (
+                    <p className="mt-1 text-sm text-red-600">{errosCampos.telefone}</p>
+                  )}
+                </div>
 
-                <input
-                  type="text"
-                  placeholder="CPF (opcional)"
-                  value={dadosCliente.cpf}
-                  onChange={(e) => atualizarDadosCliente("cpf", e.target.value)}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                />
+                <div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="CPF"
+                    value={dadosCliente.cpf}
+                    onChange={(e) => atualizarDadosCliente("cpf", e.target.value)}
+                    onBlur={() => marcarCampoComoTocado("cpf")}
+                    className={classeInput("cpf")}
+                  />
+                  {camposTocados.cpf && errosCampos.cpf && (
+                    <p className="mt-1 text-sm text-red-600">{errosCampos.cpf}</p>
+                  )}
+                </div>
               </div>
             </section>
 
@@ -482,24 +737,38 @@ console.log("API FRETE URL:", apiFreteUrl);
                 <div className="mt-4 space-y-3">
                   {fretes.map((opcao) => (
                     <button
-                      key={opcao.chave}
-                      type="button"
-                      onClick={() => setFreteSelecionado(opcao)}
-                      className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition ${
-                        freteSelecionado?.chave === opcao.chave
-                          ? "border-black bg-zinc-100"
-                          : "border-zinc-200 bg-zinc-50"
-                      }`}
-                    >
-                      <div>
-                        <p className="font-semibold text-zinc-900">{opcao.nome}</p>
-                        <p className="text-sm text-zinc-600">Prazo: {opcao.prazo}</p>
-                      </div>
+  key={opcao.chave}
+  type="button"
+  onClick={() => setFreteSelecionado(opcao)}
+  className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all duration-300 ${
+    freteSelecionado?.chave === opcao.chave
+      ? "border-black bg-zinc-100"
+      : opcao.recomendado
+      ? "border-[#f4b400] bg-[#fffaf0] hover:bg-[#fff6db] hover:shadow-md hover:-translate-y-[1px] animate-[pulse_2.2s_ease-in-out_1]"
+      : "border-zinc-200 bg-zinc-50"
+  }`}
+>
+  <div>
+    <div className="flex items-center gap-2 flex-wrap">
+      <p className="font-semibold text-zinc-900">{opcao.nome}</p>
 
-                      <p className="font-bold text-zinc-900">
-                        {formatarMoeda(opcao.preco)}
-                      </p>
-                    </button>
+      {opcao.recomendado && (
+        <span className="inline-flex items-center gap-1 rounded-full border border-[#f4b400] bg-[#fff3c4] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#b38200] shadow-sm">
+          <span aria-hidden="true">⭐</span>
+          Recomendado
+        </span>
+      )}
+    </div>
+
+    <p className="mt-1 text-sm text-zinc-600">
+      Prazo: {opcao.prazo}
+    </p>
+  </div>
+
+  <p className="font-bold text-zinc-900">
+    {formatarMoeda(opcao.preco)}
+  </p>
+</button>
                   ))}
                 </div>
               )}
@@ -540,11 +809,23 @@ console.log("API FRETE URL:", apiFreteUrl);
             <button
               type="button"
               onClick={finalizarPedidoMercadoPago}
-              disabled={carregandoPagamento || carrinho.length === 0}
-              className="mt-6 w-full rounded-2xl bg-[#f4b400] px-5 py-3 font-bold text-black disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!podePagar}
+              className="mt-6 w-full rounded-2xl bg-[#009EE3] px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {carregandoPagamento ? "Redirecionando..." : "Pagar com Mercado Pago"}
             </button>
+
+            {!formularioValido && (
+              <p className="mt-2 text-sm text-red-600">
+                Preencha corretamente todos os dados do comprador para continuar.
+              </p>
+            )}
+
+            {formularioValido && !freteSelecionado && (
+              <p className="mt-2 text-sm text-red-600">
+                Calcule e selecione um frete para liberar o pagamento.
+              </p>
+            )}
 
             <a
               href="/#/"
