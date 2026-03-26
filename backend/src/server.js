@@ -274,6 +274,7 @@ app.post("/api/frete", async (req, res) => {
    CRIAR PREFERÊNCIA + SALVAR PEDIDO
 ========================= */
 app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
+  console.log("FRETE COMPLETO:", JSON.stringify(req.body.freteSelecionado, null, 2));
   console.log("ENTROU EM /api/pagamentos/criar-preferencia");
   console.log("BODY:", req.body);
 
