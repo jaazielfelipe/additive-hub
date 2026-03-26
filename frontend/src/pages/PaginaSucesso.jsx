@@ -24,7 +24,8 @@ export default function PaginaSucesso() {
       return;
     }
 
-    fetch(`http://localhost:3001/api/pedidos/${pedidoId}`)
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+fetch(`${apiBaseUrl}/api/pedidos/${pedidoId}`)
       .then(async (res) => {
         const data = await res.json();
 
