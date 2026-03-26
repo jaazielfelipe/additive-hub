@@ -403,6 +403,47 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
   }
 });
 
+app.post("/api/webhook", async (req, res) => {
+  try {
+    console.log("=== WEBHOOK RECEBIDO ===");
+    console.log("BODY:", JSON.stringify(req.body, null, 2));
+
+    const { type, data } = req.body || {};
+
+    if (type !== "payment") {
+      console.log("Tipo ignorado:", type);
+      return res.sendStatus(200);
+    }
+
+    const paymentId = data?.id;
+
+    if (!paymentId) {
+      console.log("Sem paymentId");
+      return res.sendStatus(200);
+    }
+
+    const response = await fetch(
+      `https://api.mercadopago.com/v1/payments/${paymentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        },
+      }
+    );
+
+    const pagamento = await response.json();
+
+    console.log("Pagamento completo:", JSON.stringify(pagamento, null, 2));
+    console.log("External reference:", pagamento.external_reference);
+    console.log("Status:", pagamento.status);
+
+    return res.sendStatus(200);
+  } catch (error) {
+    console.error("Erro webhook:", error);
+    return res.sendStatus(500);
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor de frete rodando em http://localhost:${PORT}`);
 });
