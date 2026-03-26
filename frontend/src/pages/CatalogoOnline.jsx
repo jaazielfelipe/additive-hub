@@ -442,23 +442,13 @@ export default function CatalogoOnline() {
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
   const [mostrarBarraCarrinhoMobile, setMostrarBarraCarrinhoMobile] = useState(false);
   const [selecoesVariacao, setSelecoesVariacao] = useState({});
-  const [cepDestino, setCepDestino] = useState("");
-  const [fretes, setFretes] = useState([]);
-  const [freteSelecionado, setFreteSelecionado] = useState(null);
-  const [carregandoFrete, setCarregandoFrete] = useState(false);
-  const [erroFrete, setErroFrete] = useState("");
-  const [carregandoPagamento, setCarregandoPagamento] = useState(false);
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
-  const MODO_TESTE_SEM_FRETE = true; // Defina como true para usar frete de teste sem chamadas à API
-  
-  const apiFreteUrl =
-    import.meta.env.VITE_FRETE_API_URL || "https://additive-hub.onrender.com/api/frete";
-  const apiPagamentoUrl =
-    import.meta.env.VITE_PAGAMENTO_API_URL ||
-    "https://additive-hub.onrender.com/api/pagamentos/criar-preferencia";
-    console.log("API PAGAMENTO:", apiPagamentoUrl);
+
+useEffect(() => {
+  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+}, [carrinho]);
 
   useEffect(() => {
     document.documentElement.lang = "pt-BR";
@@ -597,14 +587,6 @@ export default function CatalogoOnline() {
       (total, item) => total + item.preco * item.quantidade,
       0
     );
-  }, [carrinho]);
-
-  const totalComFrete = totalCarrinho + (freteSelecionado?.preco || 0);
-
-  useEffect(() => {
-    setFretes([]);
-    setFreteSelecionado(null);
-    setErroFrete("");
   }, [carrinho]);
 
   useEffect(() => {
@@ -753,230 +735,6 @@ export default function CatalogoOnline() {
       [nomeVariacao]: valor,
     }));
   };
-
-  const formatarCep = (valor) => {
-    const numeros = String(valor || "").replace(/\D/g, "").slice(0, 8);
-
-    if (numeros.length <= 5) return numeros;
-    return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
-  };
-
-  const extrairOpcoesFrete = (payload) => {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.data)) return payload.data;
-    if (Array.isArray(payload?.shipping_services)) return payload.shipping_services;
-    if (Array.isArray(payload?.services)) return payload.services;
-    return [];
-  };
-
-  const obterPrecoFrete = (opcao) =>
-    Number(opcao?.price ?? opcao?.custom_price ?? opcao?.total_price ?? 0);
-
-  const calcularFrete = async () => {
-  try {
-    setErroFrete("");
-    setFretes([]);
-    setFreteSelecionado(null);
-
-    if (MODO_TESTE_SEM_FRETE) {
-      const freteTeste = {
-        chave: "frete-teste",
-        nome: "Frete fixo de teste",
-        preco: 0,
-        prazo: "Teste",
-      };
-
-      setFretes([freteTeste]);
-      setFreteSelecionado(freteTeste);
-      return;
-    }
-
-    const cepLimpo = cepDestino.replace(/\D/g, "");
-
-    if (cepLimpo.length !== 8) {
-      setErroFrete("Digite um CEP válido com 8 números.");
-      return;
-    }
-
-    if (carrinho.length === 0) {
-      setErroFrete("Adicione produtos ao carrinho antes de calcular o frete.");
-      return;
-    }
-
-    setCarregandoFrete(true);
-
-    const response = await fetch(apiFreteUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cepDestino: cepLimpo,
-        carrinho,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      const mensagemErro =
-        data?.error ||
-        data?.message ||
-        data?.details?.message ||
-        "Não foi possível calcular o frete.";
-
-      setErroFrete(mensagemErro);
-      return;
-    }
-
-    const opcoes = extrairOpcoesFrete(data);
-
-    if (!Array.isArray(opcoes) || opcoes.length === 0) {
-      setErroFrete("Nenhuma opção de frete encontrada para esse CEP.");
-      return;
-    }
-
-    const opcoesOrdenadas = [...opcoes].sort(
-      (a, b) => obterPrecoFrete(a) - obterPrecoFrete(b)
-    );
-
-    const primeiraOpcao = opcoesOrdenadas[0];
-    const nomePrimeiraOpcao =
-      primeiraOpcao.name ||
-      primeiraOpcao.service_description ||
-      primeiraOpcao.service ||
-      primeiraOpcao.company?.name ||
-      "Opção 1";
-
-    const prazoPrimeiraOpcao =
-      primeiraOpcao.delivery_time ??
-      primeiraOpcao.delivery_range?.max ??
-      primeiraOpcao.delivery_range?.days ??
-      primeiraOpcao.delivery_days ??
-      primeiraOpcao.days ??
-      primeiraOpcao.prazo ??
-      "-";
-
-    setFretes(opcoesOrdenadas);
-    setFreteSelecionado({
-      chave: `${nomePrimeiraOpcao}-0`,
-      nome: nomePrimeiraOpcao,
-      preco: obterPrecoFrete(primeiraOpcao),
-      prazo:
-        typeof prazoPrimeiraOpcao === "number"
-          ? `${prazoPrimeiraOpcao} dia(s)`
-          : String(prazoPrimeiraOpcao),
-    });
-  } catch (error) {
-    setErroFrete("Erro ao calcular frete.");
-  } finally {
-    setCarregandoFrete(false);
-  }
-};
-
-  const finalizarPedidoWhatsApp = () => {
-    if (carrinho.length === 0) return;
-
-    const linhas = carrinho.map((item) => {
-      const subtotal = item.preco * item.quantidade;
-      const variacoesTexto =
-        item.resumoVariacoes?.length > 0
-          ? ` | ${item.resumoVariacoes
-              .map((variacao) => `${variacao.nome}: ${variacao.valor}`)
-              .join(" | ")}`
-          : "";
-
-      return `• ${item.nome} (ID:${item.id})${variacoesTexto} | Qtd: ${
-        item.quantidade
-      } | Unit: R$ ${item.preco.toFixed(2)} | Subtotal: R$ ${subtotal.toFixed(2)}`;
-    });
-
-    const freteTexto = freteSelecionado
-      ? [
-          `CEP: ${formatarCep(cepDestino)}`,
-          `Frete escolhido: ${freteSelecionado.nome}`,
-          `Prazo: ${freteSelecionado.prazo}`,
-          `Valor do frete: R$ ${freteSelecionado.preco.toFixed(2)}`,
-        ]
-      : ["Frete: combinar"];
-
-    const mensagem = [
-      "Olá! Tenho interesse nos seguintes produtos:",
-      "",
-      ...linhas,
-      "",
-      `Total de itens: ${totalItensCarrinho}`,
-      `Subtotal dos produtos: R$ ${totalCarrinho.toFixed(2)}`,
-      ...freteTexto,
-      `Total final: R$ ${totalComFrete.toFixed(2)}`,
-      "",
-      "Gostaria de finalizar esse pedido.",
-    ].join("\n");
-
-    const url = `https://wa.me/${whatsapp}?text=${encodeURIComponent(mensagem)}`;
-    window.open(url, "_blank");
-  };
-
- const finalizarPedidoMercadoPago = async () => {
-  if (carrinho.length === 0) {
-    alert("Seu carrinho está vazio.");
-    return;
-  }
-
-  if (!freteSelecionado) {
-    alert("Selecione um frete antes de continuar.");
-    return;
-  }
-
-  try {
-    setCarregandoPagamento(true);
-
-    const pedidoLocalId = `ADD-${Date.now()}`;
-
-    const resumoPedido = {
-      pedidoLocalId,
-      criadoEm: new Date().toISOString(),
-      carrinho,
-      cepDestino: cepDestino.replace(/\D/g, ""),
-      freteSelecionado,
-      totalItensCarrinho,
-      subtotalProdutos: totalCarrinho,
-      totalComFrete,
-    };
-
-    localStorage.setItem("ultimoPedidoAdditiveHub", JSON.stringify(resumoPedido));
-
-    const response = await fetch(apiPagamentoUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(resumoPedido),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data?.message ||
-        data?.error ||
-        "Não foi possível iniciar o pagamento."
-      );
-    }
-
-    if (data?.initPoint) {
-      window.location.href = data.initPoint;
-      return;
-    }
-
-    throw new Error("Erro ao iniciar pagamento.");
-  } catch (error) {
-    console.error("Erro pagamento:", error);
-    alert(error.message);
-  } finally {
-    setCarregandoPagamento(false);
-  }
-};
 
   const irParaCatalogo = () => {
     const secao = document.getElementById("catalogo");
@@ -1134,10 +892,20 @@ export default function CatalogoOnline() {
               </svg>
             </button>
 
+            <a
+  href="/#/acompanhar-pedido"
+  className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
+>
+  Acompanhar pedido
+</a>
+
             <motion.button
               ref={botaoCarrinhoRef}
               type="button"
-              onClick={() => setCarrinhoAberto(true)}
+              onClick={() => {
+  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+  window.location.href = "/#/checkout";
+}}
               animate={
                 carrinhoDestacado
                   ? { scale: [1, 1.12, 1], y: [0, -2, 0] }
@@ -1706,7 +1474,10 @@ export default function CatalogoOnline() {
             <div className="mx-auto flex max-w-md items-center gap-3">
               <motion.button
                 type="button"
-                onClick={() => setCarrinhoAberto(true)}
+                onClick={() => {
+  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+  window.location.href = "/#/checkout";
+}}
                 initial={{ scale: 0.96 }}
                 animate={{ scale: [1, 1.03, 1] }}
                 transition={{ duration: 0.35, ease: "easeOut" }}
@@ -1747,7 +1518,10 @@ export default function CatalogoOnline() {
           >
             <button
               type="button"
-              onClick={() => setCarrinhoAberto(true)}
+              onClick={() => {
+  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+  window.location.href = "/#/checkout";
+}}
               className="group flex items-center gap-3 rounded-full bg-[#f4b400] px-4 py-3 text-left text-black shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(0,0,0,0.22)]"
             >
               <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-white">
@@ -1762,7 +1536,7 @@ export default function CatalogoOnline() {
                   Ver carrinho
                 </span>
                 <span className="mt-1 block text-xs text-black/75">
-                  {totalItensCarrinho} item(ns) • R$ {totalComFrete.toFixed(2)}
+                  {totalItensCarrinho} item(ns) • R$ {totalCarrinho.toFixed(2)}
                 </span>
               </span>
             </button>
@@ -2251,6 +2025,7 @@ export default function CatalogoOnline() {
                                         R$ {preco.toFixed(2)}
                                       </p>
                                     </div>
+                                    
                                   </button>
                                 );
                               })}
@@ -2261,7 +2036,59 @@ export default function CatalogoOnline() {
                     </div>
                   </>
                 )}
+                <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5">
+  <h3 className="text-lg font-bold text-zinc-900">
+    Dados do comprador
+  </h3>
+
+  <p className="mt-1 text-sm text-zinc-600">
+    Preencha para concluir seu pedido
+  </p>
+
+  <div className="mt-4 grid gap-3 md:grid-cols-2">
+    <input
+      type="text"
+      placeholder="Nome completo"
+      value={dadosCliente.nome}
+      onChange={(e) =>
+        atualizarDadosCliente("nome", e.target.value)
+      }
+      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+    />
+
+    <input
+      type="email"
+      placeholder="E-mail"
+      value={dadosCliente.email}
+      onChange={(e) =>
+        atualizarDadosCliente("email", e.target.value)
+      }
+      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+    />
+
+    <input
+      type="text"
+      placeholder="Telefone / WhatsApp"
+      value={dadosCliente.telefone}
+      onChange={(e) =>
+        atualizarDadosCliente("telefone", e.target.value)
+      }
+      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+    />
+
+    <input
+      type="text"
+      placeholder="CPF (opcional)"
+      value={dadosCliente.cpf}
+      onChange={(e) =>
+        atualizarDadosCliente("cpf", e.target.value)
+      }
+      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+    />
+  </div>
+</div>
               </div>
+              
 
               <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4">
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -2287,6 +2114,7 @@ export default function CatalogoOnline() {
                   >
                     Pedir ajuda no WhatsApp
                   </button>
+                  
 
                   <button
                     type="button"
