@@ -7,14 +7,93 @@ function formatarMoeda(valor) {
   });
 }
 
+function somenteNumeros(valor) {
+  return String(valor || "").replace(/\D/g, "");
+}
+
+function formatarCPF(valor) {
+  const numeros = somenteNumeros(valor).slice(0, 11);
+
+  if (!numeros) return "";
+
+  if (numeros.length <= 3) return numeros;
+  if (numeros.length <= 6) return numeros.replace(/^(\d{3})(\d+)/, "$1.$2");
+  if (numeros.length <= 9) {
+    return numeros.replace(/^(\d{3})(\d{3})(\d+)/, "$1.$2.$3");
+  }
+
+  return numeros.replace(/^(\d{3})(\d{3})(\d{3})(\d{2}).*/, "$1.$2.$3-$4");
+}
+
+function identificarTipoBusca(valor) {
+  const texto = String(valor || "").trim();
+
+  if (!texto) return null;
+
+  if (texto.includes("@")) {
+    return "email";
+  }
+
+  const numeros = somenteNumeros(texto);
+
+  if (/^[\d.\-]+$/.test(texto) && numeros.length === 11) {
+    return "cpf";
+  }
+
+  return "pedido";
+}
+
+function normalizarValorBusca(valor, tipo) {
+  if (tipo === "cpf") return somenteNumeros(valor);
+  if (tipo === "email") return String(valor || "").trim().toLowerCase();
+  return String(valor || "").trim();
+}
+
+function obterMensagemTipo(valor) {
+  const texto = String(valor || "").trim();
+
+  if (!texto) return "";
+
+  if (texto.includes("@")) {
+    return "Busca identificada: e-mail";
+  }
+
+  const numeros = somenteNumeros(texto);
+
+  if (/^[\d.\-]+$/.test(texto) && numeros.length > 0 && numeros.length < 11) {
+    return "Digite o CPF completo ou continue informando o número do pedido.";
+  }
+
+  if (/^[\d.\-]+$/.test(texto) && numeros.length === 11) {
+    return "Busca identificada: CPF";
+  }
+
+  return "Busca identificada: número do pedido";
+}
+
 export default function AcompanharPedido() {
-  const [numeroPedido, setNumeroPedido] = useState("");
-  const [email, setEmail] = useState("");
+  const [busca, setBusca] = useState("");
   const [pedido, setPedido] = useState(null);
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [mensagemAjuda, setMensagemAjuda] = useState("");
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+  const handleBuscaChange = (e) => {
+    let valor = e.target.value;
+
+    const contemArroba = valor.includes("@");
+    const apenasDigitosMascara = /^[\d.\-]*$/.test(valor);
+    const numeros = somenteNumeros(valor);
+
+    if (!contemArroba && apenasDigitosMascara && numeros.length <= 11) {
+      valor = formatarCPF(valor);
+    }
+
+    setBusca(valor);
+    setMensagemAjuda(obterMensagemTipo(valor));
+  };
 
   const buscarPedido = async (e) => {
     e.preventDefault();
@@ -22,13 +101,24 @@ export default function AcompanharPedido() {
     setErro("");
     setPedido(null);
 
-    if (!numeroPedido.trim()) {
-      setErro("Digite o número do pedido.");
+    const valorDigitado = busca.trim();
+
+    if (!valorDigitado) {
+      setErro("Digite CPF, número do pedido ou e-mail.");
       return;
     }
 
-    if (!email.trim()) {
-      setErro("Digite o e-mail.");
+    const tipo = identificarTipoBusca(valorDigitado);
+
+    if (!tipo) {
+      setErro("Informe um CPF, número do pedido ou e-mail válido.");
+      return;
+    }
+
+    const valorNormalizado = normalizarValorBusca(valorDigitado, tipo);
+
+    if (tipo === "cpf" && valorNormalizado.length !== 11) {
+      setErro("Digite um CPF válido com 11 números.");
       return;
     }
 
@@ -36,9 +126,22 @@ export default function AcompanharPedido() {
       setCarregando(true);
 
       const params = new URLSearchParams({
-        id: numeroPedido.trim(),
-        email: email.trim(),
+        tipo,
+        valor: valorNormalizado,
       });
+
+      // compatibilidade com possíveis regras antigas do backend
+      if (tipo === "pedido") {
+        params.append("id", valorNormalizado);
+      }
+
+      if (tipo === "email") {
+        params.append("email", valorNormalizado);
+      }
+
+      if (tipo === "cpf") {
+        params.append("cpf", valorNormalizado);
+      }
 
       const response = await fetch(
         `${apiBaseUrl}/api/pedidos/acompanhar?${params.toString()}`
@@ -76,32 +179,35 @@ export default function AcompanharPedido() {
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
             Acompanhar pedido
           </p>
+
           <h1 className="mt-2 text-3xl font-bold">Consulte seu pedido</h1>
+
           <p className="mt-2 text-zinc-600">
-            Informe o número do pedido e o e-mail usado na compra.
+            Informe o CPF, número do pedido ou e-mail usado na compra.
           </p>
 
-          <form onSubmit={buscarPedido} className="mt-6 grid gap-4 md:grid-cols-[1fr_1fr_auto]">
-            <input
-              type="text"
-              placeholder="Número do pedido"
-              value={numeroPedido}
-              onChange={(e) => setNumeroPedido(e.target.value)}
-              className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-            />
+          <form
+            onSubmit={buscarPedido}
+            className="mt-6 grid gap-4 md:grid-cols-[1fr_auto]"
+          >
+            <div className="flex flex-col">
+              <input
+                type="text"
+                placeholder="Digite CPF, número do pedido ou e-mail"
+                value={busca}
+                onChange={handleBuscaChange}
+                className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+              />
 
-            <input
-              type="email"
-              placeholder="E-mail"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-            />
+              <span className="mt-2 min-h-[20px] text-xs text-zinc-500">
+                {mensagemAjuda}
+              </span>
+            </div>
 
             <button
               type="submit"
               disabled={carregando}
-              className="rounded-xl bg-[#f4b400] px-5 py-3 font-semibold text-black disabled:opacity-60"
+              className="h-fit rounded-xl bg-[#f4b400] px-5 py-3 font-semibold text-black disabled:opacity-60"
             >
               {carregando ? "Buscando..." : "Buscar"}
             </button>
@@ -182,9 +288,11 @@ export default function AcompanharPedido() {
                       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
                           <p className="text-base font-bold text-zinc-900">{item.nome}</p>
+
                           <p className="mt-2 text-sm text-zinc-600">
                             Quantidade: {item.quantidade}
                           </p>
+
                           <p className="mt-1 text-sm text-zinc-600">
                             Preço unitário: {formatarMoeda(item.preco)}
                           </p>
