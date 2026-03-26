@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { MercadoPagoConfig, Preference } from "mercadopago";
+import fs from "fs";
 
 dotenv.config();
 
@@ -22,6 +23,25 @@ const FRONT_URL = process.env.FRONT_URL || "http://localhost:5173";
 const mpClient = new MercadoPagoConfig({
   accessToken: MP_ACCESS_TOKEN,
 });
+const PEDIDOS_FILE = "./pedidos.json";
+
+function lerPedidos() {
+  try {
+    if (!fs.existsSync(PEDIDOS_FILE)) {
+      fs.writeFileSync(PEDIDOS_FILE, "[]");
+    }
+
+    const conteudo = fs.readFileSync(PEDIDOS_FILE, "utf-8");
+    return JSON.parse(conteudo || "[]");
+  } catch (error) {
+    console.error("Erro ao ler pedidos.json:", error);
+    return [];
+  }
+}
+
+function salvarPedidos(pedidos) {
+  fs.writeFileSync(PEDIDOS_FILE, JSON.stringify(pedidos, null, 2));
+}
 
 function num(valor, fallback = 0) {
   if (valor === null || valor === undefined || valor === "") return fallback;
@@ -347,11 +367,13 @@ app.post("/api/frete", async (req, res) => {
 
 app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
   try {
-    const { carrinho, freteSelecionado } = req.body || {};
+    const { carrinho, freteSelecionado, cepDestino } = req.body || {};
 
     if (!Array.isArray(carrinho) || carrinho.length === 0) {
       return res.status(400).json({ error: "Carrinho vazio." });
     }
+
+    const pedidoId = `pedido_${Date.now()}`;
 
     const items = carrinho.map((item) => ({
       id: String(item.id || item.nome),
@@ -371,25 +393,43 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       });
     }
 
+    const pedidos = lerPedidos();
+
+    pedidos.push({
+      id: pedidoId,
+      carrinho,
+      freteSelecionado: freteSelecionado || null,
+      cepDestino: cepDestino || null,
+      status: "pending",
+      payment_id: null,
+      status_detail: null,
+      metodo_pagamento: null,
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: null,
+    });
+
+    salvarPedidos(pedidos);
+
     const preference = new Preference(mpClient);
 
     const response = await preference.create({
-  body: {
-    items,
-    back_urls: {
-      success: "https://catalogo-additive-hub.vercel.app/pagamento/sucesso",
-      failure: "https://catalogo-additive-hub.vercel.app/pagamento/falha",
-      pending: "https://catalogo-additive-hub.vercel.app/pagamento/pendente",
-    },
-    notification_url: "https://additive-hub.onrender.com/api/webhook",
-    auto_return: "approved",
-    external_reference: `pedido_${Date.now()}`,
-  },
-});
+      body: {
+        items,
+        back_urls: {
+          success: "https://catalogo-additive-hub.vercel.app/pagamento/sucesso",
+          failure: "https://catalogo-additive-hub.vercel.app/pagamento/falha",
+          pending: "https://catalogo-additive-hub.vercel.app/pagamento/pendente",
+        },
+        notification_url: "https://additive-hub.onrender.com/api/webhook",
+        auto_return: "approved",
+        external_reference: pedidoId,
+      },
+    });
 
     return res.json({
       preferenceId: response.id,
       initPoint: response.init_point,
+      pedidoId,
     });
   } catch (error) {
     console.error("==== ERRO NO MERCADO PAGO ====");
@@ -436,6 +476,31 @@ app.post("/api/webhook", async (req, res) => {
     console.log("Pagamento completo:", JSON.stringify(pagamento, null, 2));
     console.log("External reference:", pagamento.external_reference);
     console.log("Status:", pagamento.status);
+
+    const pedidoId = pagamento.external_reference;
+
+    if (!pedidoId) {
+      console.log("Pagamento sem external_reference");
+      return res.sendStatus(200);
+    }
+
+    const pedidos = lerPedidos();
+    const pedido = pedidos.find((p) => p.id === pedidoId);
+
+    if (!pedido) {
+      console.log(`Pedido não encontrado: ${pedidoId}`);
+      return res.sendStatus(200);
+    }
+
+    pedido.status = pagamento.status;
+    pedido.payment_id = pagamento.id;
+    pedido.status_detail = pagamento.status_detail || null;
+    pedido.metodo_pagamento = pagamento.payment_method_id || null;
+    pedido.atualizadoEm = new Date().toISOString();
+
+    salvarPedidos(pedidos);
+
+    console.log(`Pedido ${pedidoId} atualizado para ${pagamento.status}`);
 
     return res.sendStatus(200);
   } catch (error) {
