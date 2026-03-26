@@ -416,9 +416,9 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       body: {
         items,
         back_urls: {
-  success: "https://additivehub.com.br/",
-  failure: "https://additivehub.com.br/",
-  pending: "https://additivehub.com.br/",
+  success: "https://additivehub.com.br/pagamento/sucesso",
+  failure: "https://additivehub.com.br/pagamento/falha",
+  pending: "https://additivehub.com.br/pagamento/pendente",
 },
 notification_url: "https://additive-hub.onrender.com/api/webhook",
 auto_return: "approved",
