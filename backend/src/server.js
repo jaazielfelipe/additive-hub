@@ -14,7 +14,7 @@ const SUPERFRETE_USER_AGENT = process.env.SUPERFRETE_USER_AGENT;
 const CEP_ORIGEM = process.env.CEP_ORIGEM;
 const SERVICES = "1,2,3,17";
 
-const SUPERFRETE_ENV = "sandbox"; // ou "production"
+const SUPERFRETE_ENV = "production"; // ou "production"
 
 const URLS = {
   sandbox: "https://sandbox.superfrete.com",
