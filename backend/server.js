@@ -374,18 +374,18 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
     const preference = new Preference(mpClient);
 
     const response = await preference.create({
-      body: {
-        items,
-        back_urls: {
-  success: "https://catalogo-additive-hub.vercel.app/pagamento/sucesso",
-  failure: "https://catalogo-additive-hub.vercel.app/pagamento/falha",
-  pending: "https://catalogo-additive-hub.vercel.app/pagamento/pendente",
-},
-        notification_url: "https://additive-hub.onrender.com/api/webhook",
-        auto_return: "approved",
-        external_reference: `pedido_${Date.now()}`,
-      },
-    });
+  body: {
+    items,
+    back_urls: {
+      success: "https://catalogo-additive-hub.vercel.app/pagamento/sucesso",
+      failure: "https://catalogo-additive-hub.vercel.app/pagamento/falha",
+      pending: "https://catalogo-additive-hub.vercel.app/pagamento/pendente",
+    },
+    notification_url: "https://additive-hub.onrender.com/api/webhook",
+    auto_return: "approved",
+    external_reference: `pedido_${Date.now()}`,
+  },
+});
 
     return res.json({
       preferenceId: response.id,
