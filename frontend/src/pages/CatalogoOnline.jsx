@@ -434,7 +434,6 @@ export default function CatalogoOnline() {
   const [produtoSelecionado, setProdutoSelecionado] = useState(null);
   const [imagemAtiva, setImagemAtiva] = useState(0);
   const [slideAtual, setSlideAtual] = useState(0);
-  const [carrinho, setCarrinho] = useState([]);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [categoriaMobileAberta, setCategoriaMobileAberta] = useState(null);
   const [animacoesCarrinho, setAnimacoesCarrinho] = useState([]);
@@ -445,6 +444,20 @@ export default function CatalogoOnline() {
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
+
+  const [carrinho, setCarrinho] = useState(() => {
+  try {
+    const carrinhoSalvo = localStorage.getItem("carrinhoAdditiveHub");
+    return carrinhoSalvo ? JSON.parse(carrinhoSalvo) : [];
+  } catch (error) {
+    console.error("Erro ao carregar carrinho:", error);
+    return [];
+  }
+});
+
+useEffect(() => {
+  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+}, [carrinho]);
 
 useEffect(() => {
   localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
@@ -904,7 +917,7 @@ useEffect(() => {
               type="button"
               onClick={() => {
   localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-  window.location.href = "/#/checkout";
+  window.location.href = "/#/carrinho";
 }}
               animate={
                 carrinhoDestacado
@@ -1476,7 +1489,7 @@ useEffect(() => {
                 type="button"
                 onClick={() => {
   localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-  window.location.href = "/#/checkout";
+  window.location.href = "/#/carrinho";
 }}
                 initial={{ scale: 0.96 }}
                 animate={{ scale: [1, 1.03, 1] }}
@@ -1520,7 +1533,7 @@ useEffect(() => {
               type="button"
               onClick={() => {
   localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-  window.location.href = "/#/checkout";
+  window.location.href = "/#/carrinho";
 }}
               className="group flex items-center gap-3 rounded-full bg-[#f4b400] px-4 py-3 text-left text-black shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(0,0,0,0.22)]"
             >
