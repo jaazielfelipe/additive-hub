@@ -33,6 +33,10 @@ export default function Carrinho() {
     try {
       const carrinhoSalvo = localStorage.getItem("carrinhoAdditiveHub");
       const cepSalvo = localStorage.getItem("cepDestinoAdditiveHub");
+      const freteSelecionadoSalvo = localStorage.getItem(
+        "freteSelecionadoAdditiveHub"
+      );
+      const fretesSalvos = localStorage.getItem("fretesAdditiveHub");
 
       if (carrinhoSalvo) {
         setCarrinho(JSON.parse(carrinhoSalvo));
@@ -42,9 +46,17 @@ export default function Carrinho() {
         setCepDestino(cepSalvo);
       }
 
-      setFretes([]);
-      setFreteSelecionado(null);
-      setFreteCalculado(false);
+      if (fretesSalvos) {
+        const listaFretes = JSON.parse(fretesSalvos);
+        if (Array.isArray(listaFretes)) {
+          setFretes(listaFretes);
+          setFreteCalculado(listaFretes.length > 0);
+        }
+      }
+
+      if (freteSelecionadoSalvo) {
+        setFreteSelecionado(JSON.parse(freteSelecionadoSalvo));
+      }
     } catch (error) {
       console.error("Erro ao carregar carrinho do localStorage:", error);
     }
@@ -98,6 +110,23 @@ export default function Carrinho() {
   const obterPrecoFrete = (opcao) =>
     Number(opcao?.price ?? opcao?.custom_price ?? opcao?.total_price ?? 0);
 
+  const mapearPacoteFrete = (opcao) => {
+    const pacote = Array.isArray(opcao?.packages) ? opcao.packages[0] : null;
+
+    if (!pacote) return null;
+
+    return {
+      format: pacote?.format || "box",
+      height: Number(pacote?.dimensions?.height || 0),
+      width: Number(pacote?.dimensions?.width || 0),
+      length: Number(pacote?.dimensions?.length || 0),
+      weight: Number(pacote?.weight || 0),
+      insurance_value: Number(pacote?.insurance_value || 0),
+      price: Number(pacote?.price || 0),
+      discount: Number(pacote?.discount || 0),
+    };
+  };
+
   const mapearOpcaoFrete = (opcao, index, recomendado = false) => {
     const nome =
       opcao.name ||
@@ -122,6 +151,13 @@ export default function Carrinho() {
       prazo:
         typeof prazoBruto === "number" ? `${prazoBruto} dia(s)` : String(prazoBruto),
       recomendado,
+      service: Number(opcao?.id || 0),
+      package: mapearPacoteFrete(opcao),
+      company: opcao?.company || null,
+      additional_services: opcao?.additional_services || null,
+      delivery_time: Number(opcao?.delivery_time || 0),
+      delivery_range: opcao?.delivery_range || null,
+      original: opcao,
     };
   };
 
@@ -148,6 +184,13 @@ export default function Carrinho() {
           preco: 0,
           prazo: "Teste",
           recomendado: true,
+          service: 0,
+          package: null,
+          company: null,
+          additional_services: null,
+          delivery_time: 0,
+          delivery_range: null,
+          original: null,
         };
 
         setFretes([freteTeste]);
@@ -201,13 +244,22 @@ export default function Carrinho() {
         return;
       }
 
-      const opcoesOrdenadas = opcoesBrutas.sort(
-        (a, b) => obterPrecoFrete(a) - obterPrecoFrete(b)
-      );
+      const opcoesOrdenadas = [...opcoesBrutas]
+        .filter((opcao) => !opcao?.has_error)
+        .sort((a, b) => obterPrecoFrete(a) - obterPrecoFrete(b));
 
       const opcoes = opcoesOrdenadas.map((opcao, index) =>
         mapearOpcaoFrete(opcao, index, index === 0)
       );
+
+      if (opcoes.length === 0) {
+        setErroFrete("Nenhuma opção de frete válida encontrada para esse CEP.");
+        return;
+      }
+
+      console.log("RESPOSTA COMPLETA DO FRETE:", data);
+      console.log("OPÇÕES MAPEADAS:", opcoes);
+      console.log("OPÇÃO ESCOLHIDA PADRÃO:", opcoes[0]);
 
       setFretes(opcoes);
       setFreteSelecionado(opcoes[0] || null);
@@ -256,6 +308,15 @@ export default function Carrinho() {
     if (!freteCalculado || !freteSelecionado) {
       alert("Clique em calcular frete antes de continuar.");
       return;
+    }
+
+    if (!MODO_TESTE_SEM_FRETE) {
+      if (!freteSelecionado?.service || !freteSelecionado?.package) {
+        alert(
+          "A opção de frete selecionada está incompleta. Calcule novamente o frete."
+        );
+        return;
+      }
     }
 
     window.location.href = "/#/checkout";
@@ -380,7 +441,10 @@ export default function Carrinho() {
                     <button
                       key={opcao.chave}
                       type="button"
-                      onClick={() => setFreteSelecionado(opcao)}
+                      onClick={() => {
+                        setFreteSelecionado(opcao);
+                        console.log("OPÇÃO DE FRETE SELECIONADA:", opcao);
+                      }}
                       className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all duration-300 ${
                         freteSelecionado?.chave === opcao.chave
                           ? "border-[#f4b400] bg-[#fff6db] shadow-md ring-1 ring-[#f4b400]/40"
@@ -390,7 +454,7 @@ export default function Carrinho() {
                       }`}
                     >
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-zinc-900">{opcao.nome}</p>
 
                           {freteSelecionado?.chave === opcao.chave && (
@@ -410,6 +474,12 @@ export default function Carrinho() {
                         <p className="mt-1 text-sm text-zinc-600">
                           Prazo: {opcao.prazo}
                         </p>
+
+                        {opcao?.company?.name ? (
+                          <p className="mt-1 text-xs text-zinc-500">
+                            Transportadora: {opcao.company.name}
+                          </p>
+                        ) : null}
                       </div>
 
                       <p className="font-bold text-zinc-900">

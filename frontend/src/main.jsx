@@ -10,6 +10,7 @@ import PaginaPendente from "./pages/PaginaPendente";
 import Checkout from "./pages/Checkout";
 import AcompanharPedido from "./pages/AcompanharPedido";
 import Carrinho from "./pages/Carrinho";
+import Painel from "./pages/Painel";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -22,6 +23,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/pagamento/sucesso" element={<PaginaSucesso />} />
         <Route path="/pagamento/falha" element={<PaginaFalha />} />
         <Route path="/pagamento/pendente" element={<PaginaPendente />} />
+        <Route path="/painel" element={<Painel />} />
+
       </Routes>
     </HashRouter>
   </React.StrictMode>
