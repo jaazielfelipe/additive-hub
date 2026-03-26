@@ -2121,6 +2121,7 @@ export default function CatalogoOnline() {
                           <span>{totalItensCarrinho} item(ns)</span>
                           <span>Subtotal: R$ {totalCarrinho.toFixed(2)}</span>
                         </div>
+                        
 
                         <div className="flex items-center justify-between text-sm text-zinc-600">
                           <span>Frete</span>
