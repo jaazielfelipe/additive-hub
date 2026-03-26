@@ -550,39 +550,73 @@ app.post("/api/webhook", async (req, res) => {
 /* =========================
    ACOMPANHAR PEDIDO
 ========================= */
-app.get("/api/pedidos/acompanhar", (req, res) => {
+app.get("/api/pedidos/acompanhar", async (req, res) => {
   try {
-    const { id, email } = req.query;
+    const { tipo, valor, id, email, cpf } = req.query;
 
-    if (!id || !email) {
+    let pedido = null;
+
+    // 🔥 NOVA LÓGICA FLEXÍVEL
+
+    if (tipo === "pedido" || id) {
+      const numeroPedido = valor || id;
+
+      if (!numeroPedido) {
+        return res.status(400).json({
+          error: "Informe o número do pedido."
+        });
+      }
+
+      pedido = await Pedido.findOne({ id: numeroPedido });
+    }
+
+    else if (tipo === "email" || email) {
+      const emailBusca = (valor || email)?.toLowerCase();
+
+      if (!emailBusca) {
+        return res.status(400).json({
+          error: "Informe um e-mail válido."
+        });
+      }
+
+      pedido = await Pedido.findOne({ "dadosCliente.email": emailBusca })
+        .sort({ createdAt: -1 }); // pega o mais recente
+    }
+
+    else if (tipo === "cpf" || cpf) {
+      const cpfBusca = (valor || cpf)?.replace(/\D/g, "");
+
+      if (!cpfBusca || cpfBusca.length !== 11) {
+        return res.status(400).json({
+          error: "Informe um CPF válido."
+        });
+      }
+
+      pedido = await Pedido.findOne({ "dadosCliente.cpf": cpfBusca })
+        .sort({ createdAt: -1 });
+    }
+
+    else {
       return res.status(400).json({
-        error: "Informe o número do pedido e o e-mail.",
+        error: "Informe CPF, número do pedido ou e-mail."
       });
     }
 
-    const pedidos = lerPedidos();
-
-    const pedido = pedidos.find(
-      (p) =>
-        (String(p.id || "").trim() === String(id || "").trim() ||
-          String(p.pedidoLocalId || "").trim() === String(id || "").trim()) &&
-        String(p?.dadosCliente?.email || "").trim().toLowerCase() ===
-          String(email || "").trim().toLowerCase()
-    );
-
+    // ❌ não encontrado
     if (!pedido) {
       return res.status(404).json({
-        error: "Pedido não encontrado.",
+        error: "Pedido não encontrado."
       });
     }
 
+    // ✅ retorno
     return res.json(pedido);
-  } catch (error) {
-    console.error("Erro ao acompanhar pedido:", error);
+
+  } catch (err) {
+    console.error(err);
 
     return res.status(500).json({
-      error: "Erro ao buscar pedido.",
-      message: error.message,
+      error: "Erro ao buscar pedido."
     });
   }
 });
