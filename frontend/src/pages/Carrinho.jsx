@@ -20,6 +20,7 @@ export default function Carrinho() {
   const [freteSelecionado, setFreteSelecionado] = useState(null);
   const [carregandoFrete, setCarregandoFrete] = useState(false);
   const [erroFrete, setErroFrete] = useState("");
+  const [freteCalculado, setFreteCalculado] = useState(false);
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const apiFreteUrl =
@@ -32,7 +33,6 @@ export default function Carrinho() {
     try {
       const carrinhoSalvo = localStorage.getItem("carrinhoAdditiveHub");
       const cepSalvo = localStorage.getItem("cepDestinoAdditiveHub");
-      const freteSalvo = localStorage.getItem("freteSelecionadoAdditiveHub");
 
       if (carrinhoSalvo) {
         setCarrinho(JSON.parse(carrinhoSalvo));
@@ -42,9 +42,9 @@ export default function Carrinho() {
         setCepDestino(cepSalvo);
       }
 
-      if (freteSalvo) {
-        setFreteSelecionado(JSON.parse(freteSalvo));
-      }
+      setFretes([]);
+      setFreteSelecionado(null);
+      setFreteCalculado(false);
     } catch (error) {
       console.error("Erro ao carregar carrinho do localStorage:", error);
     }
@@ -64,6 +64,14 @@ export default function Carrinho() {
       localStorage.removeItem("freteSelecionadoAdditiveHub");
     }
   }, [freteSelecionado]);
+
+  useEffect(() => {
+    if (fretes.length > 0) {
+      localStorage.setItem("fretesAdditiveHub", JSON.stringify(fretes));
+    } else {
+      localStorage.removeItem("fretesAdditiveHub");
+    }
+  }, [fretes]);
 
   const totalItensCarrinho = useMemo(() => {
     return carrinho.reduce((total, item) => total + Number(item.quantidade || 0), 0);
@@ -117,11 +125,21 @@ export default function Carrinho() {
     };
   };
 
+  const invalidarFrete = () => {
+    setFreteSelecionado(null);
+    setFretes([]);
+    setFreteCalculado(false);
+    setErroFrete("");
+    localStorage.removeItem("freteSelecionadoAdditiveHub");
+    localStorage.removeItem("fretesAdditiveHub");
+  };
+
   const calcularFrete = async () => {
     try {
       setErroFrete("");
       setFretes([]);
       setFreteSelecionado(null);
+      setFreteCalculado(false);
 
       if (MODO_TESTE_SEM_FRETE) {
         const freteTeste = {
@@ -134,6 +152,7 @@ export default function Carrinho() {
 
         setFretes([freteTeste]);
         setFreteSelecionado(freteTeste);
+        setFreteCalculado(true);
         return;
       }
 
@@ -192,9 +211,11 @@ export default function Carrinho() {
 
       setFretes(opcoes);
       setFreteSelecionado(opcoes[0] || null);
+      setFreteCalculado(true);
     } catch (error) {
       console.error("Erro ao calcular frete:", error);
       setErroFrete("Erro ao calcular frete.");
+      setFreteCalculado(false);
     } finally {
       setCarregandoFrete(false);
     }
@@ -209,8 +230,7 @@ export default function Carrinho() {
 
     setCarrinho(atualizado);
     localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(atualizado));
-    setFreteSelecionado(null);
-    setFretes([]);
+    invalidarFrete();
   };
 
   const diminuirQuantidade = (itemCarrinho) => {
@@ -224,8 +244,7 @@ export default function Carrinho() {
 
     setCarrinho(atualizado);
     localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(atualizado));
-    setFreteSelecionado(null);
-    setFretes([]);
+    invalidarFrete();
   };
 
   const irParaCheckout = () => {
@@ -234,8 +253,8 @@ export default function Carrinho() {
       return;
     }
 
-    if (!freteSelecionado) {
-      alert("Calcule e selecione um frete antes de continuar.");
+    if (!freteCalculado || !freteSelecionado) {
+      alert("Clique em calcular frete antes de continuar.");
       return;
     }
 
@@ -334,7 +353,10 @@ export default function Carrinho() {
                   type="text"
                   placeholder="CEP"
                   value={cepDestino}
-                  onChange={(e) => setCepDestino(formatarCep(e.target.value))}
+                  onChange={(e) => {
+                    setCepDestino(formatarCep(e.target.value));
+                    invalidarFrete();
+                  }}
                   className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
                 />
 
@@ -361,17 +383,23 @@ export default function Carrinho() {
                       onClick={() => setFreteSelecionado(opcao)}
                       className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all duration-300 ${
                         freteSelecionado?.chave === opcao.chave
-                          ? "border-black bg-zinc-100"
+                          ? "border-[#f4b400] bg-[#fff6db] shadow-md ring-1 ring-[#f4b400]/40"
                           : opcao.recomendado
-                          ? "border-[#f4b400] bg-[#fffaf0] hover:bg-[#fff6db] hover:shadow-md hover:-translate-y-[1px] animate-[pulse_2.2s_ease-in-out_1]"
-                          : "border-zinc-200 bg-zinc-50"
+                          ? "border-[#f4b400] bg-[#fffaf0] hover:bg-[#fff6db] hover:shadow-md hover:-translate-y-[1px]"
+                          : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100"
                       }`}
                     >
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-zinc-900">{opcao.nome}</p>
 
-                          {opcao.recomendado && (
+                          {freteSelecionado?.chave === opcao.chave && (
+                            <span className="inline-flex items-center rounded-full bg-[#f4b400] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-black shadow-sm">
+                              ✓ Selecionado
+                            </span>
+                          )}
+
+                          {opcao.recomendado && freteSelecionado?.chave !== opcao.chave && (
                             <span className="inline-flex items-center gap-1 rounded-full border border-[#f4b400] bg-[#fff3c4] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#b38200] shadow-sm">
                               <span aria-hidden="true">⭐</span>
                               Recomendado
@@ -428,15 +456,21 @@ export default function Carrinho() {
             <button
               type="button"
               onClick={irParaCheckout}
-              disabled={!freteSelecionado || carrinho.length === 0}
+              disabled={!freteCalculado || !freteSelecionado || carrinho.length === 0}
               className="mt-6 w-full rounded-2xl bg-[#f4b400] px-5 py-3 font-bold text-black disabled:cursor-not-allowed disabled:opacity-60"
             >
               Ir para checkout
             </button>
 
-            {!freteSelecionado && carrinho.length > 0 && (
+            {!freteCalculado && carrinho.length > 0 && (
               <p className="mt-2 text-sm text-red-600">
-                Calcule e selecione um frete para continuar.
+                Clique em “Calcular frete” para continuar.
+              </p>
+            )}
+
+            {freteCalculado && !freteSelecionado && carrinho.length > 0 && (
+              <p className="mt-2 text-sm text-red-600">
+                Selecione uma opção de frete para continuar.
               </p>
             )}
 
