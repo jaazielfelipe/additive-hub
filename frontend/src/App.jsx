@@ -447,17 +447,25 @@ export default function CatalogoOnline() {
   const [freteSelecionado, setFreteSelecionado] = useState(null);
   const [carregandoFrete, setCarregandoFrete] = useState(false);
   const [erroFrete, setErroFrete] = useState("");
+  const [carregandoPagamento, setCarregandoPagamento] = useState(false);
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
+  const MODO_TESTE_SEM_FRETE =
+  import.meta.env.VITE_MODO_TESTE_SEM_FRETE === "true";
+  
   const apiFreteUrl =
-    import.meta.env.VITE_FRETE_API_URL || "http://localhost:3001/api/frete";
+    import.meta.env.VITE_FRETE_API_URL || "https://additive-hub.onrender.com/api/frete";
+  const apiPagamentoUrl =
+    import.meta.env.VITE_PAGAMENTO_API_URL ||
+    "https://additive-hub.onrender.com/api/pagamentos/criar-preferencia";
 
   useEffect(() => {
     document.documentElement.lang = "pt-BR";
     document.documentElement.setAttribute("translate", "no");
     document.body.setAttribute("translate", "no");
   }, []);
+
 
   useEffect(() => {
     const html = document.documentElement;
@@ -765,93 +773,106 @@ export default function CatalogoOnline() {
     Number(opcao?.price ?? opcao?.custom_price ?? opcao?.total_price ?? 0);
 
   const calcularFrete = async () => {
-    try {
-      setErroFrete("");
-      setFretes([]);
-      setFreteSelecionado(null);
+  try {
+    setErroFrete("");
+    setFretes([]);
+    setFreteSelecionado(null);
 
-      const cepLimpo = cepDestino.replace(/\D/g, "");
+    if (MODO_TESTE_SEM_FRETE) {
+      const freteTeste = {
+        chave: "frete-teste",
+        nome: "Frete fixo de teste",
+        preco: 0,
+        prazo: "Teste",
+      };
 
-      if (cepLimpo.length !== 8) {
-        setErroFrete("Digite um CEP válido com 8 números.");
-        return;
-      }
-
-      if (carrinho.length === 0) {
-        setErroFrete("Adicione produtos ao carrinho antes de calcular o frete.");
-        return;
-      }
-
-      setCarregandoFrete(true);
-
-      const response = await fetch(apiFreteUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          cepDestino: cepLimpo,
-          carrinho,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const mensagemErro =
-          data?.error ||
-          data?.message ||
-          data?.details?.message ||
-          "Não foi possível calcular o frete.";
-
-        setErroFrete(mensagemErro);
-        return;
-      }
-
-      const opcoes = extrairOpcoesFrete(data);
-
-      if (!Array.isArray(opcoes) || opcoes.length === 0) {
-        setErroFrete("Nenhuma opção de frete encontrada para esse CEP.");
-        return;
-      }
-
-      const opcoesOrdenadas = [...opcoes].sort(
-        (a, b) => obterPrecoFrete(a) - obterPrecoFrete(b)
-      );
-
-      const primeiraOpcao = opcoesOrdenadas[0];
-      const nomePrimeiraOpcao =
-        primeiraOpcao.name ||
-        primeiraOpcao.service_description ||
-        primeiraOpcao.service ||
-        primeiraOpcao.company?.name ||
-        "Opção 1";
-
-      const prazoPrimeiraOpcao =
-        primeiraOpcao.delivery_time ??
-        primeiraOpcao.delivery_range?.max ??
-        primeiraOpcao.delivery_range?.days ??
-        primeiraOpcao.delivery_days ??
-        primeiraOpcao.days ??
-        primeiraOpcao.prazo ??
-        "-";
-
-      setFretes(opcoesOrdenadas);
-      setFreteSelecionado({
-        chave: `${nomePrimeiraOpcao}-0`,
-        nome: nomePrimeiraOpcao,
-        preco: obterPrecoFrete(primeiraOpcao),
-        prazo:
-          typeof prazoPrimeiraOpcao === "number"
-            ? `${prazoPrimeiraOpcao} dia(s)`
-            : String(prazoPrimeiraOpcao),
-      });
-    } catch (error) {
-      setErroFrete("Erro ao calcular frete.");
-    } finally {
-      setCarregandoFrete(false);
+      setFretes([freteTeste]);
+      setFreteSelecionado(freteTeste);
+      return;
     }
-  };
+
+    const cepLimpo = cepDestino.replace(/\D/g, "");
+
+    if (cepLimpo.length !== 8) {
+      setErroFrete("Digite um CEP válido com 8 números.");
+      return;
+    }
+
+    if (carrinho.length === 0) {
+      setErroFrete("Adicione produtos ao carrinho antes de calcular o frete.");
+      return;
+    }
+
+    setCarregandoFrete(true);
+
+    const response = await fetch(apiFreteUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        cepDestino: cepLimpo,
+        carrinho,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const mensagemErro =
+        data?.error ||
+        data?.message ||
+        data?.details?.message ||
+        "Não foi possível calcular o frete.";
+
+      setErroFrete(mensagemErro);
+      return;
+    }
+
+    const opcoes = extrairOpcoesFrete(data);
+
+    if (!Array.isArray(opcoes) || opcoes.length === 0) {
+      setErroFrete("Nenhuma opção de frete encontrada para esse CEP.");
+      return;
+    }
+
+    const opcoesOrdenadas = [...opcoes].sort(
+      (a, b) => obterPrecoFrete(a) - obterPrecoFrete(b)
+    );
+
+    const primeiraOpcao = opcoesOrdenadas[0];
+    const nomePrimeiraOpcao =
+      primeiraOpcao.name ||
+      primeiraOpcao.service_description ||
+      primeiraOpcao.service ||
+      primeiraOpcao.company?.name ||
+      "Opção 1";
+
+    const prazoPrimeiraOpcao =
+      primeiraOpcao.delivery_time ??
+      primeiraOpcao.delivery_range?.max ??
+      primeiraOpcao.delivery_range?.days ??
+      primeiraOpcao.delivery_days ??
+      primeiraOpcao.days ??
+      primeiraOpcao.prazo ??
+      "-";
+
+    setFretes(opcoesOrdenadas);
+    setFreteSelecionado({
+      chave: `${nomePrimeiraOpcao}-0`,
+      nome: nomePrimeiraOpcao,
+      preco: obterPrecoFrete(primeiraOpcao),
+      prazo:
+        typeof prazoPrimeiraOpcao === "number"
+          ? `${prazoPrimeiraOpcao} dia(s)`
+          : String(prazoPrimeiraOpcao),
+    });
+  } catch (error) {
+    setErroFrete("Erro ao calcular frete.");
+  } finally {
+    setCarregandoFrete(false);
+  }
+};
 
   const finalizarPedidoWhatsApp = () => {
     if (carrinho.length === 0) return;
@@ -895,6 +916,60 @@ export default function CatalogoOnline() {
     const url = `https://wa.me/${whatsapp}?text=${encodeURIComponent(mensagem)}`;
     window.open(url, "_blank");
   };
+
+  const finalizarPedidoMercadoPago = async () => {
+  if (carrinho.length === 0) {
+    alert("Seu carrinho está vazio.");
+    return;
+  }
+
+  if (!freteSelecionado) {
+    alert("Selecione um frete antes de continuar.");
+    return;
+  }
+
+  try {
+    setCarregandoPagamento(true);
+
+    const response = await fetch(apiPagamentoUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        carrinho,
+        cepDestino: cepDestino.replace(/\D/g, ""),
+        freteSelecionado,
+        totalItensCarrinho,
+        subtotalProdutos: totalCarrinho,
+        totalComFrete,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+        data?.error ||
+        "Não foi possível iniciar o pagamento."
+      );
+    }
+
+    // 🔥 REDIRECIONAMENTO DIRETO (CORRETO)
+    if (data?.initPoint) {
+      window.location.href = data.initPoint;
+      return;
+    }
+
+    throw new Error("Erro ao iniciar pagamento.");
+  } catch (error) {
+    console.error("Erro pagamento:", error);
+    alert(error.message);
+  } finally {
+    setCarregandoPagamento(false);
+  }
+};
 
   const irParaCatalogo = () => {
     const secao = document.getElementById("catalogo");
@@ -2199,10 +2274,19 @@ export default function CatalogoOnline() {
                   <button
                     type="button"
                     onClick={finalizarPedidoWhatsApp}
-                    disabled={carrinho.length === 0 || !freteSelecionado}
-                    className="flex-1 rounded-2xl bg-[#25D366] px-5 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={carrinho.length === 0}
+                    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Finalizar no WhatsApp
+                    Pedir ajuda no WhatsApp
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={finalizarPedidoMercadoPago}
+                    disabled={carrinho.length === 0 || !freteSelecionado || carregandoPagamento}
+                    className="flex-1 rounded-2xl bg-[#009ee3] px-5 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {carregandoPagamento ? "Iniciando pagamento..." : "Pagar com Mercado Pago"}
                   </button>
                 </div>
               </div>
