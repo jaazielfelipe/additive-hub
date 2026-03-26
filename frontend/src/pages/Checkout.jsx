@@ -101,6 +101,7 @@ function validarNomeCompleto(nome) {
 
 export default function Checkout() {
   const [carrinho, setCarrinho] = useState([]);
+
   const [dadosCliente, setDadosCliente] = useState({
     nome: "",
     email: "",
@@ -108,11 +109,22 @@ export default function Checkout() {
     cpf: "",
   });
 
+  const [enderecoEntrega, setEnderecoEntrega] = useState({
+    cep: "",
+    rua: "",
+    bairro: "",
+    cidade: "",
+    estado: "",
+    numero: "",
+    complemento: "",
+  });
+
   const [camposTocados, setCamposTocados] = useState({
     nome: false,
     email: false,
     telefone: false,
     cpf: false,
+    numero: false,
   });
 
   const [cepDestino, setCepDestino] = useState("");
@@ -147,6 +159,16 @@ export default function Checkout() {
           telefone: formatarTelefone(dados?.telefone || ""),
           cpf: formatarCPF(dados?.cpf || ""),
         });
+
+        setEnderecoEntrega({
+          cep: dados?.enderecoEntrega?.cep || "",
+          rua: dados?.enderecoEntrega?.rua || "",
+          bairro: dados?.enderecoEntrega?.bairro || "",
+          cidade: dados?.enderecoEntrega?.cidade || "",
+          estado: dados?.enderecoEntrega?.estado || "",
+          numero: dados?.enderecoEntrega?.numero || "",
+          complemento: dados?.enderecoEntrega?.complemento || "",
+        });
       }
 
       if (cepSalvo) {
@@ -166,8 +188,43 @@ export default function Checkout() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("dadosClienteAdditiveHub", JSON.stringify(dadosCliente));
-  }, [dadosCliente]);
+    const cepLimpo = String(cepDestino || "").replace(/\D/g, "");
+
+    if (cepLimpo.length !== 8) return;
+
+    setEnderecoEntrega((anterior) => ({
+      ...anterior,
+      cep: cepLimpo,
+    }));
+
+    fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.erro) {
+          setEnderecoEntrega((anterior) => ({
+            ...anterior,
+            cep: cepLimpo,
+            rua: data.logradouro || "",
+            bairro: data.bairro || "",
+            cidade: data.localidade || "",
+            estado: data.uf || "",
+          }));
+        }
+      })
+      .catch((error) => {
+        console.error("Erro ao buscar CEP:", error);
+      });
+  }, [cepDestino]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "dadosClienteAdditiveHub",
+      JSON.stringify({
+        ...dadosCliente,
+        enderecoEntrega,
+      })
+    );
+  }, [dadosCliente, enderecoEntrega]);
 
   const totalItensCarrinho = useMemo(() => {
     return carrinho.reduce((total, item) => total + Number(item.quantidade || 0), 0);
@@ -218,6 +275,11 @@ export default function Checkout() {
       return "";
     }
 
+    if (campo === "numero") {
+      if (!valorTexto) return "Número da residência é obrigatório.";
+      return "";
+    }
+
     return "";
   };
 
@@ -227,15 +289,17 @@ export default function Checkout() {
       email: obterErroCampo("email", dadosCliente.email),
       telefone: obterErroCampo("telefone", dadosCliente.telefone),
       cpf: obterErroCampo("cpf", dadosCliente.cpf),
+      numero: obterErroCampo("numero", enderecoEntrega.numero),
     };
-  }, [dadosCliente]);
+  }, [dadosCliente, enderecoEntrega.numero]);
 
   const formularioValido = useMemo(() => {
     return (
       !errosCampos.nome &&
       !errosCampos.email &&
       !errosCampos.telefone &&
-      !errosCampos.cpf
+      !errosCampos.cpf &&
+      !errosCampos.numero
     );
   }, [errosCampos]);
 
@@ -269,6 +333,13 @@ export default function Checkout() {
     }));
   };
 
+  const atualizarEnderecoEntrega = (campo, valor) => {
+    setEnderecoEntrega((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
+  };
+
   const marcarCampoComoTocado = (campo) => {
     setCamposTocados((anterior) => ({
       ...anterior,
@@ -282,6 +353,7 @@ export default function Checkout() {
       email: true,
       telefone: true,
       cpf: true,
+      numero: true,
     });
   };
 
@@ -290,6 +362,7 @@ export default function Checkout() {
     if (errosCampos.email) return errosCampos.email;
     if (errosCampos.telefone) return errosCampos.telefone;
     if (errosCampos.cpf) return errosCampos.cpf;
+    if (errosCampos.numero) return errosCampos.numero;
     return "";
   };
 
@@ -328,8 +401,14 @@ export default function Checkout() {
           telefone: dadosCliente.telefone.replace(/\D/g, ""),
           cpf: dadosCliente.cpf.replace(/\D/g, ""),
         },
+        enderecoEntrega: {
+          ...enderecoEntrega,
+          cep: String(cepDestino || "").replace(/\D/g, ""),
+          numero: String(enderecoEntrega.numero || "").trim(),
+          complemento: String(enderecoEntrega.complemento || "").trim(),
+        },
         carrinho,
-        cepDestino: cepDestino.replace(/\D/g, ""),
+        cepDestino: String(cepDestino || "").replace(/\D/g, ""),
         freteSelecionado,
         totalItensCarrinho,
         subtotalProdutos,
@@ -399,7 +478,7 @@ export default function Checkout() {
                 Preencha para concluir seu pedido.
               </p>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="mt-4 space-y-3">
                 <div>
                   <input
                     type="text"
@@ -434,12 +513,16 @@ export default function Checkout() {
                     inputMode="numeric"
                     placeholder="Telefone / WhatsApp"
                     value={dadosCliente.telefone}
-                    onChange={(e) => atualizarDadosCliente("telefone", e.target.value)}
+                    onChange={(e) =>
+                      atualizarDadosCliente("telefone", e.target.value)
+                    }
                     onBlur={() => marcarCampoComoTocado("telefone")}
                     className={classeInput("telefone")}
                   />
                   {camposTocados.telefone && errosCampos.telefone && (
-                    <p className="mt-1 text-sm text-red-600">{errosCampos.telefone}</p>
+                    <p className="mt-1 text-sm text-red-600">
+                      {errosCampos.telefone}
+                    </p>
                   )}
                 </div>
 
@@ -456,6 +539,97 @@ export default function Checkout() {
                   {camposTocados.cpf && errosCampos.cpf && (
                     <p className="mt-1 text-sm text-red-600">{errosCampos.cpf}</p>
                   )}
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-bold">Dados de entrega</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Endereço preenchido automaticamente com base no CEP informado na
+                etapa anterior.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <input
+                    type="text"
+                    value={cepDestino}
+                    disabled
+                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                    placeholder="CEP"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={enderecoEntrega.rua}
+                    disabled
+                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                    placeholder="Rua"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={enderecoEntrega.bairro}
+                    disabled
+                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                    placeholder="Bairro"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={enderecoEntrega.cidade}
+                    disabled
+                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                    placeholder="Cidade"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={enderecoEntrega.estado}
+                    disabled
+                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                    placeholder="Estado"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Número da residência"
+                    value={enderecoEntrega.numero}
+                    onChange={(e) =>
+                      atualizarEnderecoEntrega("numero", e.target.value)
+                    }
+                    onBlur={() => marcarCampoComoTocado("numero")}
+                    className={classeInput("numero")}
+                  />
+                  {camposTocados.numero && errosCampos.numero && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errosCampos.numero}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Complemento (opcional)"
+                    value={enderecoEntrega.complemento}
+                    onChange={(e) =>
+                      atualizarEnderecoEntrega("complemento", e.target.value)
+                    }
+                    className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                  />
                 </div>
               </div>
             </section>
@@ -506,7 +680,7 @@ export default function Checkout() {
 
             {tentouPagar && !formularioValido && (
               <p className="mt-2 text-sm text-red-600">
-                Preencha corretamente os dados do comprador.
+                Preencha corretamente os dados do comprador e da entrega.
               </p>
             )}
 
