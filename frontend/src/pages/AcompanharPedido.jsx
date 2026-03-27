@@ -140,6 +140,15 @@ function CardPedido({ pedido }) {
   const valorFrete = calcularFrete(pedido);
   const totalFinal = calcularTotalFinal(pedido);
 
+  const endereco = pedido?.enderecoEntrega || {};
+  const rua = endereco?.rua || endereco?.logradouro || endereco?.endereco || "-";
+  const numero = endereco?.numero || "-";
+  const complemento = endereco?.complemento || "";
+  const bairro = endereco?.bairro || "-";
+  const cidade = endereco?.cidade || "-";
+  const estado = endereco?.estado || "-";
+  const cep = endereco?.cep || pedido?.cepDestino || "-";
+
   return (
     <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -148,7 +157,7 @@ function CardPedido({ pedido }) {
           <p className="mt-2 text-sm text-zinc-600">
             Pedido:{" "}
             <span className="font-semibold text-zinc-900">
-              {pedido?.id || "-"}
+              {pedido?.id || pedido?.pedidoLocalId || "-"}
             </span>
           </p>
         </div>
@@ -189,7 +198,7 @@ function CardPedido({ pedido }) {
             Prazo: {pedido?.freteSelecionado?.prazo || "-"}
           </p>
           <p className="mt-1 text-sm text-zinc-600">
-            CEP: {pedido?.cepDestino || "-"}
+            CEP: {pedido?.cepDestino || endereco?.cep || "-"}
           </p>
         </div>
       </div>
@@ -211,6 +220,16 @@ function CardPedido({ pedido }) {
                     {item?.tamanho && <p>Tamanho: {item.tamanho}</p>}
                     {item?.cor && <p>Cor: {item.cor}</p>}
                     <p>Quantidade: {item?.quantidade || 0}</p>
+
+                    {item?.resumoVariacoes?.length > 0 && (
+                      <div className="mt-1">
+                        {item.resumoVariacoes.map((v, index) => (
+                          <p key={`${item.id || item.nome}-${v.nome || index}`}>
+                            {v.nome}: {v.valor}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -236,19 +255,15 @@ function CardPedido({ pedido }) {
           </p>
 
           <div className="mt-2 text-sm text-zinc-700">
-            <p>{pedido?.enderecoEntrega?.logradouro || "-"}</p>
+            <p>{rua}</p>
             <p>
-              {pedido?.enderecoEntrega?.numero || "-"}
-              {pedido?.enderecoEntrega?.complemento
-                ? ` - ${pedido.enderecoEntrega.complemento}`
-                : ""}
+              {numero}
+              {complemento ? ` - ${complemento}` : ""}
             </p>
             <p>
-              {pedido?.enderecoEntrega?.bairro || "-"} -{" "}
-              {pedido?.enderecoEntrega?.cidade || "-"} /{" "}
-              {pedido?.enderecoEntrega?.estado || "-"}
+              {bairro} - {cidade} / {estado}
             </p>
-            <p>CEP: {pedido?.enderecoEntrega?.cep || pedido?.cepDestino || "-"}</p>
+            <p>CEP: {cep}</p>
           </div>
         </div>
 
@@ -258,6 +273,20 @@ function CardPedido({ pedido }) {
           </p>
 
           <div className="mt-3 space-y-2 text-sm text-zinc-700">
+            <div className="flex items-center justify-between">
+              <span>Status</span>
+              <span className="font-medium">
+                {obterStatusTraduzido(pedido?.status)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span>Pagamento</span>
+              <span className="font-medium">
+                {pedido?.metodo_pagamento || "Mercado Pago"}
+              </span>
+            </div>
+
             <div className="flex items-center justify-between">
               <span>Produtos</span>
               <span>{formatarMoeda(totalProdutos)}</span>
@@ -276,7 +305,7 @@ function CardPedido({ pedido }) {
         </div>
       </div>
 
-      {pedido?.pagamento && (
+      {(pedido?.payment_id || pedido?.metodo_pagamento) && (
         <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Pagamento
@@ -284,10 +313,16 @@ function CardPedido({ pedido }) {
 
           <div className="mt-2 grid gap-2 text-sm text-zinc-700 md:grid-cols-2">
             <p>
-              Método: <span className="font-medium">{pedido?.pagamento?.metodo || "-"}</span>
+              Método:{" "}
+              <span className="font-medium">
+                {pedido?.metodo_pagamento || "Mercado Pago"}
+              </span>
             </p>
             <p>
-              Status: <span className="font-medium">{obterStatusTraduzido(pedido?.status)}</span>
+              Status:{" "}
+              <span className="font-medium">
+                {obterStatusTraduzido(pedido?.status)}
+              </span>
             </p>
           </div>
         </div>
@@ -355,7 +390,6 @@ export default function AcompanharPedido() {
         valor: valorNormalizado,
       });
 
-      // compatibilidade com possíveis regras antigas do backend
       if (tipo === "pedido") {
         params.append("id", valorNormalizado);
       }
@@ -442,9 +476,9 @@ export default function AcompanharPedido() {
           {!erro && pedidos.length > 0 && (
             <div className="mt-8 space-y-6">
               {(identificarTipoBusca(busca) === "cpf" ||
-                identificarTipoBusca(busca) === "email") && (
+                identificarTipoBusca(busca) === "email") && pedidos.length > 1 && (
                 <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-                  {pedidos.length} pedido{pedidos.length > 1 ? "s encontrados" : " encontrado"} para{" "}
+                  {pedidos.length} pedidos encontrados para{" "}
                   <span className="font-semibold">
                     {identificarTipoBusca(busca) === "cpf"
                       ? "o CPF informado"
@@ -454,7 +488,7 @@ export default function AcompanharPedido() {
               )}
 
               {pedidos.map((pedido, index) => (
-                <div key={pedido?.id || index}>
+                <div key={pedido?.id || pedido?.pedidoLocalId || index}>
                   <CardPedido pedido={pedido} />
                 </div>
               ))}

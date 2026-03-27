@@ -23,42 +23,43 @@ function formatarData(data) {
 function normalizarStatus(status) {
   const valor = String(status || "").toLowerCase().trim();
 
-  if (valor === "recebido") return "chegou";
-  if (valor === "chegou") return "chegou";
+  if (valor === "recebido") return "a_emitir";
+  if (valor === "chegou") return "a_emitir";
+  if (valor === "a_emitir") return "a_emitir";
   if (valor === "emitido") return "emitido";
   if (valor === "enviado") return "enviado";
 
-  return "chegou";
+  return "a_emitir";
 }
 
 function tituloStatus(status) {
-  if (status === "chegou") return "Pedidos a emitir";
+  if (status === "a_emitir") return "Pedidos a emitir";
   if (status === "emitido") return "Pedidos emitidos";
   if (status === "enviado") return "Pedidos enviados";
   return "Pedidos";
 }
 
 function corStatus(status) {
-  if (status === "chegou") return "bg-amber-100 text-amber-800 border-amber-200";
+  if (status === "a_emitir") return "bg-amber-100 text-amber-800 border-amber-200";
   if (status === "emitido") return "bg-blue-100 text-blue-800 border-blue-200";
   if (status === "enviado") return "bg-emerald-100 text-emerald-800 border-emerald-200";
   return "bg-zinc-100 text-zinc-700 border-zinc-200";
 }
 
 function proximoStatus(status) {
-  if (status === "chegou") return "emitido";
+  if (status === "a_emitir") return "emitido";
   if (status === "emitido") return "enviado";
   return null;
 }
 
 function statusAnterior(status) {
   if (status === "enviado") return "emitido";
-  if (status === "emitido") return "chegou";
+  if (status === "emitido") return "a_emitir";
   return null;
 }
 
 function nomeBotaoAvancar(status) {
-  if (status === "chegou") return "Marcar como emitido";
+  if (status === "a_emitir") return "Marcar como emitido";
   if (status === "emitido") return "Marcar como enviado";
   return "";
 }
@@ -174,7 +175,7 @@ function PedidoCard({
               statusOperacional
             )}`}
           >
-            {statusOperacional === "chegou" && "Chegou"}
+            {statusOperacional === "a_emitir" && "A emitir"}
             {statusOperacional === "emitido" && "Emitido"}
             {statusOperacional === "enviado" && "Enviado"}
           </span>
@@ -680,11 +681,11 @@ export default function Painel() {
     });
   }, [pedidos, busca]);
 
-  const pedidosChegaram = useMemo(
+  const pedidosAEmitir = useMemo(
     () =>
       pedidosFiltrados.filter(
         (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status) === "chegou"
+          normalizarStatus(pedido.statusInterno || pedido.status) === "a_emitir"
       ),
     [pedidosFiltrados]
   );
@@ -752,7 +753,7 @@ export default function Painel() {
           <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 shadow-sm">
             <p className="text-sm text-amber-700">A emitir</p>
             <p className="mt-2 text-3xl font-black text-amber-900">
-              {pedidosChegaram.length}
+              {pedidosAEmitir.length}
             </p>
           </div>
 
@@ -796,9 +797,9 @@ export default function Painel() {
         {!carregando && !erro && (
           <div className="grid gap-6 xl:grid-cols-3">
             <ColunaPedidos
-              titulo={tituloStatus("novo")}
-              pedidos={pedidosChegaram}
-              status="chegou"
+              titulo={tituloStatus("a_emitir")}
+              pedidos={pedidosAEmitir}
+              status="a_emitir"
               atualizandoId={atualizandoId}
               gerandoEtiquetaId={gerandoEtiquetaId}
               emitindoEtiquetaId={emitindoEtiquetaId}
