@@ -14,14 +14,11 @@ const SUPERFRETE_USER_AGENT = process.env.SUPERFRETE_USER_AGENT;
 const CEP_ORIGEM = process.env.CEP_ORIGEM;
 const SERVICES = "1,2,3,17";
 
-const SUPERFRETE_ENV = "production"; // ou "production"
-
-const URLS = {
-  sandbox: "https://sandbox.superfrete.com",
-  production: "https://api.superfrete.com",
-};
-
-const SUPERFRETE_BASE_URL = URLS[SUPERFRETE_ENV];
+const SUPERFRETE_ENV = process.env.SUPERFRETE_ENV || "production";
+const SUPERFRETE_BASE_URL =
+  SUPERFRETE_ENV === "sandbox"
+    ? "https://sandbox.superfrete.com"
+    : "https://api.superfrete.com";
 
 const REMETENTE = {
   name: process.env.REMETENTE_NOME || "",
