@@ -122,16 +122,17 @@ function construirMensagemConfirmacao(pedido) {
     : "- Itens do pedido";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso ✅`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso \u2705`,
     "",
     "Já estamos preparando tudo para a confecção.",
-    "O prazo é de *3 dias úteis* para produção.",
+    "",
+    "O prazo para envio é de *3 dias úteis*.",
     "",
     "*Resumo do pedido:*",
     resumoItens,
     "",
     "Assim que avançarmos para a próxima etapa, avisaremos você.",
-    "Obrigado pela preferência 💛",
+    "Obrigado pela preferência \uD83D\uDC9B",
   ].join("\n");
 }
 
@@ -141,12 +142,12 @@ function construirMensagemEmbalando(pedido) {
   const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
 
   return [
-    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem 📦`,
+    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem \uD83D\uDCE6`,
     "",
-    "Estamos preparando tudo com cuidado para envio.",
-    "Assim que houver a próxima atualização, avisaremos você.",
+    "Estamos preparando tudo com carinho e cuidado para você.",
+    "Assim que houver a próxima atualização, avisaremos por aqui.",
     "",
-    "Obrigado pela preferência 💛",
+    "Obrigado pela preferência \uD83D\uDC9B",
   ].join("\n");
 }
 
