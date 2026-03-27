@@ -907,7 +907,7 @@ useEffect(() => {
 
             <a
   href="/#/acompanhar-pedido"
-  className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
+  className="hidden lg:inline-flex rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
 >
   Acompanhar pedido
 </a>
@@ -968,22 +968,22 @@ useEffect(() => {
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
               <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-4">
-                <div>
-                  <p className="text-lg font-bold text-zinc-900">Categorias</p>
-                  <p className="text-sm text-zinc-500">Explore o catálogo</p>
-                </div>
+  <div>
+    <p className="text-lg font-bold text-zinc-900">Categorias</p>
+    <p className="text-sm text-zinc-500">Explore o catálogo</p>
+  </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuMobileAberto(false);
-                    setCategoriaMobileAberta(null);
-                  }}
-                  className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800"
-                >
-                  Fechar
-                </button>
-              </div>
+  <a
+    href="/#/acompanhar-pedido"
+    onClick={() => {
+      setMenuMobileAberto(false);
+      setCategoriaMobileAberta(null);
+    }}
+    className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+  >
+    Acompanhar Pedido
+  </a>
+</div>
 
               <div className="p-3">
                 <button
@@ -1071,12 +1071,14 @@ useEffect(() => {
                             >
                               {item}
                             </button>
+                            
                           ))}
                         </div>
                       )}
                     </div>
                   );
                 })}
+                
               </div>
             </motion.div>
           </motion.div>
