@@ -42,15 +42,6 @@ const NOTIFICATION_URL =
   process.env.NOTIFICATION_URL ||
   "https://additive-hub.onrender.com/api/webhook";
 
-console.log("FRONT_URL:", FRONT_URL);
-console.log("SUPERFRETE_BASE_URL:", SUPERFRETE_BASE_URL);
-
-console.log("SUPERFRETE_ENV:", SUPERFRETE_ENV);
-console.log("SUPERFRETE_BASE_URL:", SUPERFRETE_BASE_URL);
-console.log("TOKEN EXISTS:", !!SUPERFRETE_TOKEN);
-console.log("TOKEN LENGTH:", SUPERFRETE_TOKEN?.length);
-console.log("TOKEN START:", SUPERFRETE_TOKEN?.slice(0, 12));
-
 app.use(cors());
 app.use(express.json());
 
@@ -985,6 +976,10 @@ async function conectarMongo() {
   await mongoose.connect(MONGODB_URI);
   console.log("MongoDB conectado com sucesso.");
 }
+
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true });
+});
 
 conectarMongo()
   .then(() => {
