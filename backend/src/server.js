@@ -931,7 +931,14 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
         });
       }
 
-      return res.json({ pedido });
+      return res.json({
+  pedido: {
+    ...pedido.toObject(),
+    descontoCupom: Number(pedido?.descontoCupom || 0),
+    cupomAplicado: pedido?.cupomAplicado || null,
+    totalComFrete: Number(pedido?.totalComFrete || 0),
+  },
+});
     }
 
     if (tipo === "email" || email) {
@@ -953,7 +960,14 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
         });
       }
 
-      return res.json({ pedidos });
+      return res.json({
+  pedidos: pedidos.map((pedido) => ({
+    ...pedido.toObject(),
+    descontoCupom: Number(pedido?.descontoCupom || 0),
+    cupomAplicado: pedido?.cupomAplicado || null,
+    totalComFrete: Number(pedido?.totalComFrete || 0),
+  })),
+});
     }
 
     if (tipo === "cpf" || cpf) {
@@ -975,7 +989,14 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
         });
       }
 
-      return res.json({ pedidos });
+      return res.json({
+  pedidos: pedidos.map((pedido) => ({
+    ...pedido.toObject(),
+    descontoCupom: Number(pedido?.descontoCupom || 0),
+    cupomAplicado: pedido?.cupomAplicado || null,
+    totalComFrete: Number(pedido?.totalComFrete || 0),
+  })),
+});
     }
 
     return res.status(400).json({
