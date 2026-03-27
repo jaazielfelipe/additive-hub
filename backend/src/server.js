@@ -856,16 +856,28 @@ app.post("/api/pedidos/:id/gerar-etiqueta", async (req, res) => {
     );
 
     const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/cart`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
-        "User-Agent": SUPERFRETE_USER_AGENT,
-      },
-      body: JSON.stringify(payloadEtiqueta),
-    });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
+    "User-Agent": SUPERFRETE_USER_AGENT,
+  },
+  body: JSON.stringify(payloadEtiqueta),
+});
 
-    const data = await superfreteResponse.json();
+// 👇 captura resposta bruta (IMPORTANTE)
+const raw = await superfreteResponse.text();
+
+console.log("STATUS GERAR ETIQUETA:", superfreteResponse.status);
+console.log("RAW GERAR ETIQUETA:", raw);
+
+// tenta converter para JSON
+let data;
+try {
+  data = JSON.parse(raw);
+} catch {
+  data = raw;
+}
 
     console.log(
       "RESPOSTA GERAR ETIQUETA:",
