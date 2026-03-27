@@ -377,7 +377,7 @@ app.post("/api/frete", async (req, res) => {
       CEP_ORIGEM,
     });
 
-    const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v2/calculator`, {
+    const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/calculator`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -931,7 +931,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
       JSON.stringify(payloadEtiqueta, null, 2)
     );
 
-    const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v1/cart`, {
+    const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/cart`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
