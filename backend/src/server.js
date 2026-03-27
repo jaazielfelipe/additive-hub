@@ -377,7 +377,7 @@ app.post("/api/frete", async (req, res) => {
       CEP_ORIGEM,
     });
 
-    const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v1/shipping/calculate`, {
+    const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v2/calculator`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
