@@ -1,0 +1,34 @@
+/**
+ * Cadastro central de cupons
+ *
+ * Edite SOMENTE este arquivo para:
+ * - criar novos cupons
+ * - ativar/desativar
+ * - alterar datas
+ * - alterar regras
+ */
+
+const CUPONS = {
+  PRIMEIRA5: {
+    codigo: "PRIMEIRA5",
+    tipo: "percentual", // percentual | fixo | frete
+    valor: 5,
+    ativo: true,
+    dataInicio: "2026-01-01",
+    dataFim: "2026-12-31",
+    valorMinimoPedido: 50,
+  },
+
+
+  FRETEGRATIS: {
+    codigo: "FRETEGRATIS",
+    tipo: "frete",
+    valor: 0,
+    ativo: true,
+    dataInicio: "2026-01-01",
+    dataFim: "2026-12-31",
+    valorMinimoPedido: 200,
+  },
+};
+
+export default CUPONS;

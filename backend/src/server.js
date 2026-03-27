@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import Pedido from "../models/Pedido.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import CUPONS from "../config/cupons.js";
 
 dotenv.config();
 
@@ -52,6 +53,294 @@ const ADMIN_SENHA_HASH =
   "$2b$10$FZpZqA7fNOz3Alngpik6LOPMt5kjrNn9XFT9qevj4I571PbQLGCNu";
 
 const JWT_SECRET = process.env.JWT_SECRET || "troque-essa-chave-forte";
+
+app.use(cors());
+app.use(express.json());
+
+const mpClient = new MercadoPagoConfig({
+  accessToken: MP_ACCESS_TOKEN,
+});
+
+function num(valor, fallback = 0) {
+  if (valor === null || valor === undefined || valor === "") return fallback;
+  const convertido = Number(String(valor).replace(",", "."));
+  return Number.isFinite(convertido) ? convertido : fallback;
+}
+
+function arredondar(valor) {
+  return Math.round((Number(valor) + Number.EPSILON) * 100) / 100;
+}
+
+function paraCentavos(valor) {
+  return Math.round(Number(valor || 0) * 100);
+}
+
+function deCentavos(valor) {
+  return Number((Number(valor || 0) / 100).toFixed(2));
+}
+
+function criarDataInicio(dataString) {
+  return new Date(`${dataString}T00:00:00`);
+}
+
+function criarDataFim(dataString) {
+  return new Date(`${dataString}T23:59:59`);
+}
+
+function sanitizarString(valor) {
+  return String(valor || "").trim();
+}
+
+function normalizarStatusInterno(statusInterno) {
+  const valor = String(statusInterno || "").trim().toLowerCase();
+
+  if (valor === "chegou") return "chegou";
+  if (valor === "emitido") return "emitido";
+  if (valor === "enviado") return "enviado";
+
+  return "chegou";
+}
+
+function validarRemetente() {
+  const obrigatorios = [
+    "name",
+    "phone",
+    "email",
+    "document",
+    "address",
+    "number",
+    "district",
+    "city",
+    "state_abbr",
+    "postal_code",
+  ];
+
+  const faltando = obrigatorios.filter(
+    (campo) => !sanitizarString(REMETENTE[campo])
+  );
+
+  return {
+    valido: faltando.length === 0,
+    faltando,
+  };
+}
+
+function obterEtiquetaUrl(data) {
+  return (
+    data?.label_url ||
+    data?.url ||
+    data?.pdf ||
+    data?.label ||
+    data?.print_url ||
+    data?.tracking_url ||
+    ""
+  );
+}
+
+function obterCodigoRastreio(data) {
+  return (
+    data?.tracking ||
+    data?.tracking_code ||
+    data?.code ||
+    data?.trackingCode ||
+    ""
+  );
+}
+
+function calcularSubtotalCarrinho(carrinho = []) {
+  return arredondar(
+    carrinho.reduce(
+      (total, item) =>
+        total + Number(item.preco || 0) * Number(item.quantidade || 1),
+      0
+    )
+  );
+}
+
+function obterCodigoCupomDoBody(body = {}) {
+  if (typeof body.cupomCodigo === "string") {
+    return body.cupomCodigo;
+  }
+
+  if (typeof body.cupom === "string") {
+    return body.cupom;
+  }
+
+  if (body.cupom && typeof body.cupom.codigo === "string") {
+    return body.cupom.codigo;
+  }
+
+  if (body.cupomAplicado && typeof body.cupomAplicado.codigo === "string") {
+    return body.cupomAplicado.codigo;
+  }
+
+  return "";
+}
+
+function validarCupom({ codigo, subtotal, frete }) {
+  const codigoNormalizado = String(codigo || "").trim().toUpperCase();
+  const subtotalNumero = Number(subtotal || 0);
+  const freteNumero = Number(frete || 0);
+
+  if (!codigoNormalizado) {
+    throw new Error("Digite um cupom.");
+  }
+
+  const cupom = CUPONS[codigoNormalizado];
+
+  if (!cupom) {
+    throw new Error("Cupom inválido.");
+  }
+
+  if (!cupom.ativo) {
+    throw new Error("Cupom inativo.");
+  }
+
+  const agora = new Date();
+
+  if (cupom.dataInicio) {
+    const inicio = criarDataInicio(cupom.dataInicio);
+    if (agora < inicio) {
+      throw new Error("Este cupom ainda não está disponível.");
+    }
+  }
+
+  if (cupom.dataFim) {
+    const fim = criarDataFim(cupom.dataFim);
+    if (agora > fim) {
+      throw new Error("Cupom expirado.");
+    }
+  }
+
+  if (subtotalNumero < Number(cupom.valorMinimoPedido || 0)) {
+    throw new Error(
+      `Cupom disponível apenas para pedidos acima de R$ ${Number(
+        cupom.valorMinimoPedido || 0
+      ).toFixed(2)}.`
+    );
+  }
+
+  let desconto = 0;
+
+  if (cupom.tipo === "percentual") {
+    desconto = subtotalNumero * (Number(cupom.valor || 0) / 100);
+  }
+
+  if (cupom.tipo === "fixo") {
+    desconto = Number(cupom.valor || 0);
+  }
+
+  if (cupom.tipo === "frete") {
+    desconto = freteNumero;
+  }
+
+  desconto = Math.min(desconto, subtotalNumero + freteNumero);
+  desconto = arredondar(desconto);
+
+  const totalComDesconto = arredondar(
+    subtotalNumero + freteNumero - desconto
+  );
+
+  return {
+    codigo: cupom.codigo,
+    tipo: cupom.tipo,
+    valor: cupom.valor,
+    desconto,
+    subtotal: arredondar(subtotalNumero),
+    frete: arredondar(freteNumero),
+    totalComDesconto,
+    dataInicio: cupom.dataInicio || null,
+    dataFim: cupom.dataFim || null,
+    valorMinimoPedido: Number(cupom.valorMinimoPedido || 0),
+  };
+}
+
+function criarItensBasePedido(carrinho = [], freteSelecionado = null) {
+  const itens = carrinho.map((item) => ({
+    id: String(item.id || item.nome || "produto"),
+    title: item.nome || "Produto",
+    quantity: Number(item.quantidade || 1),
+    unit_price: Number(item.preco || 0),
+    currency_id: "BRL",
+  }));
+
+  if (freteSelecionado) {
+    itens.push({
+      id: "frete",
+      title: `Frete - ${freteSelecionado.nome || "Entrega"}`,
+      quantity: 1,
+      unit_price: Number(freteSelecionado.preco || 0),
+      currency_id: "BRL",
+    });
+  }
+
+  return itens;
+}
+
+function aplicarDescontoNosItens(items = [], desconto = 0) {
+  const descontoCentavos = paraCentavos(desconto);
+
+  if (!Array.isArray(items) || items.length === 0 || descontoCentavos <= 0) {
+    return items;
+  }
+
+  const linhas = items.map((item) => {
+    const quantity = Math.max(1, Number(item.quantity || 1));
+    const unitPrice = Number(item.unit_price || 0);
+    const totalCentavos = paraCentavos(unitPrice * quantity);
+
+    return {
+      ...item,
+      quantity,
+      unit_price: unitPrice,
+      totalCentavos,
+    };
+  });
+
+  const totalBrutoCentavos = linhas.reduce(
+    (acc, item) => acc + item.totalCentavos,
+    0
+  );
+
+  if (totalBrutoCentavos <= 0) {
+    return items;
+  }
+
+  const descontoFinalCentavos = Math.min(descontoCentavos, totalBrutoCentavos);
+
+  let descontoDistribuido = 0;
+
+  const linhasComDesconto = linhas.map((item, index) => {
+    let descontoLinha = 0;
+
+    if (index === linhas.length - 1) {
+      descontoLinha = descontoFinalCentavos - descontoDistribuido;
+    } else {
+      descontoLinha = Math.floor(
+        (descontoFinalCentavos * item.totalCentavos) / totalBrutoCentavos
+      );
+      descontoDistribuido += descontoLinha;
+    }
+
+    descontoLinha = Math.min(descontoLinha, item.totalCentavos);
+
+    const totalFinalCentavos = Math.max(0, item.totalCentavos - descontoLinha);
+    const unitPriceFinal = Number(
+      (totalFinalCentavos / 100 / item.quantity).toFixed(2)
+    );
+
+    return {
+      id: item.id,
+      title: item.title,
+      quantity: item.quantity,
+      unit_price: unitPriceFinal,
+      currency_id: item.currency_id || "BRL",
+    };
+  });
+
+  return linhasComDesconto;
+}
+
 function autenticarAdmin(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -85,19 +374,6 @@ function autenticarAdmin(req, res, next) {
       error: "Não autorizado.",
     });
   }
-}
-
-app.use(cors());
-app.use(express.json());
-
-const mpClient = new MercadoPagoConfig({
-  accessToken: MP_ACCESS_TOKEN,
-});
-
-function num(valor, fallback = 0) {
-  if (valor === null || valor === undefined || valor === "") return fallback;
-  const convertido = Number(String(valor).replace(",", "."));
-  return Number.isFinite(convertido) ? convertido : fallback;
 }
 
 function montarPacoteUnico(carrinho) {
@@ -215,64 +491,6 @@ function montarPacoteUnico(carrinho) {
     width: melhor.pacote.width,
     height: melhor.pacote.height,
   };
-}
-
-function normalizarStatusInterno(statusInterno) {
-  const valor = String(statusInterno || "").trim().toLowerCase();
-
-  if (valor === "chegou") return "chegou";
-  if (valor === "emitido") return "emitido";
-  if (valor === "enviado") return "enviado";
-
-  return "chegou";
-}
-
-function sanitizarString(valor) {
-  return String(valor || "").trim();
-}
-
-function validarRemetente() {
-  const obrigatorios = [
-    "name",
-    "phone",
-    "email",
-    "document",
-    "address",
-    "number",
-    "district",
-    "city",
-    "state_abbr",
-    "postal_code",
-  ];
-
-  const faltando = obrigatorios.filter((campo) => !sanitizarString(REMETENTE[campo]));
-
-  return {
-    valido: faltando.length === 0,
-    faltando,
-  };
-}
-
-function obterEtiquetaUrl(data) {
-  return (
-    data?.label_url ||
-    data?.url ||
-    data?.pdf ||
-    data?.label ||
-    data?.print_url ||
-    data?.tracking_url ||
-    ""
-  );
-}
-
-function obterCodigoRastreio(data) {
-  return (
-    data?.tracking ||
-    data?.tracking_code ||
-    data?.code ||
-    data?.trackingCode ||
-    ""
-  );
 }
 
 app.get("/", (req, res) => {
@@ -396,7 +614,10 @@ app.post("/api/frete", async (req, res) => {
     const raw = await freteResponse.text();
 
     console.log("STATUS SUPERFRETE:", freteResponse.status);
-    console.log("CONTENT-TYPE SUPERFRETE:", freteResponse.headers.get("content-type"));
+    console.log(
+      "CONTENT-TYPE SUPERFRETE:",
+      freteResponse.headers.get("content-type")
+    );
     console.log("RAW SUPERFRETE:", raw);
 
     let data;
@@ -432,10 +653,35 @@ app.post("/api/frete", async (req, res) => {
 });
 
 /* =========================
+   CUPONS
+========================= */
+app.post("/api/cupons/validar", (req, res) => {
+  try {
+    const { codigo, subtotal, frete } = req.body || {};
+
+    const resultado = validarCupom({
+      codigo,
+      subtotal: Number(subtotal || 0),
+      frete: Number(frete || 0),
+    });
+
+    return res.status(200).json(resultado);
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      message: error.message || "Erro ao validar cupom.",
+    });
+  }
+});
+
+/* =========================
    CRIAR PREFERÊNCIA + SALVAR PEDIDO
 ========================= */
 app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
-  console.log("FRETE COMPLETO:", JSON.stringify(req.body.freteSelecionado, null, 2));
+  console.log(
+    "FRETE COMPLETO:",
+    JSON.stringify(req.body.freteSelecionado, null, 2)
+  );
   console.log("ENTROU EM /api/pagamentos/criar-preferencia");
   console.log("BODY:", req.body);
 
@@ -445,8 +691,6 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       freteSelecionado,
       cepDestino,
       totalItensCarrinho,
-      subtotalProdutos,
-      totalComFrete,
       dadosCliente,
       enderecoEntrega,
       pedidoLocalId,
@@ -457,25 +701,40 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       return res.status(400).json({ error: "Carrinho vazio." });
     }
 
+    const subtotalCalculado = calcularSubtotalCarrinho(carrinho);
+    const freteCalculado = Number(freteSelecionado?.preco || 0);
+    const totalBruto = arredondar(subtotalCalculado + freteCalculado);
+
+    const codigoCupom = obterCodigoCupomDoBody(req.body);
+
+    let cupomAplicado = null;
+    let descontoCupom = 0;
+    let totalFinalPedido = totalBruto;
+
+    if (codigoCupom) {
+      const resultadoCupom = validarCupom({
+        codigo: codigoCupom,
+        subtotal: subtotalCalculado,
+        frete: freteCalculado,
+      });
+
+      cupomAplicado = {
+        codigo: resultadoCupom.codigo,
+        tipo: resultadoCupom.tipo,
+        valor: resultadoCupom.valor,
+        dataInicio: resultadoCupom.dataInicio,
+        dataFim: resultadoCupom.dataFim,
+        valorMinimoPedido: resultadoCupom.valorMinimoPedido,
+      };
+
+      descontoCupom = Number(resultadoCupom.desconto || 0);
+      totalFinalPedido = Number(resultadoCupom.totalComDesconto || totalBruto);
+    }
+
     const pedidoId = pedidoLocalId || `pedido_${Date.now()}`;
 
-    const items = carrinho.map((item) => ({
-      id: String(item.id || item.nome || "produto"),
-      title: item.nome || "Produto",
-      quantity: Number(item.quantidade || 1),
-      unit_price: Number(item.preco || 0),
-      currency_id: "BRL",
-    }));
-
-    if (freteSelecionado) {
-      items.push({
-        id: "frete",
-        title: `Frete - ${freteSelecionado.nome || "Entrega"}`,
-        quantity: 1,
-        unit_price: Number(freteSelecionado.preco || 0),
-        currency_id: "BRL",
-      });
-    }
+    const itensBase = criarItensBasePedido(carrinho, freteSelecionado);
+    const items = aplicarDescontoNosItens(itensBase, descontoCupom);
 
     const pedidoSalvo = {
       id: pedidoId,
@@ -484,8 +743,10 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       freteSelecionado: freteSelecionado || null,
       cepDestino: cepDestino || null,
       totalItensCarrinho: totalItensCarrinho || 0,
-      subtotalProdutos: subtotalProdutos || 0,
-      totalComFrete: totalComFrete || 0,
+      subtotalProdutos: subtotalCalculado,
+      descontoCupom: arredondar(descontoCupom),
+      cupomAplicado,
+      totalComFrete: arredondar(totalFinalPedido),
 
       dadosCliente: {
         nome: sanitizarString(dadosCliente?.nome),
@@ -552,6 +813,10 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       external_reference: pedidoId,
     };
 
+    console.log("CUPOM APLICADO:", cupomAplicado);
+    console.log("DESCONTO CUPOM:", descontoCupom);
+    console.log("TOTAL BRUTO:", totalBruto);
+    console.log("TOTAL FINAL PEDIDO:", totalFinalPedido);
     console.log("PREFERENCE BODY:", JSON.stringify(preferenceBody, null, 2));
 
     const mpResponse = await preference.create({
@@ -562,6 +827,10 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       preferenceId: mpResponse.id,
       initPoint: mpResponse.init_point,
       pedidoId,
+      subtotalProdutos: subtotalCalculado,
+      descontoCupom: arredondar(descontoCupom),
+      totalComFrete: arredondar(totalFinalPedido),
+      cupomAplicado,
     });
   } catch (error) {
     console.error("==== ERRO NO MERCADO PAGO ====");
@@ -653,10 +922,7 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
       }
 
       const pedido = await Pedido.findOne({
-        $or: [
-          { id: numeroPedido },
-          { pedidoLocalId: numeroPedido },
-        ],
+        $or: [{ id: numeroPedido }, { pedidoLocalId: numeroPedido }],
       });
 
       if (!pedido) {
@@ -971,10 +1237,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
       data = raw;
     }
 
-    console.log(
-      "RESPOSTA GERAR ETIQUETA:",
-      JSON.stringify(data, null, 2)
-    );
+    console.log("RESPOSTA GERAR ETIQUETA:", JSON.stringify(data, null, 2));
 
     if (!superfreteResponse.ok) {
       return res.status(superfreteResponse.status).json({
@@ -1087,10 +1350,7 @@ app.post("/api/pedidos/:id/emitir-etiqueta", autenticarAdmin, async (req, res) =
       });
     }
 
-    console.log(
-      "RESPOSTA EMITIR ETIQUETA:",
-      JSON.stringify(data, null, 2)
-    );
+    console.log("RESPOSTA EMITIR ETIQUETA:", JSON.stringify(data, null, 2));
 
     if (!superfreteResponse.ok) {
       return res.status(superfreteResponse.status).json({
@@ -1107,8 +1367,7 @@ app.post("/api/pedidos/:id/emitir-etiqueta", autenticarAdmin, async (req, res) =
       data?.id || pedido.superfreteCheckoutId || null;
     pedido.codigoRastreio =
       obterCodigoRastreio(data) || pedido.codigoRastreio || "";
-    pedido.urlEtiqueta =
-      obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
+    pedido.urlEtiqueta = obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
     pedido.atualizadoEm = new Date();
 
     await pedido.save();
