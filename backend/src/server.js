@@ -46,10 +46,8 @@ console.log("SUPERFRETE_BASE_URL:", SUPERFRETE_BASE_URL);
 console.log("SUPERFRETE_ENV:", SUPERFRETE_ENV);
 console.log("SUPERFRETE_BASE_URL:", SUPERFRETE_BASE_URL);
 console.log("TOKEN EXISTS:", !!SUPERFRETE_TOKEN);
-console.log(
-  "TOKEN PREFIX:",
-  SUPERFRETE_TOKEN ? SUPERFRETE_TOKEN.slice(0, 8) : "undefined"
-);
+console.log("TOKEN LENGTH:", SUPERFRETE_TOKEN?.length);
+console.log("TOKEN START:", SUPERFRETE_TOKEN?.slice(0, 12));
 
 app.use(cors());
 app.use(express.json());
