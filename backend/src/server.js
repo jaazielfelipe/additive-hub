@@ -49,7 +49,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@site.com";
 // senha padrão: 123456
 const ADMIN_SENHA_HASH =
   process.env.ADMIN_SENHA_HASH ||
-  "$2b$10$XQxJw0ZlR6v8x8D5VwQXUeM0C6lK6Q7Z0Hk4J2G6K0mFQmJ4W1w7y";
+  "$2b$10$FZpZqA7fNOz3Alngpik6LOPMt5kjrNn9XFT9qevj4I571PbQLGCNu";
 
 const JWT_SECRET = process.env.JWT_SECRET || "troque-essa-chave-forte";
 
