@@ -16,6 +16,19 @@ function lerResumoPedido() {
   }
 }
 
+function limparDadosCompra() {
+  try {
+    localStorage.removeItem("carrinhoAdditiveHub");
+    localStorage.removeItem("cepDestinoAdditiveHub");
+    localStorage.removeItem("fretesAdditiveHub");
+    localStorage.removeItem("freteSelecionadoAdditiveHub");
+    localStorage.removeItem("dadosClienteAdditiveHub");
+    localStorage.removeItem("ultimoPedidoAdditiveHub");
+  } catch (error) {
+    console.error("Erro ao limpar dados da compra:", error);
+  }
+}
+
 function useQueryParams() {
   return useMemo(() => new URLSearchParams(window.location.search), []);
 }
@@ -24,28 +37,37 @@ export default function PaginaRetornoPagamento({ tipo = "sucesso" }) {
   const params = useQueryParams();
   const [pedido, setPedido] = useState(null);
 
+  const paymentId = params.get("payment_id") || params.get("collection_id");
+  const status = params.get("status") || params.get("collection_status");
+  const externalReference = params.get("external_reference");
+  const preferenceId = params.get("preference_id");
+
+  const pagamentoAprovado =
+    status === "approved" ||
+    status === "accredited";
+
   useEffect(() => {
-    setPedido(lerResumoPedido());
-  }, []);
+    const resumoPedido = lerResumoPedido();
+    setPedido(resumoPedido);
+
+    if (pagamentoAprovado) {
+      limparDadosCompra();
+    }
+  }, [pagamentoAprovado]);
 
   const statusTitulo =
-    tipo === "sucesso"
+    pagamentoAprovado || tipo === "sucesso"
       ? "Pagamento aprovado"
       : tipo === "pendente"
       ? "Pagamento pendente"
       : "Pagamento não concluído";
 
   const statusDescricao =
-    tipo === "sucesso"
-      ? "Recebemos o retorno do pagamento. Abaixo está o resumo do pedido."
+    pagamentoAprovado
+      ? "Pagamento confirmado com sucesso. Abaixo está o resumo do seu pedido."
       : tipo === "pendente"
       ? "O pagamento ainda está em análise ou aguardando confirmação."
       : "O pagamento foi recusado, cancelado ou não foi finalizado.";
-
-  const paymentId = params.get("payment_id") || params.get("collection_id");
-  const status = params.get("status") || params.get("collection_status");
-  const externalReference = params.get("external_reference");
-  const preferenceId = params.get("preference_id");
 
   return (
     <div className="min-h-screen bg-[#fcfcfc] px-4 py-10 text-zinc-900">

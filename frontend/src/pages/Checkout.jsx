@@ -147,7 +147,10 @@ export default function Checkout() {
       const fretesSalvos = localStorage.getItem("fretesAdditiveHub");
 
       if (carrinhoSalvo) {
-        setCarrinho(JSON.parse(carrinhoSalvo));
+        const carrinhoParseado = JSON.parse(carrinhoSalvo);
+        if (Array.isArray(carrinhoParseado)) {
+          setCarrinho(carrinhoParseado);
+        }
       }
 
       if (dadosClienteSalvos) {
@@ -180,7 +183,10 @@ export default function Checkout() {
       }
 
       if (fretesSalvos) {
-        setFretes(JSON.parse(fretesSalvos));
+        const fretesParseados = JSON.parse(fretesSalvos);
+        if (Array.isArray(fretesParseados)) {
+          setFretes(fretesParseados);
+        }
       }
     } catch (error) {
       console.error("Erro ao carregar checkout do localStorage:", error);
@@ -410,15 +416,13 @@ export default function Checkout() {
         carrinho,
         cepDestino: String(cepDestino || "").replace(/\D/g, ""),
         freteSelecionado,
+        fretes,
         totalItensCarrinho,
         subtotalProdutos,
         totalComFrete,
       };
 
-      localStorage.setItem(
-        "ultimoPedidoAdditiveHub",
-        JSON.stringify(resumoPedido)
-      );
+      localStorage.setItem("ultimoPedidoAdditiveHub", JSON.stringify(resumoPedido));
 
       const response = await fetch(apiPagamentoUrl, {
         method: "POST",

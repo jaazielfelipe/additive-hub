@@ -39,7 +39,10 @@ export default function Carrinho() {
       const fretesSalvos = localStorage.getItem("fretesAdditiveHub");
 
       if (carrinhoSalvo) {
-        setCarrinho(JSON.parse(carrinhoSalvo));
+        const carrinhoParseado = JSON.parse(carrinhoSalvo);
+        if (Array.isArray(carrinhoParseado)) {
+          setCarrinho(carrinhoParseado);
+        }
       }
 
       if (cepSalvo) {
@@ -86,7 +89,10 @@ export default function Carrinho() {
   }, [fretes]);
 
   const totalItensCarrinho = useMemo(() => {
-    return carrinho.reduce((total, item) => total + Number(item.quantidade || 0), 0);
+    return carrinho.reduce(
+      (total, item) => total + Number(item.quantidade || 0),
+      0
+    );
   }, [carrinho]);
 
   const subtotalProdutos = useMemo(() => {
@@ -256,10 +262,6 @@ export default function Carrinho() {
         setErroFrete("Nenhuma opção de frete válida encontrada para esse CEP.");
         return;
       }
-
-      console.log("RESPOSTA COMPLETA DO FRETE:", data);
-      console.log("OPÇÕES MAPEADAS:", opcoes);
-      console.log("OPÇÃO ESCOLHIDA PADRÃO:", opcoes[0]);
 
       setFretes(opcoes);
       setFreteSelecionado(opcoes[0] || null);
@@ -443,7 +445,6 @@ export default function Carrinho() {
                       type="button"
                       onClick={() => {
                         setFreteSelecionado(opcao);
-                        console.log("OPÇÃO DE FRETE SELECIONADA:", opcao);
                       }}
                       className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all duration-300 ${
                         freteSelecionado?.chave === opcao.chave
