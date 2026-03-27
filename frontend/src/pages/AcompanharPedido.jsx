@@ -127,17 +127,26 @@ function calcularFrete(pedido) {
   return Number(pedido?.freteSelecionado?.preco || 0);
 }
 
+function calcularDescontoCupom(pedido) {
+  return Number(pedido?.descontoCupom || 0);
+}
+
 function calcularTotalFinal(pedido) {
   if (pedido?.totalComFrete != null) {
     return Number(pedido.totalComFrete || 0);
   }
 
-  return calcularSubtotalProdutos(pedido) + calcularFrete(pedido);
+  return (
+    calcularSubtotalProdutos(pedido) +
+    calcularFrete(pedido) -
+    calcularDescontoCupom(pedido)
+  );
 }
 
 function CardPedido({ pedido }) {
   const totalProdutos = calcularSubtotalProdutos(pedido);
   const valorFrete = calcularFrete(pedido);
+  const descontoCupom = calcularDescontoCupom(pedido);
   const totalFinal = calcularTotalFinal(pedido);
 
   const endereco = pedido?.enderecoEntrega || {};
@@ -296,6 +305,22 @@ function CardPedido({ pedido }) {
               <span>Frete</span>
               <span>{formatarMoeda(valorFrete)}</span>
             </div>
+
+            {pedido?.cupomAplicado?.codigo && (
+              <div className="flex items-center justify-between">
+                <span>Cupom</span>
+                <span className="font-medium">{pedido.cupomAplicado.codigo}</span>
+              </div>
+            )}
+
+            {descontoCupom > 0 && (
+              <div className="flex items-center justify-between">
+                <span>Desconto</span>
+                <span className="font-medium text-green-700">
+                  - {formatarMoeda(descontoCupom)}
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center justify-between border-t border-zinc-200 pt-2 font-bold text-zinc-900">
               <span>Total</span>
@@ -476,16 +501,18 @@ export default function AcompanharPedido() {
           {!erro && pedidos.length > 0 && (
             <div className="mt-8 space-y-6">
               {(identificarTipoBusca(busca) === "cpf" ||
-                identificarTipoBusca(busca) === "email") && pedidos.length > 1 && (
-                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-                  {pedidos.length} pedidos encontrados para{" "}
-                  <span className="font-semibold">
-                    {identificarTipoBusca(busca) === "cpf"
-                      ? "o CPF informado"
-                      : "o e-mail informado"}
-                  </span>.
-                </div>
-              )}
+                identificarTipoBusca(busca) === "email") &&
+                pedidos.length > 1 && (
+                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+                    {pedidos.length} pedidos encontrados para{" "}
+                    <span className="font-semibold">
+                      {identificarTipoBusca(busca) === "cpf"
+                        ? "o CPF informado"
+                        : "o e-mail informado"}
+                    </span>
+                    .
+                  </div>
+                )}
 
               {pedidos.map((pedido, index) => (
                 <div key={pedido?.id || pedido?.pedidoLocalId || index}>
