@@ -127,7 +127,11 @@ function PedidoCard({
 
   const itens = Array.isArray(pedido.carrinho) ? pedido.carrinho : [];
   const totalItens = pedido.totalItensCarrinho || 0;
-  const total = pedido.totalComFrete || 0;
+  const total = Number(pedido.totalComFrete || 0);
+  const subtotal = Number(pedido.subtotalProdutos || 0);
+  const frete = Number(pedido?.freteSelecionado?.preco || 0);
+  const desconto = Number(pedido?.descontoCupom || 0);
+  const cupom = pedido?.cupomAplicado?.codigo || "";
 
   const cliente = pedido.dadosCliente || {};
   const entrega = pedido.enderecoEntrega || {};
@@ -238,7 +242,12 @@ function PedidoCard({
         <div>
           <p className="font-semibold text-zinc-900">Resumo</p>
           <p>Itens: {totalItens}</p>
-          <p>Subtotal: {formatarMoeda(pedido.subtotalProdutos || 0)}</p>
+          <p>Subtotal: {formatarMoeda(subtotal)}</p>
+          <p>Frete: {formatarMoeda(frete)}</p>
+          {cupom ? <p>Cupom: {cupom}</p> : null}
+          {(cupom || desconto > 0 || pedido?.descontoCupom != null) ? (
+            <p>Desconto: - {formatarMoeda(desconto)}</p>
+          ) : null}
           <p>Total: {formatarMoeda(total)}</p>
           {pedido?.codigoRastreio ? (
             <p>Código de rastreio: {pedido.codigoRastreio}</p>
@@ -659,6 +668,8 @@ export default function Painel() {
         pedido.codigoRastreio,
         pedido.metodo_pagamento,
         pedido.status_detail,
+        pedido.cupomAplicado?.codigo,
+        pedido.descontoCupom,
         cliente.nome,
         cliente.email,
         cliente.telefone,
