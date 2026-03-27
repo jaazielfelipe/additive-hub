@@ -132,11 +132,16 @@ export default function Checkout() {
   const [freteSelecionado, setFreteSelecionado] = useState(null);
   const [carregandoPagamento, setCarregandoPagamento] = useState(false);
   const [tentouPagar, setTentouPagar] = useState(false);
+  const [cupom, setCupom] = useState("");
+  const [cupomAplicado, setCupomAplicado] = useState(null);
+  const [erroCupom, setErroCupom] = useState("");
+  const [carregandoCupom, setCarregandoCupom] = useState(false);
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const apiPagamentoUrl =
     import.meta.env.VITE_PAGAMENTO_API_URL ||
     `${apiBaseUrl}/api/pagamentos/criar-preferencia`;
+  const apiCupomUrl = `${apiBaseUrl}/api/cupons/validar`; 
 
   useEffect(() => {
     try {
@@ -237,14 +242,20 @@ export default function Checkout() {
   }, [carrinho]);
 
   const subtotalProdutos = useMemo(() => {
-    return carrinho.reduce(
-      (total, item) =>
-        total + Number(item.preco || 0) * Number(item.quantidade || 0),
-      0
-    );
-  }, [carrinho]);
+  return carrinho.reduce(
+    (total, item) =>
+      total + Number(item.preco || 0) * Number(item.quantidade || 0),
+    0
+  );
+}, [carrinho]);
 
-  const totalComFrete = subtotalProdutos + Number(freteSelecionado?.preco || 0);
+const valorFrete = Number(freteSelecionado?.preco || 0);
+
+const descontoCupom = Number(cupomAplicado?.desconto || 0);
+
+const totalComFrete = useMemo(() => {
+  return Math.max(subtotalProdutos + valorFrete - descontoCupom, 0);
+}, [subtotalProdutos, valorFrete, descontoCupom]);
 
   const obterErroCampo = (campo, valor) => {
     const valorTexto = String(valor || "").trim();
@@ -372,6 +383,60 @@ export default function Checkout() {
     return "";
   };
 
+  const aplicarCupom = async () => {
+  const codigo = String(cupom || "").trim().toUpperCase();
+
+  if (!codigo) {
+    setErroCupom("Digite um cupom.");
+    setCupomAplicado(null);
+    return;
+  }
+
+  if (!freteSelecionado) {
+    setErroCupom("Selecione o frete antes de aplicar o cupom.");
+    setCupomAplicado(null);
+    return;
+  }
+
+  try {
+    setCarregandoCupom(true);
+    setErroCupom("");
+
+    const response = await fetch(apiCupomUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        codigo,
+        subtotal: subtotalProdutos,
+        frete: Number(freteSelecionado?.preco || 0),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.message || "Não foi possível validar o cupom.");
+    }
+
+    setCupom(codigo);
+    setCupomAplicado(data);
+    setErroCupom("");
+  } catch (error) {
+    setCupomAplicado(null);
+    setErroCupom(error.message || "Erro ao validar cupom.");
+  } finally {
+    setCarregandoCupom(false);
+  }
+};
+
+const removerCupom = () => {
+  setCupom("");
+  setCupomAplicado(null);
+  setErroCupom("");
+};
+
   const finalizarPedidoMercadoPago = async () => {
     if (carrinho.length === 0) {
       alert("Seu carrinho está vazio.");
@@ -398,29 +463,33 @@ export default function Checkout() {
       const pedidoLocalId = `ADD-${Date.now()}`;
 
       const resumoPedido = {
-        pedidoLocalId,
-        criadoEm: new Date().toISOString(),
-        dadosCliente: {
-          ...dadosCliente,
-          nome: dadosCliente.nome.trim().replace(/\s+/g, " "),
-          email: dadosCliente.email.trim(),
-          telefone: dadosCliente.telefone.replace(/\D/g, ""),
-          cpf: dadosCliente.cpf.replace(/\D/g, ""),
-        },
-        enderecoEntrega: {
-          ...enderecoEntrega,
-          cep: String(cepDestino || "").replace(/\D/g, ""),
-          numero: String(enderecoEntrega.numero || "").trim(),
-          complemento: String(enderecoEntrega.complemento || "").trim(),
-        },
-        carrinho,
-        cepDestino: String(cepDestino || "").replace(/\D/g, ""),
-        freteSelecionado,
-        fretes,
-        totalItensCarrinho,
-        subtotalProdutos,
-        totalComFrete,
-      };
+  pedidoLocalId,
+  criadoEm: new Date().toISOString(),
+  dadosCliente: {
+    ...dadosCliente,
+    nome: dadosCliente.nome.trim().replace(/\s+/g, " "),
+    email: dadosCliente.email.trim(),
+    telefone: dadosCliente.telefone.replace(/\D/g, ""),
+    cpf: dadosCliente.cpf.replace(/\D/g, ""),
+  },
+  enderecoEntrega: {
+    ...enderecoEntrega,
+    cep: String(cepDestino || "").replace(/\D/g, ""),
+    numero: String(enderecoEntrega.numero || "").trim(),
+    complemento: String(enderecoEntrega.complemento || "").trim(),
+  },
+  carrinho,
+  cepDestino: String(cepDestino || "").replace(/\D/g, ""),
+  freteSelecionado,
+  fretes,
+  totalItensCarrinho,
+  subtotalProdutos,
+  descontoCupom,
+  cupomCodigo: cupomAplicado?.codigo || "",
+  totalComFrete,
+
+  
+};
 
       localStorage.setItem("ultimoPedidoAdditiveHub", JSON.stringify(resumoPedido));
 
@@ -641,6 +710,51 @@ export default function Checkout() {
 
           <aside className="h-fit rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
             <h2 className="text-xl font-bold">Resumo do pedido</h2>
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+  <p className="text-sm font-semibold text-zinc-900">Cupom de desconto</p>
+
+  <div className="mt-3 flex gap-2">
+    <input
+      type="text"
+      placeholder="Digite seu cupom"
+      value={cupom}
+      onChange={(e) => {
+        setCupom(e.target.value.toUpperCase());
+        if (erroCupom) setErroCupom("");
+      }}
+      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+    />
+
+    {!cupomAplicado ? (
+      <button
+        type="button"
+        onClick={aplicarCupom}
+        disabled={carregandoCupom}
+        className="rounded-xl border border-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {carregandoCupom ? "Aplicando..." : "Aplicar"}
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={removerCupom}
+        className="rounded-xl border border-red-300 px-4 py-3 text-sm font-semibold text-red-600"
+      >
+        Remover
+      </button>
+    )}
+  </div>
+
+  {erroCupom && (
+    <p className="mt-2 text-sm text-red-600">{erroCupom}</p>
+  )}
+
+  {cupomAplicado && (
+    <p className="mt-2 text-sm text-green-700">
+      Cupom <strong>{cupomAplicado.codigo}</strong> aplicado com sucesso.
+    </p>
+  )}
+</div>
 
             <div className="mt-5 space-y-3 text-sm text-zinc-700">
               <div className="flex items-center justify-between gap-3">
@@ -659,6 +773,15 @@ export default function Checkout() {
                   {formatarMoeda(freteSelecionado?.preco || 0)}
                 </span>
               </div>
+
+              {descontoCupom > 0 && (
+  <div className="flex items-center justify-between gap-3">
+    <span>Desconto</span>
+    <span className="font-semibold text-green-700">
+      - {formatarMoeda(descontoCupom)}
+    </span>
+  </div>
+)}
 
               <div className="border-t border-zinc-200 pt-3">
                 <div className="flex items-center justify-between gap-3">
