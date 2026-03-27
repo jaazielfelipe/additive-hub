@@ -2,13 +2,15 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { MercadoPagoConfig, Preference } from "mercadopago";
-import fs from "fs";
+import mongoose from "mongoose";
+import Pedido from "../models/Pedido.js";
 
 dotenv.config();
 
 const app = express();
 
 const PORT = process.env.PORT || 3001;
+const MONGODB_URI = process.env.MONGODB_URI;
 const SUPERFRETE_TOKEN = process.env.SUPERFRETE_TOKEN;
 const SUPERFRETE_USER_AGENT = process.env.SUPERFRETE_USER_AGENT;
 const CEP_ORIGEM = process.env.CEP_ORIGEM;
@@ -56,19 +58,6 @@ const mpClient = new MercadoPagoConfig({
   accessToken: MP_ACCESS_TOKEN,
 });
 
-const PEDIDOS_FILE = "./pedidos.json";
-
-function lerPedidos() {
-  if (!fs.existsSync(PEDIDOS_FILE)) {
-    fs.writeFileSync(PEDIDOS_FILE, JSON.stringify([], null, 2));
-  }
-
-  return JSON.parse(fs.readFileSync(PEDIDOS_FILE, "utf-8"));
-}
-
-function salvarPedidos(pedidos) {
-  fs.writeFileSync(PEDIDOS_FILE, JSON.stringify(pedidos, null, 2));
-}
 
 function num(valor, fallback = 0) {
   if (valor === null || valor === undefined || valor === "") return fallback;
@@ -205,12 +194,6 @@ function normalizarStatusInterno(statusInterno) {
 
 function sanitizarString(valor) {
   return String(valor || "").trim();
-}
-
-function buscarPedidoPorIdOuCodigo(pedidos, id) {
-  return pedidos.find(
-    (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
-  );
 }
 
 function validarRemetente() {
@@ -387,14 +370,6 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       });
     }
 
-    const pedidos = lerPedidos();
-
-    const pedidoExistenteIndex = pedidos.findIndex(
-      (p) =>
-        String(p.id) === String(pedidoId) ||
-        String(p.pedidoLocalId) === String(pedidoId)
-    );
-
     const pedidoSalvo = {
       id: pedidoId,
       pedidoLocalId: pedidoId,
@@ -439,20 +414,22 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       superfreteCartId: null,
       superfreteCheckoutId: null,
 
-      criadoEm: criadoEm || new Date().toISOString(),
+      criadoEm: criadoEm || new Date(),
       atualizadoEm: null,
     };
 
-    if (pedidoExistenteIndex >= 0) {
-      pedidos[pedidoExistenteIndex] = {
-        ...pedidos[pedidoExistenteIndex],
-        ...pedidoSalvo,
-      };
-    } else {
-      pedidos.push(pedidoSalvo);
-    }
+    const pedidoExistente = await Pedido.findOne({
+  $or: [{ id: String(pedidoId) }, { pedidoLocalId: String(pedidoId) }],
+});
 
-    salvarPedidos(pedidos);
+if (pedidoExistente) {
+  await Pedido.updateOne(
+    { _id: pedidoExistente._id },
+    { $set: pedidoSalvo }
+  );
+} else {
+  await Pedido.create(pedidoSalvo);
+}
 
     const preference = new Preference(mpClient);
 
@@ -528,23 +505,22 @@ app.post("/api/webhook", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const pedidos = lerPedidos();
-    const index = pedidos.findIndex((p) => p.id === pedidoId);
+    const pedido = await Pedido.findOne({ id: String(pedidoId) });
 
-    if (index === -1) {
-      console.warn("Pedido não encontrado:", pedidoId);
-      return res.sendStatus(200);
-    }
+if (!pedido) {
+  console.warn("Pedido não encontrado:", pedidoId);
+  return res.sendStatus(200);
+}
 
-    pedidos[index].status = payment.status || pedidos[index].status;
-    pedidos[index].payment_id = payment.id || null;
-    pedidos[index].status_detail = payment.status_detail || null;
-    pedidos[index].metodo_pagamento = payment.payment_method_id || null;
-    pedidos[index].atualizadoEm = new Date().toISOString();
+pedido.status = payment.status || pedido.status;
+pedido.payment_id = payment.id || null;
+pedido.status_detail = payment.status_detail || null;
+pedido.metodo_pagamento = payment.payment_method_id || null;
+pedido.atualizadoEm = new Date();
 
-    salvarPedidos(pedidos);
+await pedido.save();
 
-    console.log(`Pedido ${pedidoId} atualizado para status ${payment.status}`);
+console.log(`Pedido ${pedidoId} atualizado para status ${payment.status}`);
 
     return res.sendStatus(200);
   } catch (error) {
@@ -562,8 +538,6 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
 
     let pedido = null;
 
-    // 🔥 NOVA LÓGICA FLEXÍVEL
-
     if (tipo === "pedido" || id) {
       const numeroPedido = valor || id;
 
@@ -573,11 +547,14 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
         });
       }
 
-      pedido = await Pedido.findOne({ id: numeroPedido });
-    }
-
-    else if (tipo === "email" || email) {
-      const emailBusca = (valor || email)?.toLowerCase();
+      pedido = await Pedido.findOne({
+        $or: [
+          { id: String(numeroPedido) },
+          { pedidoLocalId: String(numeroPedido) },
+        ],
+      });
+    } else if (tipo === "email" || email) {
+      const emailBusca = String(valor || email || "").toLowerCase().trim();
 
       if (!emailBusca) {
         return res.status(400).json({
@@ -586,11 +563,9 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
       }
 
       pedido = await Pedido.findOne({ "dadosCliente.email": emailBusca })
-        .sort({ createdAt: -1 }); // pega o mais recente
-    }
-
-    else if (tipo === "cpf" || cpf) {
-      const cpfBusca = (valor || cpf)?.replace(/\D/g, "");
+        .sort({ criadoEm: -1 });
+    } else if (tipo === "cpf" || cpf) {
+      const cpfBusca = String(valor || cpf || "").replace(/\D/g, "");
 
       if (!cpfBusca || cpfBusca.length !== 11) {
         return res.status(400).json({
@@ -599,25 +574,20 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
       }
 
       pedido = await Pedido.findOne({ "dadosCliente.cpf": cpfBusca })
-        .sort({ createdAt: -1 });
-    }
-
-    else {
+        .sort({ criadoEm: -1 });
+    } else {
       return res.status(400).json({
         error: "Informe CPF, número do pedido ou e-mail."
       });
     }
 
-    // ❌ não encontrado
     if (!pedido) {
       return res.status(404).json({
         error: "Pedido não encontrado."
       });
     }
 
-    // ✅ retorno
     return res.json(pedido);
-
   } catch (err) {
     console.error(err);
 
@@ -630,15 +600,10 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
 /* =========================
    LISTAR PEDIDOS PARA O PAINEL
 ========================= */
-app.get("/api/pedidos", (req, res) => {
+app.get("/api/pedidos", async (req, res) => {
   try {
-    const pedidos = lerPedidos();
-
-    const pedidosOrdenados = [...pedidos].sort(
-      (a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
-    );
-
-    return res.json(pedidosOrdenados);
+    const pedidos = await Pedido.find().sort({ criadoEm: -1 });
+    return res.json(pedidos);
   } catch (error) {
     console.error("Erro ao listar pedidos:", error);
 
@@ -652,11 +617,13 @@ app.get("/api/pedidos", (req, res) => {
 /* =========================
    PEDIDO INDIVIDUAL
 ========================= */
-app.get("/api/pedidos/:id", (req, res) => {
+app.get("/api/pedidos/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const pedidos = lerPedidos();
-    const pedido = buscarPedidoPorIdOuCodigo(pedidos, id);
+
+    const pedido = await Pedido.findOne({
+      $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
+    });
 
     if (!pedido) {
       return res.status(404).json({ error: "Pedido não encontrado." });
@@ -676,32 +643,35 @@ app.get("/api/pedidos/:id", (req, res) => {
 /* =========================
    ATUALIZAR STATUS INTERNO
 ========================= */
-app.patch("/api/pedidos/:id/status", (req, res) => {
+app.patch("/api/pedidos/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body || {};
 
     const novoStatus = normalizarStatusInterno(status);
-    const pedidos = lerPedidos();
 
-    const index = pedidos.findIndex(
-      (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
+    const pedido = await Pedido.findOneAndUpdate(
+      {
+        $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
+      },
+      {
+        $set: {
+          statusInterno: novoStatus,
+          atualizadoEm: new Date(),
+        },
+      },
+      { new: true }
     );
 
-    if (index === -1) {
+    if (!pedido) {
       return res.status(404).json({
         error: "Pedido não encontrado.",
       });
     }
 
-    pedidos[index].statusInterno = novoStatus;
-    pedidos[index].atualizadoEm = new Date().toISOString();
-
-    salvarPedidos(pedidos);
-
     return res.json({
       message: "Status interno atualizado com sucesso.",
-      pedido: pedidos[index],
+      pedido,
     });
   } catch (error) {
     console.error("Erro ao atualizar status interno:", error);
@@ -719,19 +689,16 @@ app.patch("/api/pedidos/:id/status", (req, res) => {
 app.post("/api/pedidos/:id/gerar-etiqueta", async (req, res) => {
   try {
     const { id } = req.params;
-    const pedidos = lerPedidos();
 
-    const index = pedidos.findIndex(
-      (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
-    );
+const pedido = await Pedido.findOne({
+  $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
+});
 
-    if (index === -1) {
-      return res.status(404).json({
-        error: "Pedido não encontrado.",
-      });
-    }
-
-    const pedido = pedidos[index];
+if (!pedido) {
+  return res.status(404).json({
+    error: "Pedido não encontrado.",
+  });
+}
 
     if (!pedido?.enderecoEntrega?.cep) {
       return res.status(400).json({
@@ -892,29 +859,28 @@ try {
       });
     }
 
-    pedidos[index].etiquetaGerada = true;
-    pedidos[index].statusEtiqueta = data?.status || "pending";
-    pedidos[index].superfreteCartId = data?.id || pedidos[index].superfreteCartId || null;
-    pedidos[index].superfreteService = Number(
-      pedido?.freteSelecionado?.service || pedidos[index].superfreteService || 0
-    );
-    pedidos[index].superfretePackage =
-      pedido?.freteSelecionado?.package || pedidos[index].superfretePackage || null;
-    pedidos[index].urlEtiqueta =
-      obterEtiquetaUrl(data) || pedidos[index].urlEtiqueta || "";
-    pedidos[index].codigoRastreio =
-      obterCodigoRastreio(data) || pedidos[index].codigoRastreio || "";
-    pedidos[index].atualizadoEm = new Date().toISOString();
+    pedido.etiquetaGerada = true;
+pedido.statusEtiqueta = data?.status || "pending";
+pedido.superfreteCartId = data?.id || pedido.superfreteCartId || null;
+pedido.superfreteService = Number(
+  pedido?.freteSelecionado?.service || pedido.superfreteService || 0
+);
+pedido.superfretePackage =
+  pedido?.freteSelecionado?.package || pedido.superfretePackage || null;
+pedido.urlEtiqueta = obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
+pedido.codigoRastreio =
+  obterCodigoRastreio(data) || pedido.codigoRastreio || "";
+pedido.atualizadoEm = new Date();
 
-    salvarPedidos(pedidos);
+await pedido.save();
 
     return res.json({
-      message: "Etiqueta gerada com sucesso.",
-      urlEtiqueta: pedidos[index].urlEtiqueta,
-      codigoRastreio: pedidos[index].codigoRastreio,
-      pedido: pedidos[index],
-      superfrete: data,
-    });
+  message: "Etiqueta gerada com sucesso.",
+  urlEtiqueta: pedido.urlEtiqueta,
+  codigoRastreio: pedido.codigoRastreio,
+  pedido,
+  superfrete: data,
+});
   } catch (error) {
     console.error("Erro ao gerar etiqueta:", error);
 
@@ -931,19 +897,16 @@ try {
 app.post("/api/pedidos/:id/emitir-etiqueta", async (req, res) => {
   try {
     const { id } = req.params;
-    const pedidos = lerPedidos();
 
-    const index = pedidos.findIndex(
-      (p) => String(p.id) === String(id) || String(p.pedidoLocalId) === String(id)
-    );
+const pedido = await Pedido.findOne({
+  $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
+});
 
-    if (index === -1) {
-      return res.status(404).json({
-        error: "Pedido não encontrado.",
-      });
-    }
-
-    const pedido = pedidos[index];
+if (!pedido) {
+  return res.status(404).json({
+    error: "Pedido não encontrado.",
+  });
+}
 
     if (!pedido?.superfreteCartId) {
       return res.status(400).json({
@@ -985,26 +948,26 @@ app.post("/api/pedidos/:id/emitir-etiqueta", async (req, res) => {
       });
     }
 
-    pedidos[index].etiquetaEmitida = true;
-    pedidos[index].statusInterno = "enviado";
-    pedidos[index].statusEtiqueta = data?.status || "paid";
-    pedidos[index].superfreteCheckoutId =
-      data?.id || pedidos[index].superfreteCheckoutId || null;
-    pedidos[index].codigoRastreio =
-      obterCodigoRastreio(data) || pedidos[index].codigoRastreio || "";
-    pedidos[index].urlEtiqueta =
-      obterEtiquetaUrl(data) || pedidos[index].urlEtiqueta || "";
-    pedidos[index].atualizadoEm = new Date().toISOString();
+    pedido.etiquetaEmitida = true;
+pedido.statusInterno = "enviado";
+pedido.statusEtiqueta = data?.status || "paid";
+pedido.superfreteCheckoutId =
+  data?.id || pedido.superfreteCheckoutId || null;
+pedido.codigoRastreio =
+  obterCodigoRastreio(data) || pedido.codigoRastreio || "";
+pedido.urlEtiqueta =
+  obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
+pedido.atualizadoEm = new Date();
 
-    salvarPedidos(pedidos);
+await pedido.save();
 
     return res.json({
-      message: "Etiqueta emitida com sucesso.",
-      urlEtiqueta: pedidos[index].urlEtiqueta,
-      codigoRastreio: pedidos[index].codigoRastreio,
-      pedido: pedidos[index],
-      superfrete: data,
-    });
+  message: "Etiqueta emitida com sucesso.",
+  urlEtiqueta: pedido.urlEtiqueta,
+  codigoRastreio: pedido.codigoRastreio,
+  pedido,
+  superfrete: data,
+});
   } catch (error) {
     console.error("Erro ao emitir etiqueta:", error);
 
@@ -1014,7 +977,22 @@ app.post("/api/pedidos/:id/emitir-etiqueta", async (req, res) => {
     });
   }
 });
+async function conectarMongo() {
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI não configurada no ambiente.");
+  }
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+  await mongoose.connect(MONGODB_URI);
+  console.log("MongoDB conectado com sucesso.");
+}
+
+conectarMongo()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando na porta ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Erro ao conectar no MongoDB:", error);
+    process.exit(1);
+  });
