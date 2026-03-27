@@ -71,9 +71,234 @@ function obterMensagemTipo(valor) {
   return "Busca identificada: número do pedido";
 }
 
+function obterStatusTraduzido(status) {
+  if (status === "approved") return "Aprovado";
+  if (status === "pending") return "Pendente";
+  if (status === "in_process") return "Em processamento";
+  if (status === "rejected") return "Recusado";
+  if (status === "cancelled") return "Cancelado";
+  return status || "Não informado";
+}
+
+function obterClasseStatus(status) {
+  if (status === "approved") {
+    return "bg-green-100 text-green-700";
+  }
+
+  if (status === "pending" || status === "in_process") {
+    return "bg-yellow-100 text-yellow-700";
+  }
+
+  return "bg-red-100 text-red-700";
+}
+
+function extrairPedidos(data, tipo) {
+  if (tipo === "cpf" || tipo === "email") {
+    if (Array.isArray(data?.pedidos)) return data.pedidos;
+    if (Array.isArray(data)) return data;
+    if (data?.pedido) return [data.pedido];
+    if (data?.id) return [data];
+    return [];
+  }
+
+  if (Array.isArray(data?.pedidos) && data.pedidos.length > 0) {
+    return [data.pedidos[0]];
+  }
+
+  if (data?.pedido) return [data.pedido];
+  if (data?.id) return [data];
+
+  return [];
+}
+
+function calcularSubtotalProdutos(pedido) {
+  if (pedido?.subtotalProdutos != null) {
+    return Number(pedido.subtotalProdutos || 0);
+  }
+
+  return (
+    pedido?.carrinho?.reduce((acc, item) => {
+      return acc + Number(item.preco || 0) * Number(item.quantidade || 0);
+    }, 0) || 0
+  );
+}
+
+function calcularFrete(pedido) {
+  return Number(pedido?.freteSelecionado?.preco || 0);
+}
+
+function calcularTotalFinal(pedido) {
+  if (pedido?.totalComFrete != null) {
+    return Number(pedido.totalComFrete || 0);
+  }
+
+  return calcularSubtotalProdutos(pedido) + calcularFrete(pedido);
+}
+
+function CardPedido({ pedido }) {
+  const totalProdutos = calcularSubtotalProdutos(pedido);
+  const valorFrete = calcularFrete(pedido);
+  const totalFinal = calcularTotalFinal(pedido);
+
+  return (
+    <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Detalhes do pedido</h2>
+          <p className="mt-2 text-sm text-zinc-600">
+            Pedido:{" "}
+            <span className="font-semibold text-zinc-900">
+              {pedido?.id || "-"}
+            </span>
+          </p>
+        </div>
+
+        <div
+          className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${obterClasseStatus(
+            pedido?.status
+          )}`}
+        >
+          {obterStatusTraduzido(pedido?.status)}
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Cliente
+          </p>
+          <p className="mt-2 font-bold text-zinc-900">
+            {pedido?.dadosCliente?.nome || "-"}
+          </p>
+          <p className="mt-1 text-sm text-zinc-600">
+            {pedido?.dadosCliente?.email || "-"}
+          </p>
+          <p className="mt-1 text-sm text-zinc-600">
+            {pedido?.dadosCliente?.telefone || "-"}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Entrega
+          </p>
+          <p className="mt-2 font-bold text-zinc-900">
+            {pedido?.freteSelecionado?.nome || "-"}
+          </p>
+          <p className="mt-1 text-sm text-zinc-600">
+            Prazo: {pedido?.freteSelecionado?.prazo || "-"}
+          </p>
+          <p className="mt-1 text-sm text-zinc-600">
+            CEP: {pedido?.cepDestino || "-"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        {pedido?.carrinho?.length ? (
+          pedido.carrinho.map((item) => (
+            <div
+              key={item.carrinhoKey || item.id || `${item.nome}-${item.tamanho || ""}`}
+              className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-base font-bold text-zinc-900">
+                    {item?.nome || "Produto"}
+                  </p>
+
+                  <div className="mt-2 space-y-1 text-sm text-zinc-600">
+                    {item?.tamanho && <p>Tamanho: {item.tamanho}</p>}
+                    {item?.cor && <p>Cor: {item.cor}</p>}
+                    <p>Quantidade: {item?.quantidade || 0}</p>
+                  </div>
+                </div>
+
+                <div className="text-sm font-semibold text-zinc-900">
+                  {formatarMoeda(
+                    Number(item?.preco || 0) * Number(item?.quantidade || 0)
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+            Nenhum item encontrado neste pedido.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Endereço de entrega
+          </p>
+
+          <div className="mt-2 text-sm text-zinc-700">
+            <p>{pedido?.enderecoEntrega?.logradouro || "-"}</p>
+            <p>
+              {pedido?.enderecoEntrega?.numero || "-"}
+              {pedido?.enderecoEntrega?.complemento
+                ? ` - ${pedido.enderecoEntrega.complemento}`
+                : ""}
+            </p>
+            <p>
+              {pedido?.enderecoEntrega?.bairro || "-"} -{" "}
+              {pedido?.enderecoEntrega?.cidade || "-"} /{" "}
+              {pedido?.enderecoEntrega?.estado || "-"}
+            </p>
+            <p>CEP: {pedido?.enderecoEntrega?.cep || pedido?.cepDestino || "-"}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Resumo
+          </p>
+
+          <div className="mt-3 space-y-2 text-sm text-zinc-700">
+            <div className="flex items-center justify-between">
+              <span>Produtos</span>
+              <span>{formatarMoeda(totalProdutos)}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span>Frete</span>
+              <span>{formatarMoeda(valorFrete)}</span>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-zinc-200 pt-2 font-bold text-zinc-900">
+              <span>Total</span>
+              <span>{formatarMoeda(totalFinal)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {pedido?.pagamento && (
+        <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Pagamento
+          </p>
+
+          <div className="mt-2 grid gap-2 text-sm text-zinc-700 md:grid-cols-2">
+            <p>
+              Método: <span className="font-medium">{pedido?.pagamento?.metodo || "-"}</span>
+            </p>
+            <p>
+              Status: <span className="font-medium">{obterStatusTraduzido(pedido?.status)}</span>
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AcompanharPedido() {
   const [busca, setBusca] = useState("");
-  const [pedido, setPedido] = useState(null);
+  const [pedidos, setPedidos] = useState([]);
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [mensagemAjuda, setMensagemAjuda] = useState("");
@@ -99,7 +324,7 @@ export default function AcompanharPedido() {
     e.preventDefault();
 
     setErro("");
-    setPedido(null);
+    setPedidos([]);
 
     const valorDigitado = busca.trim();
 
@@ -153,24 +378,19 @@ export default function AcompanharPedido() {
         throw new Error(data?.error || "Não foi possível localizar o pedido.");
       }
 
-      setPedido(data);
+      const listaPedidos = extrairPedidos(data, tipo);
+
+      if (!listaPedidos.length) {
+        throw new Error("Nenhum pedido encontrado para os dados informados.");
+      }
+
+      setPedidos(listaPedidos);
     } catch (error) {
       setErro(error.message || "Erro ao buscar pedido.");
     } finally {
       setCarregando(false);
     }
   };
-
-  const totalProdutos =
-    pedido?.subtotalProdutos ??
-    pedido?.carrinho?.reduce(
-      (acc, item) => acc + Number(item.preco || 0) * Number(item.quantidade || 0),
-      0
-    ) ??
-    0;
-
-  const valorFrete = Number(pedido?.freteSelecionado?.preco || 0);
-  const totalFinal = pedido?.totalComFrete ?? totalProdutos + valorFrete;
 
   return (
     <div className="min-h-screen bg-[#fcfcfc] px-4 py-10 text-zinc-900">
@@ -219,154 +439,25 @@ export default function AcompanharPedido() {
             </div>
           )}
 
-          {pedido && (
-            <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-              <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold">Detalhes do pedido</h2>
-                    <p className="mt-2 text-sm text-zinc-600">
-                      Pedido: <span className="font-semibold text-zinc-900">{pedido.id}</span>
-                    </p>
-                  </div>
-
-                  <div
-                    className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${
-                      pedido.status === "approved"
-                        ? "bg-green-100 text-green-700"
-                        : pedido.status === "pending"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {pedido.status === "approved"
-                      ? "Aprovado"
-                      : pedido.status === "pending"
-                      ? "Pendente"
-                      : "Não concluído"}
-                  </div>
+          {!erro && pedidos.length > 0 && (
+            <div className="mt-8 space-y-6">
+              {(identificarTipoBusca(busca) === "cpf" ||
+                identificarTipoBusca(busca) === "email") && (
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+                  {pedidos.length} pedido{pedidos.length > 1 ? "s encontrados" : " encontrado"} para{" "}
+                  <span className="font-semibold">
+                    {identificarTipoBusca(busca) === "cpf"
+                      ? "o CPF informado"
+                      : "o e-mail informado"}
+                  </span>.
                 </div>
+              )}
 
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Cliente
-                    </p>
-                    <p className="mt-2 font-bold text-zinc-900">
-                      {pedido?.dadosCliente?.nome || "-"}
-                    </p>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      {pedido?.dadosCliente?.email || "-"}
-                    </p>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      {pedido?.dadosCliente?.telefone || "-"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Entrega
-                    </p>
-                    <p className="mt-2 font-bold text-zinc-900">
-                      {pedido?.freteSelecionado?.nome || "-"}
-                    </p>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      Prazo: {pedido?.freteSelecionado?.prazo || "-"}
-                    </p>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      CEP: {pedido?.cepDestino || "-"}
-                    </p>
-                  </div>
+              {pedidos.map((pedido, index) => (
+                <div key={pedido?.id || index}>
+                  <CardPedido pedido={pedido} />
                 </div>
-
-                <div className="mt-6 space-y-4">
-                  {pedido?.carrinho?.map((item) => (
-                    <div
-                      key={item.carrinhoKey || item.id}
-                      className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
-                    >
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <p className="text-base font-bold text-zinc-900">{item.nome}</p>
-
-                          <p className="mt-2 text-sm text-zinc-600">
-                            Quantidade: {item.quantidade}
-                          </p>
-
-                          <p className="mt-1 text-sm text-zinc-600">
-                            Preço unitário: {formatarMoeda(item.preco)}
-                          </p>
-
-                          {item?.resumoVariacoes?.length > 0 && (
-                            <div className="mt-2 text-sm text-zinc-600">
-                              {item.resumoVariacoes.map((v) => (
-                                <p key={`${item.id}-${v.nome}`}>
-                                  {v.nome}: {v.valor}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="text-left md:text-right">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                            Subtotal
-                          </p>
-                          <p className="mt-1 text-lg font-bold text-zinc-900">
-                            {formatarMoeda(
-                              Number(item.preco || 0) * Number(item.quantidade || 1)
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <aside className="h-fit rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5">
-                <h2 className="text-xl font-bold">Resumo</h2>
-
-                <div className="mt-5 space-y-3 text-sm text-zinc-700">
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Status</span>
-                    <span className="font-semibold">{pedido?.status || "-"}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Pagamento</span>
-                    <span className="font-semibold">
-                      {pedido?.metodo_pagamento || "Mercado Pago"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Subtotal</span>
-                    <span className="font-semibold">{formatarMoeda(totalProdutos)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Frete</span>
-                    <span className="font-semibold">{formatarMoeda(valorFrete)}</span>
-                  </div>
-
-                  <div className="border-t border-zinc-200 pt-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-base font-bold text-zinc-900">Total</span>
-                      <span className="text-lg font-black text-zinc-900">
-                        {formatarMoeda(totalFinal)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <a
-                  href="/#/"
-                  className="mt-6 block w-full rounded-2xl bg-[#f4b400] px-5 py-3 text-center font-semibold text-black"
-                >
-                  Voltar para a loja
-                </a>
-              </aside>
+              ))}
             </div>
           )}
         </div>

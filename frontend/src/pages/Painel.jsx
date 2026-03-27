@@ -32,7 +32,7 @@ function normalizarStatus(status) {
 }
 
 function tituloStatus(status) {
-  if (status === "chegou") return "Pedidos que chegaram";
+  if (status === "chegou") return "Pedidos a emitir";
   if (status === "emitido") return "Pedidos emitidos";
   if (status === "enviado") return "Pedidos enviados";
   return "Pedidos";
@@ -750,7 +750,7 @@ export default function Painel() {
           </div>
 
           <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 shadow-sm">
-            <p className="text-sm text-amber-700">Chegaram</p>
+            <p className="text-sm text-amber-700">A emitir</p>
             <p className="mt-2 text-3xl font-black text-amber-900">
               {pedidosChegaram.length}
             </p>
@@ -796,7 +796,7 @@ export default function Painel() {
         {!carregando && !erro && (
           <div className="grid gap-6 xl:grid-cols-3">
             <ColunaPedidos
-              titulo={tituloStatus("chegou")}
+              titulo={tituloStatus("novo")}
               pedidos={pedidosChegaram}
               status="chegou"
               atualizandoId={atualizandoId}
