@@ -632,13 +632,7 @@ app.post("/api/frete", async (req, res) => {
         height: Number(pacoteUnico.height),
         length: Number(pacoteUnico.length),
         weight: Number(pacoteUnico.weight),
-        insurance_value: Number(
-          carrinho.reduce(
-            (total, item) =>
-              total + Number(item.preco || 0) * Number(item.quantidade || 1),
-            0
-          )
-        ),
+        insurance_value: null,
         quantity: 1,
       },
     ];
@@ -695,17 +689,18 @@ app.post("/api/frete", async (req, res) => {
 
     if (!freteResponse.ok) {
       return res.status(freteResponse.status).json({
-        error: "Erro ao calcular frete",
+        error: "Erro ao calcular frete na SuperFrete.",
+        message: data?.message || "Falha ao calcular frete.",
         details: data,
       });
     }
 
     return res.json(data);
   } catch (error) {
-    console.error("Erro no frete:", error);
+    console.error("Erro ao calcular frete:", error);
 
     return res.status(500).json({
-      error: "Erro interno ao calcular frete.",
+      error: "Erro ao calcular frete.",
       message: error.message,
     });
   }
@@ -1162,68 +1157,15 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
       });
     }
 
-    if (!pedido?.enderecoEntrega?.cep) {
-      return res.status(400).json({
-        error: "Pedido sem CEP de entrega.",
-      });
-    }
-
-    if (!pedido?.enderecoEntrega?.rua) {
-      return res.status(400).json({
-        error: "Pedido sem rua de entrega.",
-      });
-    }
-
-    if (!pedido?.enderecoEntrega?.numero) {
-      return res.status(400).json({
-        error: "Pedido sem número de entrega.",
-      });
-    }
-
-    if (
-      !pedido?.enderecoEntrega?.bairro ||
-      !pedido?.enderecoEntrega?.cidade ||
-      !pedido?.enderecoEntrega?.estado
-    ) {
-      return res.status(400).json({
-        error: "Endereço de entrega incompleto.",
-      });
-    }
-
-    if (!pedido?.dadosCliente?.nome) {
-      return res.status(400).json({
-        error: "Pedido sem nome do destinatário.",
-      });
-    }
-
-    if (!pedido?.dadosCliente?.cpf) {
-      return res.status(400).json({
-        error: "Pedido sem CPF do destinatário.",
-      });
-    }
-
     if (!pedido?.freteSelecionado?.service) {
       return res.status(400).json({
-        error: "Pedido sem código de serviço do frete.",
+        error: "Pedido sem frete selecionado.",
       });
     }
 
-    if (!pedido?.freteSelecionado?.package) {
-      return res.status(400).json({
-        error: "Pedido sem pacote retornado pela cotação do frete.",
-      });
-    }
-
-    const remetenteValidacao = validarRemetente();
-
-    if (!remetenteValidacao.valido) {
-      return res.status(400).json({
-        error: "Dados do remetente incompletos no servidor.",
-        faltando: remetenteValidacao.faltando,
-      });
-    }
-
-    const pacote = pedido.freteSelecionado.package;
+    const pacote =
+      pedido?.freteSelecionado?.package ||
+      montarPacoteUnico(pedido.carrinho || []);
 
     const payloadEtiqueta = {
       from: {
@@ -1269,7 +1211,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
         },
       ],
       options: {
-        insurance_value: Number(pedido.totalComFrete || 0),
+        insurance_value: null,
         receipt: Boolean(pedido?.freteSelecionado?.additional_services?.receipt),
         own_hand: Boolean(pedido?.freteSelecionado?.additional_services?.own_hand),
         reverse: false,
