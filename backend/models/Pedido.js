@@ -57,10 +57,12 @@ const pedidoSchema = new mongoose.Schema(
     },
 
     status: { type: String, default: "pending", index: true },
+
     statusInterno: {
       type: String,
-      enum: ["chegou", "emitido", "enviado"],
+      enum: ["chegou", "para_confirmar", "a_emitir", "emitido", "enviado"],
       default: "chegou",
+      index: true,
     },
 
     payment_id: mongoose.Schema.Types.Mixed,
@@ -86,6 +88,7 @@ const pedidoSchema = new mongoose.Schema(
   }
 );
 
-const Pedido = mongoose.models.Pedido || mongoose.model("Pedido", pedidoSchema);
+const Pedido =
+  mongoose.models.Pedido || mongoose.model("Pedido", pedidoSchema);
 
 export default Pedido;
