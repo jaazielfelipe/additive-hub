@@ -128,6 +128,20 @@ function calcularFrete(pedido) {
 }
 
 function calcularDescontoCupom(pedido) {
+  const subtotal = calcularSubtotalProdutos(pedido);
+  const frete = calcularFrete(pedido);
+  const totalSalvo = Number(pedido?.totalComFrete);
+
+  // se tem total salvo, SEMPRE usa ele como fonte da verdade
+  if (pedido?.totalComFrete != null && Number.isFinite(totalSalvo)) {
+    const desconto = subtotal + frete - totalSalvo;
+
+    if (desconto > 0) {
+      return Number(desconto.toFixed(2));
+    }
+  }
+
+  // fallback
   return Number(pedido?.descontoCupom || 0);
 }
 
@@ -139,15 +153,11 @@ function calcularTotalFinal(pedido) {
   const totalCalculado = subtotal + frete - desconto;
   const totalSalvo = Number(pedido?.totalComFrete);
 
-  if (
-    pedido?.totalComFrete != null &&
-    Number.isFinite(totalSalvo) &&
-    Math.abs(totalSalvo - totalCalculado) < 0.01
-  ) {
+  if (pedido?.totalComFrete != null && Number.isFinite(totalSalvo)) {
     return totalSalvo;
   }
 
-  return totalCalculado;
+  return Number(totalCalculado.toFixed(2));
 }
 
 function CardPedido({ pedido }) {
@@ -166,13 +176,14 @@ function CardPedido({ pedido }) {
   const cep = endereco?.cep || pedido?.cepDestino || "-";
 
   console.log("pedido acompanhamento", {
-  id: pedido?.id,
-  subtotalProdutos: pedido?.subtotalProdutos,
-  frete: pedido?.freteSelecionado?.preco,
-  descontoCupom: pedido?.descontoCupom,
-  totalComFrete: pedido?.totalComFrete,
-  cupomAplicado: pedido?.cupomAplicado,
-});
+    id: pedido?.id,
+    subtotalProdutos: pedido?.subtotalProdutos,
+    frete: pedido?.freteSelecionado?.preco,
+    descontoCupom: pedido?.descontoCupom,
+    descontoCalculado: descontoCupom,
+    totalComFrete: pedido?.totalComFrete,
+    cupomAplicado: pedido?.cupomAplicado,
+  });
 
   return (
     <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
@@ -323,20 +334,22 @@ function CardPedido({ pedido }) {
             </div>
 
             {pedido?.cupomAplicado?.codigo && (
-  <div className="flex items-center justify-between">
-    <span>Cupom</span>
-    <span className="font-medium">{pedido.cupomAplicado.codigo}</span>
-  </div>
-)}
+              <div className="flex items-center justify-between">
+                <span>Cupom</span>
+                <span className="font-medium">{pedido.cupomAplicado.codigo}</span>
+              </div>
+            )}
 
-{(pedido?.cupomAplicado?.codigo || pedido?.descontoCupom != null) && (
-  <div className="flex items-center justify-between">
-    <span>Desconto</span>
-    <span className="font-medium text-green-700">
-      - {formatarMoeda(Number(pedido?.descontoCupom || 0))}
-    </span>
-  </div>
-)}
+            {(pedido?.cupomAplicado?.codigo ||
+              descontoCupom > 0 ||
+              pedido?.descontoCupom != null) && (
+              <div className="flex items-center justify-between">
+                <span>Desconto</span>
+                <span className="font-medium text-green-700">
+                  - {formatarMoeda(descontoCupom)}
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center justify-between border-t border-zinc-200 pt-2 font-bold text-zinc-900">
               <span>Total</span>
@@ -533,9 +546,7 @@ export default function AcompanharPedido() {
               {pedidos.map((pedido, index) => (
                 <div key={pedido?.id || pedido?.pedidoLocalId || index}>
                   <CardPedido pedido={pedido} />
-                  
                 </div>
-                
               ))}
             </div>
           )}

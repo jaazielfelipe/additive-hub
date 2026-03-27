@@ -493,6 +493,63 @@ function montarPacoteUnico(carrinho) {
   };
 }
 
+function calcularFretePedido(pedido = {}) {
+  return arredondar(Number(pedido?.freteSelecionado?.preco || 0));
+}
+
+function calcularSubtotalPedido(pedido = {}) {
+  if (pedido?.subtotalProdutos != null) {
+    return arredondar(Number(pedido.subtotalProdutos || 0));
+  }
+
+  return calcularSubtotalCarrinho(pedido?.carrinho || []);
+}
+
+function calcularDescontoPedido(pedido = {}) {
+  if (pedido?.descontoCupom != null && Number(pedido.descontoCupom) > 0) {
+    return arredondar(Number(pedido.descontoCupom || 0));
+  }
+
+  const subtotal = calcularSubtotalPedido(pedido);
+  const frete = calcularFretePedido(pedido);
+  const total = Number(pedido?.totalComFrete);
+
+  if (pedido?.totalComFrete != null && Number.isFinite(total)) {
+    const descontoInferido = subtotal + frete - total;
+
+    if (descontoInferido > 0) {
+      return arredondar(descontoInferido);
+    }
+  }
+
+  return 0;
+}
+
+function normalizarPedidoResposta(pedidoDoc) {
+  const pedido =
+    typeof pedidoDoc?.toObject === "function" ? pedidoDoc.toObject() : pedidoDoc;
+
+  const subtotalProdutos = calcularSubtotalPedido(pedido);
+  const frete = calcularFretePedido(pedido);
+  const descontoCupom = calcularDescontoPedido(pedido);
+
+  let totalComFrete = Number(pedido?.totalComFrete);
+
+  if (!Number.isFinite(totalComFrete)) {
+    totalComFrete = arredondar(subtotalProdutos + frete - descontoCupom);
+  } else {
+    totalComFrete = arredondar(totalComFrete);
+  }
+
+  return {
+    ...pedido,
+    subtotalProdutos,
+    descontoCupom,
+    cupomAplicado: pedido?.cupomAplicado || null,
+    totalComFrete,
+  };
+}
+
 app.get("/", (req, res) => {
   res.send("API Additive Hub online.");
 });
@@ -932,13 +989,8 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
       }
 
       return res.json({
-  pedido: {
-    ...pedido.toObject(),
-    descontoCupom: Number(pedido?.descontoCupom || 0),
-    cupomAplicado: pedido?.cupomAplicado || null,
-    totalComFrete: Number(pedido?.totalComFrete || 0),
-  },
-});
+        pedido: normalizarPedidoResposta(pedido),
+      });
     }
 
     if (tipo === "email" || email) {
@@ -961,13 +1013,8 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
       }
 
       return res.json({
-  pedidos: pedidos.map((pedido) => ({
-    ...pedido.toObject(),
-    descontoCupom: Number(pedido?.descontoCupom || 0),
-    cupomAplicado: pedido?.cupomAplicado || null,
-    totalComFrete: Number(pedido?.totalComFrete || 0),
-  })),
-});
+        pedidos: pedidos.map(normalizarPedidoResposta),
+      });
     }
 
     if (tipo === "cpf" || cpf) {
@@ -990,13 +1037,8 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
       }
 
       return res.json({
-  pedidos: pedidos.map((pedido) => ({
-    ...pedido.toObject(),
-    descontoCupom: Number(pedido?.descontoCupom || 0),
-    cupomAplicado: pedido?.cupomAplicado || null,
-    totalComFrete: Number(pedido?.totalComFrete || 0),
-  })),
-});
+        pedidos: pedidos.map(normalizarPedidoResposta),
+      });
     }
 
     return res.status(400).json({
@@ -1017,7 +1059,9 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
 app.get("/api/pedidos", autenticarAdmin, async (req, res) => {
   try {
     const pedidos = await Pedido.find().sort({ criadoEm: -1 });
-    return res.json(pedidos);
+    return res.json({
+      pedidos: pedidos.map(normalizarPedidoResposta),
+    });
   } catch (error) {
     console.error("Erro ao listar pedidos:", error);
 
@@ -1043,7 +1087,9 @@ app.get("/api/pedidos/:id", autenticarAdmin, async (req, res) => {
       return res.status(404).json({ error: "Pedido não encontrado." });
     }
 
-    return res.json(pedido);
+    return res.json({
+      pedido: normalizarPedidoResposta(pedido),
+    });
   } catch (error) {
     console.error("Erro ao buscar pedido:", error);
 
@@ -1085,7 +1131,7 @@ app.patch("/api/pedidos/:id/status", autenticarAdmin, async (req, res) => {
 
     return res.json({
       message: "Status interno atualizado com sucesso.",
-      pedido,
+      pedido: normalizarPedidoResposta(pedido),
     });
   } catch (error) {
     console.error("Erro ao atualizar status interno:", error);
@@ -1287,7 +1333,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
       message: "Etiqueta gerada com sucesso.",
       urlEtiqueta: pedido.urlEtiqueta,
       codigoRastreio: pedido.codigoRastreio,
-      pedido,
+      pedido: normalizarPedidoResposta(pedido),
       superfrete: data,
     });
   } catch (error) {
@@ -1397,7 +1443,7 @@ app.post("/api/pedidos/:id/emitir-etiqueta", autenticarAdmin, async (req, res) =
       message: "Etiqueta emitida com sucesso.",
       urlEtiqueta: pedido.urlEtiqueta,
       codigoRastreio: pedido.codigoRastreio,
-      pedido,
+      pedido: normalizarPedidoResposta(pedido),
       superfrete: data,
     });
   } catch (error) {
