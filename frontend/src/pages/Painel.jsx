@@ -135,12 +135,36 @@ function construirMensagemConfirmacao(pedido) {
   ].join("\n");
 }
 
+function construirMensagemEmbalando(pedido) {
+  const cliente = pedido?.dadosCliente || {};
+  const nome = cliente.nome ? cliente.nome.split(" ")[0] : "cliente";
+  const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
+
+  return [
+    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem 📦`,
+    "",
+    "Estamos preparando tudo com cuidado para envio.",
+    "Assim que houver a próxima atualização, avisaremos você.",
+    "",
+    "Obrigado pela preferência 💛",
+  ].join("\n");
+}
+
 function gerarLinkWhatsApp(pedido) {
   const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
 
   if (!telefone) return "";
 
   const mensagem = construirMensagemConfirmacao(pedido);
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+}
+
+function gerarLinkWhatsAppEmbalando(pedido) {
+  const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
+
+  if (!telefone) return "";
+
+  const mensagem = construirMensagemEmbalando(pedido);
   return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
 }
 
@@ -168,8 +192,7 @@ function PedidoCard({
 
   const cliente = pedido.dadosCliente || {};
   const entrega = pedido.enderecoEntrega || {};
-  const pedidoId = pedido.id || pedido.pedidoLocalId;
-  const linkWhatsApp = gerarLinkWhatsApp(pedido);
+  const linkWhatsAppEmbalando = gerarLinkWhatsAppEmbalando(pedido);
 
   const podeGerarEtiqueta =
     !pedido?.etiquetaGerada &&
@@ -192,12 +215,12 @@ function PedidoCard({
           disabled={atualizando || gerandoEtiqueta || emitindoEtiqueta || confirmandoPedido}
           className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {confirmandoPedido ? "Confirmando..." : "Confirmar pedido no WhatsApp"}
+          {confirmandoPedido ? "Confirmando..." : "Confirmar recebimento"}
         </button>
       );
     }
 
-    if (statusOperacional === "a_emitir") {
+    if (statusOperacional === "a_emitir" && !pedido?.etiquetaGerada) {
       return (
         <button
           type="button"
@@ -216,7 +239,7 @@ function PedidoCard({
       );
     }
 
-    if (statusOperacional === "emitido") {
+    if (statusOperacional === "a_emitir" && pedido?.etiquetaGerada && !pedido?.etiquetaEmitida) {
       return (
         <button
           type="button"
@@ -232,6 +255,19 @@ function PedidoCard({
         >
           {emitindoEtiqueta ? "Emitindo..." : "Emitir etiqueta"}
         </button>
+      );
+    }
+
+    if (statusOperacional === "emitido" && linkWhatsAppEmbalando) {
+      return (
+        <a
+          href={linkWhatsAppEmbalando}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-bold text-orange-800"
+        >
+          Avisar que está embalando
+        </a>
       );
     }
 
@@ -399,32 +435,6 @@ function PedidoCard({
 
       <div className="mt-4 flex flex-wrap gap-2">
         {renderBotaoPrincipal()}
-
-        {statusOperacional !== "para_confirmar" && (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(String(pedidoId || ""));
-                alert("Código do pedido copiado.");
-              }}
-              className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800"
-            >
-              Copiar código
-            </button>
-
-            {linkWhatsApp ? (
-              <a
-                href={linkWhatsApp}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl border border-green-300 bg-green-50 px-4 py-2 text-sm font-bold text-green-800"
-              >
-                Abrir WhatsApp
-              </a>
-            ) : null}
-          </>
-        )}
       </div>
     </article>
   );
@@ -609,7 +619,8 @@ export default function Painel() {
             ? {
                 ...item,
                 ...data?.pedido,
-                statusInterno: "emitido",
+                statusInterno: "a_emitir",
+                etiquetaGerada: true,
               }
             : item
         )
@@ -663,7 +674,9 @@ export default function Painel() {
             ? {
                 ...item,
                 ...data?.pedido,
-                statusInterno: "enviado",
+                statusInterno: "emitido",
+                etiquetaGerada: true,
+                etiquetaEmitida: true,
               }
             : item
         )
