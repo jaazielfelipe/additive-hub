@@ -23,45 +23,32 @@ function formatarData(data) {
 function normalizarStatus(status) {
   const valor = String(status || "").toLowerCase().trim();
 
-  if (valor === "recebido") return "a_emitir";
-  if (valor === "chegou") return "a_emitir";
+  if (valor === "recebido") return "para_confirmar";
+  if (valor === "chegou") return "para_confirmar";
+  if (valor === "para_confirmar") return "para_confirmar";
   if (valor === "a_emitir") return "a_emitir";
   if (valor === "emitido") return "emitido";
   if (valor === "enviado") return "enviado";
 
-  return "a_emitir";
+  return "para_confirmar";
 }
 
 function tituloStatus(status) {
-  if (status === "a_emitir") return "Pedidos a emitir";
-  if (status === "emitido") return "Pedidos emitidos";
-  if (status === "enviado") return "Pedidos enviados";
-  return "Pedidos";
+  if (status === "para_confirmar") return "Para confirmar";
+  if (status === "a_emitir") return "A emitir";
+  if (status === "emitido") return "Emitido";
+  if (status === "enviado") return "Enviado";
+  return "Todos";
 }
 
 function corStatus(status) {
+  if (status === "para_confirmar") {
+    return "bg-violet-100 text-violet-800 border-violet-200";
+  }
   if (status === "a_emitir") return "bg-amber-100 text-amber-800 border-amber-200";
   if (status === "emitido") return "bg-blue-100 text-blue-800 border-blue-200";
   if (status === "enviado") return "bg-emerald-100 text-emerald-800 border-emerald-200";
   return "bg-zinc-100 text-zinc-700 border-zinc-200";
-}
-
-function proximoStatus(status) {
-  if (status === "a_emitir") return "emitido";
-  if (status === "emitido") return "enviado";
-  return null;
-}
-
-function statusAnterior(status) {
-  if (status === "enviado") return "emitido";
-  if (status === "emitido") return "a_emitir";
-  return null;
-}
-
-function nomeBotaoAvancar(status) {
-  if (status === "a_emitir") return "Marcar como emitido";
-  if (status === "emitido") return "Marcar como enviado";
-  return "";
 }
 
 function textoStatusPagamento(status) {
@@ -112,12 +99,58 @@ function classeStatusEtiqueta(pedido) {
   return "bg-zinc-100 text-zinc-700 border-zinc-200";
 }
 
+function normalizarTelefoneWhatsApp(telefone) {
+  const numeros = String(telefone || "").replace(/\D/g, "");
+
+  if (!numeros) return "";
+
+  if (numeros.startsWith("55")) return numeros;
+
+  return `55${numeros}`;
+}
+
+function construirMensagemConfirmacao(pedido) {
+  const cliente = pedido?.dadosCliente || {};
+  const nome = cliente.nome ? cliente.nome.split(" ")[0] : "cliente";
+  const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
+  const itens = Array.isArray(pedido?.carrinho) ? pedido.carrinho : [];
+
+  const resumoItens = itens.length
+    ? itens
+        .map((item) => `- ${item?.nome || "Produto"} x${item?.quantidade || 0}`)
+        .join("\n")
+    : "- Itens do pedido";
+
+  return [
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso ✅`,
+    "",
+    "Já estamos preparando tudo para a confecção.",
+    "O prazo é de *3 dias úteis* para produção.",
+    "",
+    "*Resumo do pedido:*",
+    resumoItens,
+    "",
+    "Assim que avançarmos para a próxima etapa, avisaremos você.",
+    "Obrigado pela preferência 💛",
+  ].join("\n");
+}
+
+function gerarLinkWhatsApp(pedido) {
+  const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
+
+  if (!telefone) return "";
+
+  const mensagem = construirMensagemConfirmacao(pedido);
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+}
+
 function PedidoCard({
   pedido,
   atualizando,
   gerandoEtiqueta,
   emitindoEtiqueta,
-  onAtualizarStatus,
+  confirmandoPedido,
+  onConfirmarPedido,
   onGerarEtiqueta,
   onEmitirEtiqueta,
 }) {
@@ -135,9 +168,8 @@ function PedidoCard({
 
   const cliente = pedido.dadosCliente || {};
   const entrega = pedido.enderecoEntrega || {};
-
-  const proximo = proximoStatus(statusOperacional);
-  const anterior = statusAnterior(statusOperacional);
+  const pedidoId = pedido.id || pedido.pedidoLocalId;
+  const linkWhatsApp = gerarLinkWhatsApp(pedido);
 
   const podeGerarEtiqueta =
     !pedido?.etiquetaGerada &&
@@ -151,16 +183,73 @@ function PedidoCard({
   const podeEmitirEtiqueta =
     !!pedido?.etiquetaGerada && !pedido?.etiquetaEmitida;
 
-  const pedidoId = pedido.id || pedido.pedidoLocalId;
+  function renderBotaoPrincipal() {
+    if (statusOperacional === "para_confirmar") {
+      return (
+        <button
+          type="button"
+          onClick={() => onConfirmarPedido(pedido)}
+          disabled={atualizando || gerandoEtiqueta || emitindoEtiqueta || confirmandoPedido}
+          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {confirmandoPedido ? "Confirmando..." : "Confirmar pedido no WhatsApp"}
+        </button>
+      );
+    }
+
+    if (statusOperacional === "a_emitir") {
+      return (
+        <button
+          type="button"
+          onClick={() => onGerarEtiqueta(pedido)}
+          disabled={
+            !podeGerarEtiqueta ||
+            atualizando ||
+            gerandoEtiqueta ||
+            emitindoEtiqueta ||
+            confirmandoPedido
+          }
+          className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-bold text-sky-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {gerandoEtiqueta ? "Gerando etiqueta..." : "Gerar etiqueta"}
+        </button>
+      );
+    }
+
+    if (statusOperacional === "emitido") {
+      return (
+        <button
+          type="button"
+          onClick={() => onEmitirEtiqueta(pedido)}
+          disabled={
+            !podeEmitirEtiqueta ||
+            atualizando ||
+            gerandoEtiqueta ||
+            emitindoEtiqueta ||
+            confirmandoPedido
+          }
+          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {emitindoEtiqueta ? "Emitindo..." : "Emitir etiqueta"}
+        </button>
+      );
+    }
+
+    return (
+      <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">
+        Pedido finalizado
+      </span>
+    );
+  }
 
   return (
     <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
             Pedido
           </p>
-          <h3 className="mt-1 text-base font-bold text-zinc-900">
+          <h3 className="mt-1 text-lg font-bold text-zinc-900">
             {pedido.pedidoLocalId || pedido.id || "Sem código"}
           </h3>
           <p className="mt-1 text-sm text-zinc-500">
@@ -173,15 +262,13 @@ function PedidoCard({
           ) : null}
         </div>
 
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-wrap gap-2 xl:justify-end">
           <span
             className={`rounded-full border px-3 py-1 text-xs font-bold ${corStatus(
               statusOperacional
             )}`}
           >
-            {statusOperacional === "a_emitir" && "A emitir"}
-            {statusOperacional === "emitido" && "Emitido"}
-            {statusOperacional === "enviado" && "Enviado"}
+            {tituloStatus(statusOperacional)}
           </span>
 
           <span
@@ -202,64 +289,76 @@ function PedidoCard({
         </div>
       </div>
 
-      <div className="mt-4 space-y-3 text-sm text-zinc-700">
-        <div>
+      <div className="mt-4 grid gap-3 text-sm text-zinc-700 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
           <p className="font-semibold text-zinc-900">Cliente</p>
-          <p>{cliente.nome || "-"}</p>
-          <p>{cliente.email || "-"}</p>
-          <p>{cliente.telefone || "-"}</p>
-          <p>{cliente.cpf || "-"}</p>
+          <div className="mt-2 space-y-1">
+            <p className="truncate">{cliente.nome || "-"}</p>
+            <p className="truncate">{cliente.email || "-"}</p>
+            <p>{cliente.telefone || "-"}</p>
+            <p>{cliente.cpf || "-"}</p>
+          </div>
         </div>
 
-        <div>
+        <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
           <p className="font-semibold text-zinc-900">Entrega</p>
-          <p>CEP: {entrega.cep || pedido.cepDestino || "-"}</p>
-          <p>
-            {entrega.rua || "-"}, {entrega.numero || "-"}
-          </p>
-          <p>
-            {entrega.bairro || "-"} - {entrega.cidade || "-"} /{" "}
-            {entrega.estado || "-"}
-          </p>
-          {entrega.complemento ? (
-            <p>Complemento: {entrega.complemento}</p>
-          ) : null}
-        </div>
-
-        {pedido?.freteSelecionado ? (
-          <div>
-            <p className="font-semibold text-zinc-900">Frete</p>
-            <p>{pedido.freteSelecionado?.nome || "Serviço selecionado"}</p>
-            {pedido.freteSelecionado?.prazo ? (
-              <p>Prazo: {pedido.freteSelecionado.prazo}</p>
-            ) : null}
-            {pedido.freteSelecionado?.preco !== undefined ? (
-              <p>Valor: {formatarMoeda(pedido.freteSelecionado.preco)}</p>
+          <div className="mt-2 space-y-1">
+            <p>CEP: {entrega.cep || pedido.cepDestino || "-"}</p>
+            <p className="truncate">
+              {entrega.rua || "-"}, {entrega.numero || "-"}
+            </p>
+            <p className="truncate">
+              {entrega.bairro || "-"} - {entrega.cidade || "-"} /{" "}
+              {entrega.estado || "-"}
+            </p>
+            {entrega.complemento ? (
+              <p className="truncate">Comp.: {entrega.complemento}</p>
             ) : null}
           </div>
-        ) : null}
-
-        <div>
-          <p className="font-semibold text-zinc-900">Resumo</p>
-          <p>Itens: {totalItens}</p>
-          <p>Subtotal: {formatarMoeda(subtotal)}</p>
-          <p>Frete: {formatarMoeda(frete)}</p>
-          {cupom ? <p>Cupom: {cupom}</p> : null}
-          {(cupom || desconto > 0 || pedido?.descontoCupom != null) ? (
-            <p>Desconto: - {formatarMoeda(desconto)}</p>
-          ) : null}
-          <p>Total: {formatarMoeda(total)}</p>
-          {pedido?.codigoRastreio ? (
-            <p>Código de rastreio: {pedido.codigoRastreio}</p>
-          ) : null}
-          {pedido?.payment_id ? (
-            <p>ID pagamento: {pedido.payment_id}</p>
-          ) : null}
         </div>
 
-        <div>
-          <p className="font-semibold text-zinc-900">Produtos</p>
-          <div className="mt-2 space-y-2">
+        <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
+          <p className="font-semibold text-zinc-900">Frete</p>
+          <div className="mt-2 space-y-1">
+            <p className="truncate">
+              {pedido?.freteSelecionado?.nome || "Sem frete"}
+            </p>
+            {pedido?.freteSelecionado?.prazo ? (
+              <p>Prazo: {pedido.freteSelecionado.prazo}</p>
+            ) : null}
+            {pedido?.freteSelecionado?.preco !== undefined ? (
+              <p>Valor: {formatarMoeda(pedido.freteSelecionado.preco)}</p>
+            ) : (
+              <p>Valor: -</p>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
+          <p className="font-semibold text-zinc-900">Resumo</p>
+          <div className="mt-2 space-y-1">
+            <p>Itens: {totalItens}</p>
+            <p>Subtotal: {formatarMoeda(subtotal)}</p>
+            <p>Frete: {formatarMoeda(frete)}</p>
+            {cupom ? <p className="truncate">Cupom: {cupom}</p> : null}
+            {(cupom || desconto > 0 || pedido?.descontoCupom != null) ? (
+              <p>Desconto: - {formatarMoeda(desconto)}</p>
+            ) : null}
+            <p className="font-semibold text-zinc-900">
+              Total: {formatarMoeda(total)}
+            </p>
+          </div>
+        </div>
+
+        <div className="md:col-span-2 xl:col-span-4 rounded-xl border border-zinc-100 bg-zinc-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-semibold text-zinc-900">Produtos</p>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
+              {itens.length} item(ns)
+            </span>
+          </div>
+
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
             {itens.length === 0 && (
               <p className="text-sm text-zinc-500">Nenhum item encontrado.</p>
             )}
@@ -267,16 +366,16 @@ function PedidoCard({
             {itens.map((item, index) => (
               <div
                 key={`${item?.id || item?.nome || "item"}-${index}`}
-                className="rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2"
+                className="rounded-xl border border-zinc-200 bg-white px-3 py-3"
               >
-                <p className="font-medium text-zinc-900">
+                <p className="font-medium text-zinc-900 line-clamp-2">
                   {item?.nome || "Produto"}
                 </p>
-                <p className="text-sm text-zinc-600">
-                  Quantidade: {item?.quantidade || 0}
+                <p className="mt-1 text-sm text-zinc-600">
+                  Qtd: {item?.quantidade || 0}
                 </p>
                 <p className="text-sm text-zinc-600">
-                  Valor unitário: {formatarMoeda(item?.preco || 0)}
+                  Unit.: {formatarMoeda(item?.preco || 0)}
                 </p>
               </div>
             ))}
@@ -284,13 +383,13 @@ function PedidoCard({
         </div>
 
         {pedido?.urlEtiqueta ? (
-          <div>
+          <div className="md:col-span-2 xl:col-span-4 rounded-xl border border-zinc-100 bg-zinc-50 p-4">
             <p className="font-semibold text-zinc-900">Etiqueta</p>
             <a
               href={pedido.urlEtiqueta}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 inline-block text-sm font-medium text-blue-700 underline"
+              className="mt-2 inline-block text-sm font-medium text-blue-700 underline"
             >
               Abrir etiqueta
             </a>
@@ -299,113 +398,35 @@ function PedidoCard({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {anterior && (
-          <button
-            type="button"
-            onClick={() => onAtualizarStatus(pedido, anterior)}
-            disabled={atualizando || gerandoEtiqueta || emitindoEtiqueta}
-            className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {atualizando ? "Atualizando..." : "Voltar status"}
-          </button>
+        {renderBotaoPrincipal()}
+
+        {statusOperacional !== "para_confirmar" && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(String(pedidoId || ""));
+                alert("Código do pedido copiado.");
+              }}
+              className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800"
+            >
+              Copiar código
+            </button>
+
+            {linkWhatsApp ? (
+              <a
+                href={linkWhatsApp}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl border border-green-300 bg-green-50 px-4 py-2 text-sm font-bold text-green-800"
+              >
+                Abrir WhatsApp
+              </a>
+            ) : null}
+          </>
         )}
-
-        {proximo && (
-          <button
-            type="button"
-            onClick={() => onAtualizarStatus(pedido, proximo)}
-            disabled={atualizando || gerandoEtiqueta || emitindoEtiqueta}
-            className="rounded-xl bg-black px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {atualizando ? "Atualizando..." : nomeBotaoAvancar(statusOperacional)}
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={() => onGerarEtiqueta(pedido)}
-          disabled={
-            !podeGerarEtiqueta || atualizando || gerandoEtiqueta || emitindoEtiqueta
-          }
-          className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-bold text-sky-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {gerandoEtiqueta ? "Gerando etiqueta..." : "Gerar etiqueta"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onEmitirEtiqueta(pedido)}
-          disabled={
-            !podeEmitirEtiqueta ||
-            atualizando ||
-            gerandoEtiqueta ||
-            emitindoEtiqueta
-          }
-          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {emitindoEtiqueta ? "Emitindo..." : "Emitir etiqueta"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            navigator.clipboard.writeText(String(pedidoId || ""));
-            alert("Código do pedido copiado.");
-          }}
-          className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800"
-        >
-          Copiar código
-        </button>
       </div>
     </article>
-  );
-}
-
-function ColunaPedidos({
-  titulo,
-  pedidos,
-  status,
-  atualizandoId,
-  gerandoEtiquetaId,
-  emitindoEtiquetaId,
-  onAtualizarStatus,
-  onGerarEtiqueta,
-  onEmitirEtiqueta,
-}) {
-  return (
-    <section className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-zinc-900">{titulo}</h2>
-        <span className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-zinc-700">
-          {pedidos.length}
-        </span>
-      </div>
-
-      <div className="space-y-4">
-        {pedidos.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-sm text-zinc-500">
-            Nenhum pedido em {status}.
-          </div>
-        )}
-
-        {pedidos.map((pedido) => {
-          const pedidoId = pedido.id || pedido.pedidoLocalId;
-
-          return (
-            <PedidoCard
-              key={pedidoId}
-              pedido={pedido}
-              atualizando={atualizandoId === pedidoId}
-              gerandoEtiqueta={gerandoEtiquetaId === pedidoId}
-              emitindoEtiqueta={emitindoEtiquetaId === pedidoId}
-              onAtualizarStatus={onAtualizarStatus}
-              onGerarEtiqueta={onGerarEtiqueta}
-              onEmitirEtiqueta={onEmitirEtiqueta}
-            />
-          );
-        })}
-      </div>
-    </section>
   );
 }
 
@@ -416,7 +437,9 @@ export default function Painel() {
   const [atualizandoId, setAtualizandoId] = useState(null);
   const [gerandoEtiquetaId, setGerandoEtiquetaId] = useState(null);
   const [emitindoEtiquetaId, setEmitindoEtiquetaId] = useState(null);
+  const [confirmandoPedidoId, setConfirmandoPedidoId] = useState(null);
   const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
 
   const apiBaseUrl =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -483,16 +506,25 @@ export default function Painel() {
     carregarPedidos();
   }, []);
 
-  const atualizarStatusPedido = async (pedido, novoStatus) => {
+  const confirmarPedido = async (pedido) => {
     const pedidoId = pedido.id || pedido.pedidoLocalId;
 
     if (!pedidoId) {
-      alert("Esse pedido não possui ID para atualização.");
+      alert("Esse pedido não possui ID para confirmação.");
       return;
     }
 
+    const linkWhatsApp = gerarLinkWhatsApp(pedido);
+
+    if (!linkWhatsApp) {
+      alert("Esse pedido não possui telefone válido para abrir o WhatsApp.");
+      return;
+    }
+
+    const abaWhatsApp = window.open(linkWhatsApp, "_blank");
+
     try {
-      setAtualizandoId(pedidoId);
+      setConfirmandoPedidoId(pedidoId);
 
       const response = await fetch(`${apiPedidosUrl}/${pedidoId}/status`, {
         method: "PATCH",
@@ -501,7 +533,7 @@ export default function Painel() {
           ...headersAutenticados,
         },
         body: JSON.stringify({
-          status: novoStatus,
+          status: "a_emitir",
         }),
       });
 
@@ -513,7 +545,7 @@ export default function Painel() {
 
       if (!response.ok) {
         throw new Error(
-          data?.message || data?.error || "Não foi possível atualizar o status."
+          data?.message || data?.error || "Não foi possível confirmar o pedido."
         );
       }
 
@@ -523,18 +555,20 @@ export default function Painel() {
             ? {
                 ...item,
                 ...data?.pedido,
-                statusInterno: normalizarStatus(
-                  data?.pedido?.statusInterno || novoStatus
-                ),
+                statusInterno: "a_emitir",
               }
             : item
         )
       );
+
+      if (!abaWhatsApp) {
+        alert("Pedido confirmado, mas o navegador bloqueou a abertura do WhatsApp.");
+      }
     } catch (error) {
-      console.error("Erro ao atualizar status:", error);
-      alert(error.message || "Erro ao atualizar status.");
+      console.error("Erro ao confirmar pedido:", error);
+      alert(error.message || "Erro ao confirmar pedido.");
     } finally {
-      setAtualizandoId(null);
+      setConfirmandoPedidoId(null);
     }
   };
 
@@ -575,9 +609,7 @@ export default function Painel() {
             ? {
                 ...item,
                 ...data?.pedido,
-                statusInterno: normalizarStatus(
-                  data?.pedido?.statusInterno || item.statusInterno
-                ),
+                statusInterno: "emitido",
               }
             : item
         )
@@ -631,9 +663,7 @@ export default function Painel() {
             ? {
                 ...item,
                 ...data?.pedido,
-                statusInterno: normalizarStatus(
-                  data?.pedido?.statusInterno || "enviado"
-                ),
+                statusInterno: "enviado",
               }
             : item
         )
@@ -653,73 +683,77 @@ export default function Painel() {
   const pedidosFiltrados = useMemo(() => {
     const termo = String(busca || "").toLowerCase().trim();
 
-    if (!termo) return pedidos;
+    let lista = pedidos;
 
-    return pedidos.filter((pedido) => {
-      const cliente = pedido.dadosCliente || {};
-      const entrega = pedido.enderecoEntrega || {};
-      const itens = Array.isArray(pedido.carrinho) ? pedido.carrinho : [];
+    if (termo) {
+      lista = lista.filter((pedido) => {
+        const cliente = pedido.dadosCliente || {};
+        const entrega = pedido.enderecoEntrega || {};
+        const itens = Array.isArray(pedido.carrinho) ? pedido.carrinho : [];
 
-      const texto = [
-        pedido.id,
-        pedido.pedidoLocalId,
-        pedido.status,
-        pedido.statusInterno,
-        pedido.codigoRastreio,
-        pedido.metodo_pagamento,
-        pedido.status_detail,
-        pedido.cupomAplicado?.codigo,
-        pedido.descontoCupom,
-        cliente.nome,
-        cliente.email,
-        cliente.telefone,
-        cliente.cpf,
-        entrega.cep,
-        entrega.rua,
-        entrega.bairro,
-        entrega.cidade,
-        entrega.estado,
-        entrega.numero,
-        entrega.complemento,
-        pedido.freteSelecionado?.nome,
-        ...itens.map((item) => item?.nome),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+        const texto = [
+          pedido.id,
+          pedido.pedidoLocalId,
+          pedido.status,
+          pedido.statusInterno,
+          pedido.codigoRastreio,
+          pedido.metodo_pagamento,
+          pedido.status_detail,
+          pedido.cupomAplicado?.codigo,
+          pedido.descontoCupom,
+          cliente.nome,
+          cliente.email,
+          cliente.telefone,
+          cliente.cpf,
+          entrega.cep,
+          entrega.rua,
+          entrega.bairro,
+          entrega.cidade,
+          entrega.estado,
+          entrega.numero,
+          entrega.complemento,
+          pedido.freteSelecionado?.nome,
+          ...itens.map((item) => item?.nome),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-      return texto.includes(termo);
-    });
-  }, [pedidos, busca]);
+        return texto.includes(termo);
+      });
+    }
 
-  const pedidosAEmitir = useMemo(
-    () =>
-      pedidosFiltrados.filter(
+    if (filtroStatus !== "todos") {
+      lista = lista.filter(
+        (pedido) =>
+          normalizarStatus(pedido.statusInterno || pedido.status) === filtroStatus
+      );
+    }
+
+    return lista;
+  }, [pedidos, busca, filtroStatus]);
+
+  const contagem = useMemo(() => {
+    return {
+      todos: pedidos.length,
+      para_confirmar: pedidos.filter(
+        (pedido) =>
+          normalizarStatus(pedido.statusInterno || pedido.status) === "para_confirmar"
+      ).length,
+      a_emitir: pedidos.filter(
         (pedido) =>
           normalizarStatus(pedido.statusInterno || pedido.status) === "a_emitir"
-      ),
-    [pedidosFiltrados]
-  );
-
-  const pedidosEmitidos = useMemo(
-    () =>
-      pedidosFiltrados.filter(
+      ).length,
+      emitido: pedidos.filter(
         (pedido) =>
           normalizarStatus(pedido.statusInterno || pedido.status) === "emitido"
-      ),
-    [pedidosFiltrados]
-  );
-
-  const pedidosEnviados = useMemo(
-    () =>
-      pedidosFiltrados.filter(
+      ).length,
+      enviado: pedidos.filter(
         (pedido) =>
           normalizarStatus(pedido.statusInterno || pedido.status) === "enviado"
-      ),
-    [pedidosFiltrados]
-  );
-
-  const totalPedidos = pedidosFiltrados.length;
+      ).length,
+    };
+  }, [pedidos]);
 
   return (
     <div className="min-h-screen bg-[#fcfcfc] px-4 py-8 text-zinc-900">
@@ -731,8 +765,7 @@ export default function Painel() {
             </p>
             <h1 className="mt-2 text-3xl font-bold">Controle de pedidos</h1>
             <p className="mt-2 text-zinc-600">
-              Visualize pedidos, acompanhe pagamento, mude status interno e gere
-              etiquetas.
+              Visualize pedidos, confirme no WhatsApp e avance o fluxo sem precisar de várias guias.
             </p>
           </div>
 
@@ -755,32 +788,71 @@ export default function Painel() {
           </div>
         </div>
 
-        <div className="mb-6 grid gap-4 md:grid-cols-4">
-          <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-zinc-500">Total</p>
-            <p className="mt-2 text-3xl font-black text-zinc-900">{totalPedidos}</p>
-          </div>
+        <div className="mb-6 grid gap-4 md:grid-cols-5">
+          <button
+            type="button"
+            onClick={() => setFiltroStatus("todos")}
+            className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
+              filtroStatus === "todos"
+                ? "border-zinc-900 bg-zinc-900 text-white"
+                : "border-zinc-200 bg-white text-zinc-900"
+            }`}
+          >
+            <p className="text-sm opacity-80">Todos</p>
+            <p className="mt-2 text-3xl font-black">{contagem.todos}</p>
+          </button>
 
-          <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 shadow-sm">
-            <p className="text-sm text-amber-700">A emitir</p>
-            <p className="mt-2 text-3xl font-black text-amber-900">
-              {pedidosAEmitir.length}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setFiltroStatus("para_confirmar")}
+            className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
+              filtroStatus === "para_confirmar"
+                ? "border-violet-700 bg-violet-700 text-white"
+                : "border-violet-200 bg-violet-50 text-violet-900"
+            }`}
+          >
+            <p className="text-sm opacity-80">Para confirmar</p>
+            <p className="mt-2 text-3xl font-black">{contagem.para_confirmar}</p>
+          </button>
 
-          <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 p-5 shadow-sm">
-            <p className="text-sm text-blue-700">Emitidos</p>
-            <p className="mt-2 text-3xl font-black text-blue-900">
-              {pedidosEmitidos.length}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setFiltroStatus("a_emitir")}
+            className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
+              filtroStatus === "a_emitir"
+                ? "border-amber-600 bg-amber-600 text-white"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            <p className="text-sm opacity-80">A emitir</p>
+            <p className="mt-2 text-3xl font-black">{contagem.a_emitir}</p>
+          </button>
 
-          <div className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-            <p className="text-sm text-emerald-700">Enviados</p>
-            <p className="mt-2 text-3xl font-black text-emerald-900">
-              {pedidosEnviados.length}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setFiltroStatus("emitido")}
+            className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
+              filtroStatus === "emitido"
+                ? "border-blue-700 bg-blue-700 text-white"
+                : "border-blue-200 bg-blue-50 text-blue-900"
+            }`}
+          >
+            <p className="text-sm opacity-80">Emitidos</p>
+            <p className="mt-2 text-3xl font-black">{contagem.emitido}</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFiltroStatus("enviado")}
+            className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
+              filtroStatus === "enviado"
+                ? "border-emerald-700 bg-emerald-700 text-white"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+            }`}
+          >
+            <p className="text-sm opacity-80">Enviados</p>
+            <p className="mt-2 text-3xl font-black">{contagem.enviado}</p>
+          </button>
         </div>
 
         <div className="mb-6 flex flex-wrap gap-3">
@@ -791,6 +863,16 @@ export default function Painel() {
           >
             Atualizar lista
           </button>
+
+          {filtroStatus !== "todos" && (
+            <button
+              type="button"
+              onClick={() => setFiltroStatus("todos")}
+              className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800"
+            >
+              Limpar filtro
+            </button>
+          )}
         </div>
 
         {carregando && (
@@ -806,42 +888,30 @@ export default function Painel() {
         )}
 
         {!carregando && !erro && (
-          <div className="grid gap-6 xl:grid-cols-3">
-            <ColunaPedidos
-              titulo={tituloStatus("a_emitir")}
-              pedidos={pedidosAEmitir}
-              status="a_emitir"
-              atualizandoId={atualizandoId}
-              gerandoEtiquetaId={gerandoEtiquetaId}
-              emitindoEtiquetaId={emitindoEtiquetaId}
-              onAtualizarStatus={atualizarStatusPedido}
-              onGerarEtiqueta={gerarEtiqueta}
-              onEmitirEtiqueta={emitirEtiqueta}
-            />
+          <div className="space-y-4">
+            {pedidosFiltrados.length === 0 ? (
+              <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-10 text-center text-zinc-500 shadow-sm">
+                Nenhum pedido encontrado.
+              </div>
+            ) : (
+              pedidosFiltrados.map((pedido) => {
+                const pedidoId = pedido.id || pedido.pedidoLocalId;
 
-            <ColunaPedidos
-              titulo={tituloStatus("emitido")}
-              pedidos={pedidosEmitidos}
-              status="emitido"
-              atualizandoId={atualizandoId}
-              gerandoEtiquetaId={gerandoEtiquetaId}
-              emitindoEtiquetaId={emitindoEtiquetaId}
-              onAtualizarStatus={atualizarStatusPedido}
-              onGerarEtiqueta={gerarEtiqueta}
-              onEmitirEtiqueta={emitirEtiqueta}
-            />
-
-            <ColunaPedidos
-              titulo={tituloStatus("enviado")}
-              pedidos={pedidosEnviados}
-              status="enviado"
-              atualizandoId={atualizandoId}
-              gerandoEtiquetaId={gerandoEtiquetaId}
-              emitindoEtiquetaId={emitindoEtiquetaId}
-              onAtualizarStatus={atualizarStatusPedido}
-              onGerarEtiqueta={gerarEtiqueta}
-              onEmitirEtiqueta={emitirEtiqueta}
-            />
+                return (
+                  <PedidoCard
+                    key={pedidoId}
+                    pedido={pedido}
+                    atualizando={atualizandoId === pedidoId}
+                    gerandoEtiqueta={gerandoEtiquetaId === pedidoId}
+                    emitindoEtiqueta={emitindoEtiquetaId === pedidoId}
+                    confirmandoPedido={confirmandoPedidoId === pedidoId}
+                    onConfirmarPedido={confirmarPedido}
+                    onGerarEtiqueta={gerarEtiqueta}
+                    onEmitirEtiqueta={emitirEtiqueta}
+                  />
+                );
+              })
+            )}
           </div>
         )}
       </div>
