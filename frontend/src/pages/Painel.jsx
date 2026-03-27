@@ -411,17 +411,46 @@ export default function Painel() {
   const apiBaseUrl =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const apiPedidosUrl = `${apiBaseUrl}/api/pedidos`;
+  const token = localStorage.getItem("adminTokenAdditiveHub");
+
+  const headersAutenticados = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  const sair = () => {
+    localStorage.removeItem("adminTokenAdditiveHub");
+    localStorage.removeItem("adminUsuarioAdditiveHub");
+    window.location.href = "/#/login";
+  };
+
+  const tratarRespostaNaoAutorizada = (response) => {
+    if (response.status === 401 || response.status === 403) {
+      sair();
+      return true;
+    }
+
+    return false;
+  };
 
   const carregarPedidos = async () => {
     try {
       setCarregando(true);
       setErro("");
 
-      const response = await fetch(apiPedidosUrl);
+      const response = await fetch(apiPedidosUrl, {
+        headers: headersAutenticados,
+      });
+
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.message || data?.error || "Não foi possível carregar os pedidos.");
+        throw new Error(
+          data?.message || data?.error || "Não foi possível carregar os pedidos."
+        );
       }
 
       const lista = Array.isArray(data) ? data : data?.pedidos || [];
@@ -459,11 +488,16 @@ export default function Painel() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          ...headersAutenticados,
         },
         body: JSON.stringify({
           status: novoStatus,
         }),
       });
+
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
 
       const data = await response.json();
 
@@ -509,8 +543,13 @@ export default function Painel() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...headersAutenticados,
         },
       });
+
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
 
       const data = await response.json();
 
@@ -560,8 +599,13 @@ export default function Painel() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...headersAutenticados,
         },
       });
+
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
 
       const data = await response.json();
 
@@ -680,7 +724,7 @@ export default function Painel() {
             </p>
           </div>
 
-          <div className="w-full md:max-w-sm">
+          <div className="flex w-full flex-col gap-3 md:max-w-md md:flex-row">
             <input
               type="text"
               placeholder="Buscar por cliente, pedido, produto, cidade..."
@@ -688,6 +732,14 @@ export default function Painel() {
               onChange={(e) => setBusca(e.target.value)}
               className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
             />
+
+            <button
+              type="button"
+              onClick={sair}
+              className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800"
+            >
+              Sair
+            </button>
           </div>
         </div>
 

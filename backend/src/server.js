@@ -52,6 +52,40 @@ const ADMIN_SENHA_HASH =
   "$2b$10$FZpZqA7fNOz3Alngpik6LOPMt5kjrNn9XFT9qevj4I571PbQLGCNu";
 
 const JWT_SECRET = process.env.JWT_SECRET || "troque-essa-chave-forte";
+function autenticarAdmin(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({
+        error: "Token não enviado.",
+      });
+    }
+
+    const [tipo, token] = authHeader.split(" ");
+
+    if (tipo !== "Bearer" || !token) {
+      return res.status(401).json({
+        error: "Token inválido.",
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    if (decoded.role !== "admin") {
+      return res.status(403).json({
+        error: "Acesso negado.",
+      });
+    }
+
+    req.admin = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      error: "Não autorizado.",
+    });
+  }
+}
 
 app.use(cors());
 app.use(express.json());
@@ -651,7 +685,7 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
 /* =========================
    LISTAR PEDIDOS PARA O PAINEL
 ========================= */
-app.get("/api/pedidos", async (req, res) => {
+app.get("/api/pedidos", autenticarAdmin, async (req, res) => {
   try {
     const pedidos = await Pedido.find().sort({ criadoEm: -1 });
     return res.json(pedidos);
@@ -668,7 +702,7 @@ app.get("/api/pedidos", async (req, res) => {
 /* =========================
    PEDIDO INDIVIDUAL
 ========================= */
-app.get("/api/pedidos/:id", async (req, res) => {
+app.get("/api/pedidos/:id", autenticarAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -694,7 +728,7 @@ app.get("/api/pedidos/:id", async (req, res) => {
 /* =========================
    ATUALIZAR STATUS INTERNO
 ========================= */
-app.patch("/api/pedidos/:id/status", async (req, res) => {
+app.patch("/api/pedidos/:id/status", autenticarAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body || {};
@@ -737,7 +771,7 @@ app.patch("/api/pedidos/:id/status", async (req, res) => {
 /* =========================
    GERAR ETIQUETA NA SUPERFRETE
 ========================= */
-app.post("/api/pedidos/:id/gerar-etiqueta", async (req, res) => {
+app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -943,7 +977,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", async (req, res) => {
 /* =========================
    EMITIR ETIQUETA NA SUPERFRETE
 ========================= */
-app.post("/api/pedidos/:id/emitir-etiqueta", async (req, res) => {
+app.post("/api/pedidos/:id/emitir-etiqueta", autenticarAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
