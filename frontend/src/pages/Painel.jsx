@@ -190,6 +190,7 @@ function PedidoCard({
   const frete = Number(pedido?.freteSelecionado?.preco || 0);
   const desconto = Number(pedido?.descontoCupom || 0);
   const cupom = pedido?.cupomAplicado?.codigo || "";
+  const isRetirada = pedido?.freteSelecionado?.nome === "Retirar comigo";
 
   const cliente = pedido.dadosCliente || {};
   const entrega = pedido.enderecoEntrega || {};
@@ -221,7 +222,7 @@ function PedidoCard({
       );
     }
 
-    if (statusOperacional === "a_emitir" && !pedido?.etiquetaGerada) {
+    if (statusOperacional === "a_emitir" && !pedido?.etiquetaGerada && !isRetirada) {
       return (
         <button
           type="button"
@@ -240,7 +241,7 @@ function PedidoCard({
       );
     }
 
-    if (statusOperacional === "a_emitir" && pedido?.etiquetaGerada && !pedido?.etiquetaEmitida) {
+    if (statusOperacional === "a_emitir" && pedido?.etiquetaGerada && !pedido?.etiquetaEmitida && !isRetirada) {
       return (
         <button
           type="button"

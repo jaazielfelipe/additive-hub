@@ -21,6 +21,7 @@ export default function Carrinho() {
   const [carregandoFrete, setCarregandoFrete] = useState(false);
   const [erroFrete, setErroFrete] = useState("");
   const [freteCalculado, setFreteCalculado] = useState(false);
+  const [tipoEntrega, setTipoEntrega] = useState("frete");
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const apiFreteUrl =
@@ -37,6 +38,7 @@ export default function Carrinho() {
         "freteSelecionadoAdditiveHub"
       );
       const fretesSalvos = localStorage.getItem("fretesAdditiveHub");
+      const tipoEntregaSalvo = localStorage.getItem("tipoEntregaAdditiveHub");
 
       if (carrinhoSalvo) {
         const carrinhoParseado = JSON.parse(carrinhoSalvo);
@@ -47,6 +49,10 @@ export default function Carrinho() {
 
       if (cepSalvo) {
         setCepDestino(cepSalvo);
+      }
+
+      if (tipoEntregaSalvo) {
+        setTipoEntrega(tipoEntregaSalvo);
       }
 
       if (fretesSalvos) {
@@ -68,6 +74,10 @@ export default function Carrinho() {
   useEffect(() => {
     localStorage.setItem("cepDestinoAdditiveHub", cepDestino);
   }, [cepDestino]);
+
+  useEffect(() => {
+    localStorage.setItem("tipoEntregaAdditiveHub", tipoEntrega);
+  }, [tipoEntrega]);
 
   useEffect(() => {
     if (freteSelecionado) {
@@ -182,6 +192,28 @@ export default function Carrinho() {
       setFretes([]);
       setFreteSelecionado(null);
       setFreteCalculado(false);
+
+      if (tipoEntrega === "retirar") {
+        const retirada = {
+          chave: "retirar",
+          nome: "Retirar",
+          preco: 0,
+          prazo: "Combinar retirada",
+          recomendado: true,
+          service: null,
+          package: null,
+          company: null,
+          additional_services: null,
+          delivery_time: 0,
+          delivery_range: null,
+          original: null,
+        };
+
+        setFretes([retirada]);
+        setFreteSelecionado(retirada);
+        setFreteCalculado(true);
+        return;
+      }
 
       if (MODO_TESTE_SEM_FRETE) {
         const freteTeste = {
@@ -312,7 +344,7 @@ export default function Carrinho() {
       return;
     }
 
-    if (!MODO_TESTE_SEM_FRETE) {
+    if (tipoEntrega !== "retirar" && !MODO_TESTE_SEM_FRETE) {
       if (!freteSelecionado?.service || !freteSelecionado?.package) {
         alert(
           "A opção de frete selecionada está incompleta. Calcule novamente o frete."
@@ -408,30 +440,82 @@ export default function Carrinho() {
             <section className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
               <h2 className="text-xl font-bold">Entrega</h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Informe o CEP para calcular o frete.
+                Escolha como deseja receber seu pedido.
               </p>
 
-              <div className="mt-4 flex flex-col gap-3 md:flex-row">
-                <input
-                  type="text"
-                  placeholder="CEP"
-                  value={cepDestino}
-                  onChange={(e) => {
-                    setCepDestino(formatarCep(e.target.value));
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoEntrega("frete");
                     invalidarFrete();
                   }}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                />
+                  className={`rounded-2xl border p-4 text-left transition-all ${
+                    tipoEntrega === "frete"
+                      ? "border-[#f4b400] bg-[#fff6db] shadow-sm"
+                      : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100"
+                  }`}
+                >
+                  <p className="font-semibold text-zinc-900">Receber no endereço</p>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Calcular frete pelo CEP
+                  </p>
+                </button>
 
                 <button
                   type="button"
-                  onClick={calcularFrete}
-                  disabled={carregandoFrete || carrinho.length === 0}
-                  className="rounded-xl bg-[#f4b400] px-5 py-3 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => {
+                    setTipoEntrega("retirar");
+                    setCepDestino("");
+                    invalidarFrete();
+                  }}
+                  className={`rounded-2xl border p-4 text-left transition-all ${
+                    tipoEntrega === "retirar"
+                      ? "border-[#f4b400] bg-[#fff6db] shadow-sm"
+                      : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100"
+                  }`}
                 >
-                  {carregandoFrete ? "Calculando..." : "Calcular frete"}
+                  <p className="font-semibold text-zinc-900">Retirar</p>
+                  
                 </button>
               </div>
+
+              {tipoEntrega === "frete" ? (
+                <>
+                  <div className="mt-4 flex flex-col gap-3 md:flex-row">
+                    <input
+                      type="text"
+                      placeholder="CEP"
+                      value={cepDestino}
+                      onChange={(e) => {
+                        setCepDestino(formatarCep(e.target.value));
+                        invalidarFrete();
+                      }}
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={calcularFrete}
+                      disabled={carregandoFrete || carrinho.length === 0}
+                      className="rounded-xl bg-[#f4b400] px-5 py-3 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {carregandoFrete ? "Calculando..." : "Calcular frete"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={calcularFrete}
+                    disabled={carrinho.length === 0}
+                    className="rounded-xl bg-[#f4b400] px-5 py-3 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Confirmar retirada
+                  </button>
+                </div>
+              )}
 
               {erroFrete && (
                 <p className="mt-3 text-sm font-medium text-red-600">{erroFrete}</p>
@@ -535,7 +619,9 @@ export default function Carrinho() {
 
             {!freteCalculado && carrinho.length > 0 && (
               <p className="mt-2 text-sm text-red-600">
-                Clique em “Calcular frete” para continuar.
+                {tipoEntrega === "retirar"
+                  ? "Clique em “Confirmar retirada” para continuar."
+                  : "Clique em “Calcular frete” para continuar."}
               </p>
             )}
 

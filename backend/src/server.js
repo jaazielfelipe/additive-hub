@@ -795,6 +795,7 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       pedidoLocalId: pedidoId,
       carrinho,
       freteSelecionado: freteSelecionado || null,
+      tipoEntrega: freteSelecionado?.nome === "Retirar comigo" ? "retirada" : "entrega",
       cepDestino: cepDestino || null,
       totalItensCarrinho: totalItensCarrinho || 0,
       subtotalProdutos: subtotalCalculado,
@@ -1157,11 +1158,20 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
       });
     }
 
-    if (!pedido?.freteSelecionado?.service) {
-      return res.status(400).json({
-        error: "Pedido sem frete selecionado.",
-      });
-    }
+    if (
+  pedido?.freteSelecionado?.nome !== "Retirar" &&
+  !pedido?.freteSelecionado?.service
+) {
+  return res.status(400).json({
+    error: "Pedido sem frete selecionado.",
+  });
+}
+
+if (pedido?.freteSelecionado?.nome === "Retirar") {
+  return res.status(400).json({
+    error: "Pedido com retirada não possui etiqueta de envio.",
+  });
+}
 
     const pacote =
       pedido?.freteSelecionado?.package ||
