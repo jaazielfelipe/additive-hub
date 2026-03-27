@@ -491,7 +491,7 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
         nome: sanitizarString(dadosCliente?.nome),
         email: sanitizarString(dadosCliente?.email).toLowerCase(),
         telefone: sanitizarString(dadosCliente?.telefone),
-        cpf: sanitizarString(dadosCliente?.cpf),
+        cpf: sanitizarString(dadosCliente?.cpf).replace(/\D/g, ""),
       },
 
       enderecoEntrega: {
@@ -643,10 +643,8 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
   try {
     const { tipo, valor, id, email, cpf } = req.query;
 
-    let pedido = null;
-
     if (tipo === "pedido" || id) {
-      const numeroPedido = valor || id;
+      const numeroPedido = String(valor || id || "").trim();
 
       if (!numeroPedido) {
         return res.status(400).json({
@@ -654,13 +652,23 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
         });
       }
 
-      pedido = await Pedido.findOne({
+      const pedido = await Pedido.findOne({
         $or: [
-          { id: String(numeroPedido) },
-          { pedidoLocalId: String(numeroPedido) },
+          { id: numeroPedido },
+          { pedidoLocalId: numeroPedido },
         ],
       });
-    } else if (tipo === "email" || email) {
+
+      if (!pedido) {
+        return res.status(404).json({
+          error: "Pedido não encontrado.",
+        });
+      }
+
+      return res.json({ pedido });
+    }
+
+    if (tipo === "email" || email) {
       const emailBusca = String(valor || email || "").toLowerCase().trim();
 
       if (!emailBusca) {
@@ -669,10 +677,20 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
         });
       }
 
-      pedido = await Pedido.findOne({ "dadosCliente.email": emailBusca }).sort({
-        criadoEm: -1,
-      });
-    } else if (tipo === "cpf" || cpf) {
+      const pedidos = await Pedido.find({
+        "dadosCliente.email": emailBusca,
+      }).sort({ criadoEm: -1 });
+
+      if (!pedidos.length) {
+        return res.status(404).json({
+          error: "Nenhum pedido encontrado para este e-mail.",
+        });
+      }
+
+      return res.json({ pedidos });
+    }
+
+    if (tipo === "cpf" || cpf) {
       const cpfBusca = String(valor || cpf || "").replace(/\D/g, "");
 
       if (!cpfBusca || cpfBusca.length !== 11) {
@@ -681,22 +699,22 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
         });
       }
 
-      pedido = await Pedido.findOne({ "dadosCliente.cpf": cpfBusca }).sort({
-        criadoEm: -1,
-      });
-    } else {
-      return res.status(400).json({
-        error: "Informe CPF, número do pedido ou e-mail.",
-      });
+      const pedidos = await Pedido.find({
+        "dadosCliente.cpf": cpfBusca,
+      }).sort({ criadoEm: -1 });
+
+      if (!pedidos.length) {
+        return res.status(404).json({
+          error: "Nenhum pedido encontrado para este CPF.",
+        });
+      }
+
+      return res.json({ pedidos });
     }
 
-    if (!pedido) {
-      return res.status(404).json({
-        error: "Pedido não encontrado.",
-      });
-    }
-
-    return res.json(pedido);
+    return res.status(400).json({
+      error: "Informe CPF, número do pedido ou e-mail.",
+    });
   } catch (err) {
     console.error(err);
 
