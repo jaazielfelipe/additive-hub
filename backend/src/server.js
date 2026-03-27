@@ -43,6 +43,14 @@ const NOTIFICATION_URL =
 console.log("FRONT_URL:", FRONT_URL);
 console.log("SUPERFRETE_BASE_URL:", SUPERFRETE_BASE_URL);
 
+console.log("SUPERFRETE_ENV:", SUPERFRETE_ENV);
+console.log("SUPERFRETE_BASE_URL:", SUPERFRETE_BASE_URL);
+console.log("TOKEN EXISTS:", !!SUPERFRETE_TOKEN);
+console.log(
+  "TOKEN PREFIX:",
+  SUPERFRETE_TOKEN ? SUPERFRETE_TOKEN.slice(0, 8) : "undefined"
+);
+
 app.use(cors());
 app.use(express.json());
 
