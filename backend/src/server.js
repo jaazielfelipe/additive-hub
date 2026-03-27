@@ -369,7 +369,7 @@ app.post("/api/frete", async (req, res) => {
     console.log("PACOTE ÚNICO:", JSON.stringify(pacoteUnico, null, 2));
     console.log("PRODUTOS ENVIADOS:", JSON.stringify(produtos, null, 2));
 
-    const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/calculator`, {
+    const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v1/calculator`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -907,7 +907,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
       JSON.stringify(payloadEtiqueta, null, 2)
     );
 
-    const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/cart`, {
+    const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v1/cart`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
