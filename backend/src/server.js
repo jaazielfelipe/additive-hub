@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import Pedido from "../models/Pedido.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import CUPONS from "../config/cupons.js";
+import CUPONS from "./config/cupons.js";
 
 dotenv.config();
 
