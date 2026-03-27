@@ -95,6 +95,8 @@ function normalizarStatusInterno(statusInterno) {
   const valor = String(statusInterno || "").trim().toLowerCase();
 
   if (valor === "chegou") return "chegou";
+  if (valor === "para_confirmar") return "para_confirmar";
+  if (valor === "a_emitir") return "a_emitir";
   if (valor === "emitido") return "emitido";
   if (valor === "enviado") return "enviado";
 
