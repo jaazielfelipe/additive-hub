@@ -369,10 +369,19 @@ app.post("/api/frete", async (req, res) => {
     console.log("PACOTE ÚNICO:", JSON.stringify(pacoteUnico, null, 2));
     console.log("PRODUTOS ENVIADOS:", JSON.stringify(produtos, null, 2));
 
+    console.log("CONFIG SUPERFRETE:", {
+      SUPERFRETE_ENV,
+      SUPERFRETE_BASE_URL,
+      temToken: !!SUPERFRETE_TOKEN,
+      temUserAgent: !!SUPERFRETE_USER_AGENT,
+      CEP_ORIGEM,
+    });
+
     const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v1/calculator`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
         Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
         "User-Agent": SUPERFRETE_USER_AGENT,
       },
@@ -384,9 +393,24 @@ app.post("/api/frete", async (req, res) => {
       }),
     });
 
-    const data = await freteResponse.json();
+    const raw = await freteResponse.text();
 
     console.log("STATUS SUPERFRETE:", freteResponse.status);
+    console.log("CONTENT-TYPE SUPERFRETE:", freteResponse.headers.get("content-type"));
+    console.log("RAW SUPERFRETE:", raw);
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (parseError) {
+      return res.status(502).json({
+        error: "A SuperFrete não retornou JSON no cálculo de frete.",
+        status: freteResponse.status,
+        contentType: freteResponse.headers.get("content-type"),
+        raw,
+      });
+    }
+
     console.log("RESPOSTA SUPERFRETE:", JSON.stringify(data, null, 2));
 
     if (!freteResponse.ok) {
@@ -1006,17 +1030,44 @@ app.post("/api/pedidos/:id/emitir-etiqueta", autenticarAdmin, async (req, res) =
       JSON.stringify(payloadCheckout, null, 2)
     );
 
+    console.log("CONFIG SUPERFRETE:", {
+      SUPERFRETE_ENV,
+      SUPERFRETE_BASE_URL,
+      temToken: !!SUPERFRETE_TOKEN,
+      temUserAgent: !!SUPERFRETE_USER_AGENT,
+    });
+
     const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/checkout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
         Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
         "User-Agent": SUPERFRETE_USER_AGENT,
       },
       body: JSON.stringify(payloadCheckout),
     });
 
-    const data = await superfreteResponse.json();
+    const raw = await superfreteResponse.text();
+
+    console.log("STATUS EMITIR ETIQUETA:", superfreteResponse.status);
+    console.log(
+      "CONTENT-TYPE EMITIR ETIQUETA:",
+      superfreteResponse.headers.get("content-type")
+    );
+    console.log("RAW EMITIR ETIQUETA:", raw);
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (parseError) {
+      return res.status(502).json({
+        error: "A SuperFrete não retornou JSON ao emitir etiqueta.",
+        status: superfreteResponse.status,
+        contentType: superfreteResponse.headers.get("content-type"),
+        raw,
+      });
+    }
 
     console.log(
       "RESPOSTA EMITIR ETIQUETA:",
