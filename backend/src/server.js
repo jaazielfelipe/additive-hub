@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import mongoose from "mongoose";
 import Pedido from "../models/Pedido.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 dotenv.config();
 
@@ -42,13 +44,21 @@ const NOTIFICATION_URL =
   process.env.NOTIFICATION_URL ||
   "https://additive-hub.onrender.com/api/webhook";
 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@site.com";
+
+// senha padrão: 123456
+const ADMIN_SENHA_HASH =
+  process.env.ADMIN_SENHA_HASH ||
+  "$2b$10$XQxJw0ZlR6v8x8D5VwQXUeM0C6lK6Q7Z0Hk4J2G6K0mFQmJ4W1w7y";
+
+const JWT_SECRET = process.env.JWT_SECRET || "troque-essa-chave-forte";
+
 app.use(cors());
 app.use(express.json());
 
 const mpClient = new MercadoPagoConfig({
   accessToken: MP_ACCESS_TOKEN,
 });
-
 
 function num(valor, fallback = 0) {
   if (valor === null || valor === undefined || valor === "") return fallback;
@@ -235,9 +245,57 @@ app.get("/", (req, res) => {
   res.send("API Additive Hub online.");
 });
 
+app.post("/api/admin/login", async (req, res) => {
+  try {
+    const { email, senha } = req.body;
+
+    if (!email || !senha) {
+      return res.status(400).json({
+        error: "E-mail e senha são obrigatórios.",
+      });
+    }
+
+    if (email !== ADMIN_EMAIL) {
+      return res.status(401).json({
+        error: "Credenciais inválidas.",
+      });
+    }
+
+    const senhaCorreta = await bcrypt.compare(senha, ADMIN_SENHA_HASH);
+
+    if (!senhaCorreta) {
+      return res.status(401).json({
+        error: "Credenciais inválidas.",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        email: ADMIN_EMAIL,
+        role: "admin",
+      },
+      JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.json({
+      token,
+      usuario: {
+        email: ADMIN_EMAIL,
+        role: "admin",
+      },
+    });
+  } catch (error) {
+    console.error("Erro login admin:", error);
+
+    return res.status(500).json({
+      error: "Erro interno ao fazer login.",
+    });
+  }
+});
+
 /* =========================
    FRETE
-   NÃO ALTERADO
 ========================= */
 app.post("/api/frete", async (req, res) => {
   console.log("ENTROU EM /api/frete");
@@ -410,17 +468,17 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
     };
 
     const pedidoExistente = await Pedido.findOne({
-  $or: [{ id: String(pedidoId) }, { pedidoLocalId: String(pedidoId) }],
-});
+      $or: [{ id: String(pedidoId) }, { pedidoLocalId: String(pedidoId) }],
+    });
 
-if (pedidoExistente) {
-  await Pedido.updateOne(
-    { _id: pedidoExistente._id },
-    { $set: pedidoSalvo }
-  );
-} else {
-  await Pedido.create(pedidoSalvo);
-}
+    if (pedidoExistente) {
+      await Pedido.updateOne(
+        { _id: pedidoExistente._id },
+        { $set: pedidoSalvo }
+      );
+    } else {
+      await Pedido.create(pedidoSalvo);
+    }
 
     const preference = new Preference(mpClient);
 
@@ -498,20 +556,20 @@ app.post("/api/webhook", async (req, res) => {
 
     const pedido = await Pedido.findOne({ id: String(pedidoId) });
 
-if (!pedido) {
-  console.warn("Pedido não encontrado:", pedidoId);
-  return res.sendStatus(200);
-}
+    if (!pedido) {
+      console.warn("Pedido não encontrado:", pedidoId);
+      return res.sendStatus(200);
+    }
 
-pedido.status = payment.status || pedido.status;
-pedido.payment_id = payment.id || null;
-pedido.status_detail = payment.status_detail || null;
-pedido.metodo_pagamento = payment.payment_method_id || null;
-pedido.atualizadoEm = new Date();
+    pedido.status = payment.status || pedido.status;
+    pedido.payment_id = payment.id || null;
+    pedido.status_detail = payment.status_detail || null;
+    pedido.metodo_pagamento = payment.payment_method_id || null;
+    pedido.atualizadoEm = new Date();
 
-await pedido.save();
+    await pedido.save();
 
-console.log(`Pedido ${pedidoId} atualizado para status ${payment.status}`);
+    console.log(`Pedido ${pedidoId} atualizado para status ${payment.status}`);
 
     return res.sendStatus(200);
   } catch (error) {
@@ -534,7 +592,7 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
 
       if (!numeroPedido) {
         return res.status(400).json({
-          error: "Informe o número do pedido."
+          error: "Informe o número do pedido.",
         });
       }
 
@@ -549,32 +607,34 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
 
       if (!emailBusca) {
         return res.status(400).json({
-          error: "Informe um e-mail válido."
+          error: "Informe um e-mail válido.",
         });
       }
 
-      pedido = await Pedido.findOne({ "dadosCliente.email": emailBusca })
-        .sort({ criadoEm: -1 });
+      pedido = await Pedido.findOne({ "dadosCliente.email": emailBusca }).sort({
+        criadoEm: -1,
+      });
     } else if (tipo === "cpf" || cpf) {
       const cpfBusca = String(valor || cpf || "").replace(/\D/g, "");
 
       if (!cpfBusca || cpfBusca.length !== 11) {
         return res.status(400).json({
-          error: "Informe um CPF válido."
+          error: "Informe um CPF válido.",
         });
       }
 
-      pedido = await Pedido.findOne({ "dadosCliente.cpf": cpfBusca })
-        .sort({ criadoEm: -1 });
+      pedido = await Pedido.findOne({ "dadosCliente.cpf": cpfBusca }).sort({
+        criadoEm: -1,
+      });
     } else {
       return res.status(400).json({
-        error: "Informe CPF, número do pedido ou e-mail."
+        error: "Informe CPF, número do pedido ou e-mail.",
       });
     }
 
     if (!pedido) {
       return res.status(404).json({
-        error: "Pedido não encontrado."
+        error: "Pedido não encontrado.",
       });
     }
 
@@ -583,7 +643,7 @@ app.get("/api/pedidos/acompanhar", async (req, res) => {
     console.error(err);
 
     return res.status(500).json({
-      error: "Erro ao buscar pedido."
+      error: "Erro ao buscar pedido.",
     });
   }
 });
@@ -681,15 +741,15 @@ app.post("/api/pedidos/:id/gerar-etiqueta", async (req, res) => {
   try {
     const { id } = req.params;
 
-const pedido = await Pedido.findOne({
-  $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
-});
+    const pedido = await Pedido.findOne({
+      $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
+    });
 
-if (!pedido) {
-  return res.status(404).json({
-    error: "Pedido não encontrado.",
-  });
-}
+    if (!pedido) {
+      return res.status(404).json({
+        error: "Pedido não encontrado.",
+      });
+    }
 
     if (!pedido?.enderecoEntrega?.cep) {
       return res.status(400).json({
@@ -755,58 +815,58 @@ if (!pedido) {
     const pacote = pedido.freteSelecionado.package;
 
     const payloadEtiqueta = {
-  from: {
-    name: REMETENTE.name,
-    phone: REMETENTE.phone,
-    email: REMETENTE.email,
-    document: REMETENTE.document,
-    company_document: REMETENTE.company_document,
-    address: REMETENTE.address,
-    number: REMETENTE.number,
-    district: REMETENTE.district,
-    city: REMETENTE.city,
-    state_abbr: REMETENTE.state_abbr,
-    postal_code: REMETENTE.postal_code,
-  },
-  to: {
-    name: pedido?.dadosCliente?.nome,
-    phone: pedido?.dadosCliente?.telefone,
-    email: pedido?.dadosCliente?.email,
-    document: pedido?.dadosCliente?.cpf,
-    address: pedido?.enderecoEntrega?.rua,
-    number: pedido?.enderecoEntrega?.numero,
-    district: pedido?.enderecoEntrega?.bairro,
-    city: pedido?.enderecoEntrega?.cidade,
-    state_abbr: pedido?.enderecoEntrega?.estado,
-    postal_code: pedido?.enderecoEntrega?.cep,
-    complement: pedido?.enderecoEntrega?.complemento || "",
-  },
-  service: Number(pedido.freteSelecionado.service),
-  products: (pedido.carrinho || []).map((item, idx) => ({
-    id: String(item.id || idx + 1),
-    name: item.nome || "Produto",
-    quantity: Number(item.quantidade || 1),
-    unitary_value: Number(item.preco || 0),
-  })),
-  volumes: [
-    {
-      category: "package",
-      width: Number(pacote.width || 0),
-      height: Number(pacote.height || 0),
-      length: Number(pacote.length || 0),
-      weight: Number(pacote.weight || 0),
-    },
-  ],
-  options: {
-    insurance_value: Number(pedido.totalComFrete || 0),
-    receipt: Boolean(pedido?.freteSelecionado?.additional_services?.receipt),
-    own_hand: Boolean(pedido?.freteSelecionado?.additional_services?.own_hand),
-    reverse: false,
-    non_commercial: true,
-  },
-  tag: String(pedido.pedidoLocalId || pedido.id),
-  platform: "Additive Hub",
-};
+      from: {
+        name: REMETENTE.name,
+        phone: REMETENTE.phone,
+        email: REMETENTE.email,
+        document: REMETENTE.document,
+        company_document: REMETENTE.company_document,
+        address: REMETENTE.address,
+        number: REMETENTE.number,
+        district: REMETENTE.district,
+        city: REMETENTE.city,
+        state_abbr: REMETENTE.state_abbr,
+        postal_code: REMETENTE.postal_code,
+      },
+      to: {
+        name: pedido?.dadosCliente?.nome,
+        phone: pedido?.dadosCliente?.telefone,
+        email: pedido?.dadosCliente?.email,
+        document: pedido?.dadosCliente?.cpf,
+        address: pedido?.enderecoEntrega?.rua,
+        number: pedido?.enderecoEntrega?.numero,
+        district: pedido?.enderecoEntrega?.bairro,
+        city: pedido?.enderecoEntrega?.cidade,
+        state_abbr: pedido?.enderecoEntrega?.estado,
+        postal_code: pedido?.enderecoEntrega?.cep,
+        complement: pedido?.enderecoEntrega?.complemento || "",
+      },
+      service: Number(pedido.freteSelecionado.service),
+      products: (pedido.carrinho || []).map((item, idx) => ({
+        id: String(item.id || idx + 1),
+        name: item.nome || "Produto",
+        quantity: Number(item.quantidade || 1),
+        unitary_value: Number(item.preco || 0),
+      })),
+      volumes: [
+        {
+          category: "package",
+          width: Number(pacote.width || 0),
+          height: Number(pacote.height || 0),
+          length: Number(pacote.length || 0),
+          weight: Number(pacote.weight || 0),
+        },
+      ],
+      options: {
+        insurance_value: Number(pedido.totalComFrete || 0),
+        receipt: Boolean(pedido?.freteSelecionado?.additional_services?.receipt),
+        own_hand: Boolean(pedido?.freteSelecionado?.additional_services?.own_hand),
+        reverse: false,
+        non_commercial: true,
+      },
+      tag: String(pedido.pedidoLocalId || pedido.id),
+      platform: "Additive Hub",
+    };
 
     console.log(
       "PAYLOAD GERAR ETIQUETA:",
@@ -814,28 +874,26 @@ if (!pedido) {
     );
 
     const superfreteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/cart`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
-    "User-Agent": SUPERFRETE_USER_AGENT,
-  },
-  body: JSON.stringify(payloadEtiqueta),
-});
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
+        "User-Agent": SUPERFRETE_USER_AGENT,
+      },
+      body: JSON.stringify(payloadEtiqueta),
+    });
 
-// 👇 captura resposta bruta (IMPORTANTE)
-const raw = await superfreteResponse.text();
+    const raw = await superfreteResponse.text();
 
-console.log("STATUS GERAR ETIQUETA:", superfreteResponse.status);
-console.log("RAW GERAR ETIQUETA:", raw);
+    console.log("STATUS GERAR ETIQUETA:", superfreteResponse.status);
+    console.log("RAW GERAR ETIQUETA:", raw);
 
-// tenta converter para JSON
-let data;
-try {
-  data = JSON.parse(raw);
-} catch {
-  data = raw;
-}
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = raw;
+    }
 
     console.log(
       "RESPOSTA GERAR ETIQUETA:",
@@ -851,27 +909,27 @@ try {
     }
 
     pedido.etiquetaGerada = true;
-pedido.statusEtiqueta = data?.status || "pending";
-pedido.superfreteCartId = data?.id || pedido.superfreteCartId || null;
-pedido.superfreteService = Number(
-  pedido?.freteSelecionado?.service || pedido.superfreteService || 0
-);
-pedido.superfretePackage =
-  pedido?.freteSelecionado?.package || pedido.superfretePackage || null;
-pedido.urlEtiqueta = obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
-pedido.codigoRastreio =
-  obterCodigoRastreio(data) || pedido.codigoRastreio || "";
-pedido.atualizadoEm = new Date();
+    pedido.statusEtiqueta = data?.status || "pending";
+    pedido.superfreteCartId = data?.id || pedido.superfreteCartId || null;
+    pedido.superfreteService = Number(
+      pedido?.freteSelecionado?.service || pedido.superfreteService || 0
+    );
+    pedido.superfretePackage =
+      pedido?.freteSelecionado?.package || pedido.superfretePackage || null;
+    pedido.urlEtiqueta = obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
+    pedido.codigoRastreio =
+      obterCodigoRastreio(data) || pedido.codigoRastreio || "";
+    pedido.atualizadoEm = new Date();
 
-await pedido.save();
+    await pedido.save();
 
     return res.json({
-  message: "Etiqueta gerada com sucesso.",
-  urlEtiqueta: pedido.urlEtiqueta,
-  codigoRastreio: pedido.codigoRastreio,
-  pedido,
-  superfrete: data,
-});
+      message: "Etiqueta gerada com sucesso.",
+      urlEtiqueta: pedido.urlEtiqueta,
+      codigoRastreio: pedido.codigoRastreio,
+      pedido,
+      superfrete: data,
+    });
   } catch (error) {
     console.error("Erro ao gerar etiqueta:", error);
 
@@ -889,15 +947,15 @@ app.post("/api/pedidos/:id/emitir-etiqueta", async (req, res) => {
   try {
     const { id } = req.params;
 
-const pedido = await Pedido.findOne({
-  $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
-});
+    const pedido = await Pedido.findOne({
+      $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
+    });
 
-if (!pedido) {
-  return res.status(404).json({
-    error: "Pedido não encontrado.",
-  });
-}
+    if (!pedido) {
+      return res.status(404).json({
+        error: "Pedido não encontrado.",
+      });
+    }
 
     if (!pedido?.superfreteCartId) {
       return res.status(400).json({
@@ -940,25 +998,25 @@ if (!pedido) {
     }
 
     pedido.etiquetaEmitida = true;
-pedido.statusInterno = "enviado";
-pedido.statusEtiqueta = data?.status || "paid";
-pedido.superfreteCheckoutId =
-  data?.id || pedido.superfreteCheckoutId || null;
-pedido.codigoRastreio =
-  obterCodigoRastreio(data) || pedido.codigoRastreio || "";
-pedido.urlEtiqueta =
-  obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
-pedido.atualizadoEm = new Date();
+    pedido.statusInterno = "enviado";
+    pedido.statusEtiqueta = data?.status || "paid";
+    pedido.superfreteCheckoutId =
+      data?.id || pedido.superfreteCheckoutId || null;
+    pedido.codigoRastreio =
+      obterCodigoRastreio(data) || pedido.codigoRastreio || "";
+    pedido.urlEtiqueta =
+      obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
+    pedido.atualizadoEm = new Date();
 
-await pedido.save();
+    await pedido.save();
 
     return res.json({
-  message: "Etiqueta emitida com sucesso.",
-  urlEtiqueta: pedido.urlEtiqueta,
-  codigoRastreio: pedido.codigoRastreio,
-  pedido,
-  superfrete: data,
-});
+      message: "Etiqueta emitida com sucesso.",
+      urlEtiqueta: pedido.urlEtiqueta,
+      codigoRastreio: pedido.codigoRastreio,
+      pedido,
+      superfrete: data,
+    });
   } catch (error) {
     console.error("Erro ao emitir etiqueta:", error);
 
@@ -968,6 +1026,7 @@ await pedido.save();
     });
   }
 });
+
 async function conectarMongo() {
   if (!MONGODB_URI) {
     throw new Error("MONGODB_URI não configurada no ambiente.");
