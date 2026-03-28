@@ -21,9 +21,18 @@ function formatarData(data) {
 }
 
 function isRetiradaPedido(pedido = {}) {
+  const tipoEntrega = String(pedido?.tipoEntrega || "").toLowerCase().trim();
+  const nomeFrete = String(pedido?.freteSelecionado?.nome || "")
+    .toLowerCase()
+    .trim();
+
   return (
-    pedido?.tipoEntrega === "retirada" ||
-    pedido?.freteSelecionado?.nome === "Retirar comigo"
+    tipoEntrega.includes("retirada") ||
+    tipoEntrega.includes("retirar") ||
+    tipoEntrega.includes("pickup") ||
+    nomeFrete.includes("retirada") ||
+    nomeFrete.includes("retirar") ||
+    nomeFrete.includes("pickup")
   );
 }
 
@@ -38,6 +47,7 @@ function normalizarStatus(status, pedido = {}) {
     if (valor === "retirada_recebido") return "retirada_recebido";
     if (valor === "retirada_preparando") return "retirada_preparando";
     if (valor === "retirada_pronto") return "retirada_pronto";
+    if (valor === "retirada_concluido") return "retirada_concluido";
     return "retirada_recebido";
   }
 
@@ -60,6 +70,7 @@ function tituloStatus(status) {
   if (status === "retirada_recebido") return "Retirada: recebido";
   if (status === "retirada_preparando") return "Retirada: preparando";
   if (status === "retirada_pronto") return "Retirada: pronto";
+  if (status === "retirada_concluido") return "Retirada concluída";
 
   return "Todos";
 }
@@ -77,7 +88,7 @@ function corStatus(status) {
     return "bg-blue-100 text-blue-800 border-blue-200";
   }
 
-  if (status === "enviado") {
+  if (status === "enviado" || status === "retirada_concluido") {
     return "bg-emerald-100 text-emerald-800 border-emerald-200";
   }
 
@@ -160,7 +171,7 @@ function construirMensagemConfirmacao(pedido) {
     : "- Itens do pedido";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso ✅`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso`,
     "",
     "Já estamos preparando tudo para a confecção.",
     "",
@@ -170,7 +181,7 @@ function construirMensagemConfirmacao(pedido) {
     resumoItens,
     "",
     "Assim que avançarmos para a próxima etapa, avisaremos você.",
-    "Obrigado pela preferência 💛",
+    "Obrigado pela preferência :)",
   ].join("\n");
 }
 
@@ -180,12 +191,12 @@ function construirMensagemEmbalando(pedido) {
   const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
 
   return [
-    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem 📦`,
+    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem`,
     "",
     "Estamos preparando tudo com carinho e cuidado para você.",
     "Assim que houver a próxima atualização, avisaremos por aqui.",
     "",
-    "Obrigado pela preferência 💛",
+    "Obrigado pela preferência :)",
   ].join("\n");
 }
 
@@ -202,14 +213,14 @@ function construirMensagemRetiradaRecebido(pedido) {
     : "- Itens do pedido";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso ✅`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso`,
     "",
     "*Resumo do pedido:*",
     resumoItens,
     "",
     "Em breve avisaremos você sobre o andamento da preparação.",
     "",
-    "Obrigado pela preferência 💛",
+    "Obrigado pela preferência :)",
   ].join("\n");
 }
 
@@ -219,13 +230,13 @@ function construirMensagemRetiradaPreparando(pedido) {
   const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está sendo preparado 🛠️`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está sendo preparado`,
     "",
     "Estamos cuidando de tudo para deixar seu pedido pronto.",
     "",
     "Assim que estiver disponível para retirada, avisaremos você por aqui.",
     "",
-    "Obrigado pela preferência 💛",
+    "Obrigado pela preferência :)",
   ].join("\n");
 }
 
@@ -235,11 +246,11 @@ function construirMensagemRetiradaPronto(pedido) {
   const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está pronto para retirada ✅`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está pronto para retirada`,
     "",
     "Pode me chamar por aqui para combinarmos a retirada.",
     "",
-    "Obrigado pela preferência 💛",
+    "Obrigado pela preferência :)",
   ].join("\n");
 }
 
@@ -249,7 +260,12 @@ function gerarLinkWhatsApp(pedido) {
   if (!telefone) return "";
 
   const mensagem = construirMensagemConfirmacao(pedido);
-  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+
+const mensagemSegura = encodeURIComponent(
+  mensagem.replace(/[\u2705]/g, "✔")
+);
+
+return `https://wa.me/${telefone}?text=${mensagemSegura}`;
 }
 
 function gerarLinkWhatsAppEmbalando(pedido) {
@@ -300,6 +316,7 @@ function PedidoCard({
   onAvisarRetiradaRecebido,
   onAvisarRetiradaPreparando,
   onAvisarRetiradaPronto,
+  onConcluirRetirada,
 }) {
   const statusOperacional = normalizarStatus(
     pedido.statusInterno || pedido.status,
@@ -320,6 +337,7 @@ function PedidoCard({
   const linkWhatsAppEmbalando = gerarLinkWhatsAppEmbalando(pedido);
 
   const podeGerarEtiqueta =
+    !isRetirada &&
     !pedido?.etiquetaGerada &&
     !!entrega?.cep &&
     !!entrega?.rua &&
@@ -329,7 +347,9 @@ function PedidoCard({
     !!entrega?.estado;
 
   const podeEmitirEtiqueta =
-    !!pedido?.etiquetaGerada && !pedido?.etiquetaEmitida;
+    !isRetirada &&
+    !!pedido?.etiquetaGerada &&
+    !pedido?.etiquetaEmitida;
 
   function renderBotaoPrincipal() {
     if (isRetirada && statusOperacional === "retirada_recebido") {
@@ -364,16 +384,43 @@ function PedidoCard({
 
     if (isRetirada && statusOperacional === "retirada_pronto") {
       return (
-        <button
-          type="button"
-          onClick={() => onAvisarRetiradaPronto(pedido)}
-          disabled={
-            atualizando || gerandoEtiqueta || emitindoEtiqueta || confirmandoPedido
-          }
-          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Avisar que pode retirar
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onAvisarRetiradaPronto(pedido)}
+            disabled={
+              atualizando ||
+              gerandoEtiqueta ||
+              emitindoEtiqueta ||
+              confirmandoPedido
+            }
+            className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Avisar que pode retirar
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onConcluirRetirada(pedido)}
+            disabled={
+              atualizando ||
+              gerandoEtiqueta ||
+              emitindoEtiqueta ||
+              confirmandoPedido
+            }
+            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {atualizando ? "Concluindo..." : "Marcar como retirado"}
+          </button>
+        </div>
+      );
+    }
+
+    if (isRetirada && statusOperacional === "retirada_concluido") {
+      return (
+        <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">
+          Pedido finalizado
+        </span>
       );
     }
 
@@ -392,7 +439,11 @@ function PedidoCard({
       );
     }
 
-    if (statusOperacional === "a_emitir" && !pedido?.etiquetaGerada && !isRetirada) {
+    if (
+      statusOperacional === "a_emitir" &&
+      !pedido?.etiquetaGerada &&
+      !isRetirada
+    ) {
       return (
         <button
           type="button"
@@ -448,9 +499,17 @@ function PedidoCard({
       );
     }
 
+    if (statusOperacional === "enviado") {
+      return (
+        <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">
+          Pedido finalizado
+        </span>
+      );
+    }
+
     return (
-      <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">
-        Pedido finalizado
+      <span className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-bold text-zinc-700">
+        Sem ação disponível
       </span>
     );
   }
@@ -871,7 +930,65 @@ export default function Painel() {
     }
   };
 
+  const concluirRetirada = async (pedido) => {
+    const pedidoId = pedido.id || pedido.pedidoLocalId;
+
+    if (!pedidoId) {
+      alert("Esse pedido não possui ID.");
+      return;
+    }
+
+    try {
+      setAtualizandoId(pedidoId);
+
+      const response = await fetch(`${apiPedidosUrl}/${pedidoId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...headersAutenticados,
+        },
+        body: JSON.stringify({
+          status: "retirada_concluido",
+        }),
+      });
+
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message || data?.error || "Erro ao concluir retirada."
+        );
+      }
+
+      setPedidos((anterior) =>
+        anterior.map((item) =>
+          (item.id || item.pedidoLocalId) === pedidoId
+            ? {
+                ...item,
+                ...data?.pedido,
+                statusInterno: "retirada_concluido",
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("Erro ao concluir retirada:", error);
+      alert(error.message || "Erro ao concluir retirada.");
+    } finally {
+      setAtualizandoId(null);
+    }
+  };
+
   const gerarEtiqueta = async (pedido) => {
+    if (isRetiradaPedido(pedido)) {
+      alert("Pedidos de retirada não podem gerar etiqueta.");
+      return;
+    }
+
     const pedidoId = pedido.id || pedido.pedidoLocalId;
 
     if (!pedidoId) {
@@ -927,6 +1044,11 @@ export default function Painel() {
   };
 
   const emitirEtiqueta = async (pedido) => {
+    if (isRetiradaPedido(pedido)) {
+      alert("Pedidos de retirada não podem emitir etiqueta.");
+      return;
+    }
+
     const pedidoId = pedido.id || pedido.pedidoLocalId;
 
     if (!pedidoId) {
@@ -1027,11 +1149,18 @@ export default function Painel() {
     }
 
     if (filtroStatus !== "todos") {
-      lista = lista.filter(
-        (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
-          filtroStatus
-      );
+      lista = lista.filter((pedido) => {
+        const status = normalizarStatus(
+          pedido.statusInterno || pedido.status,
+          pedido
+        );
+
+        if (filtroStatus === "concluidos") {
+          return status === "enviado" || status === "retirada_concluido";
+        }
+
+        return status === filtroStatus;
+      });
     }
 
     return lista;
@@ -1055,11 +1184,13 @@ export default function Painel() {
           normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
           "emitido"
       ).length,
-      enviado: pedidos.filter(
-        (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
-          "enviado"
-      ).length,
+      concluidos: pedidos.filter((pedido) => {
+        const status = normalizarStatus(
+          pedido.statusInterno || pedido.status,
+          pedido
+        );
+        return status === "enviado" || status === "retirada_concluido";
+      }).length,
     };
   }, [pedidos]);
 
@@ -1151,15 +1282,15 @@ export default function Painel() {
 
           <button
             type="button"
-            onClick={() => setFiltroStatus("enviado")}
+            onClick={() => setFiltroStatus("concluidos")}
             className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
-              filtroStatus === "enviado"
+              filtroStatus === "concluidos"
                 ? "border-emerald-700 bg-emerald-700 text-white"
                 : "border-emerald-200 bg-emerald-50 text-emerald-900"
             }`}
           >
-            <p className="text-sm opacity-80">Enviados</p>
-            <p className="mt-2 text-3xl font-black">{contagem.enviado}</p>
+            <p className="text-sm opacity-80">Concluídos</p>
+            <p className="mt-2 text-3xl font-black">{contagem.concluidos}</p>
           </button>
         </div>
 
@@ -1219,6 +1350,7 @@ export default function Painel() {
                     onAvisarRetiradaRecebido={avisarRetiradaRecebido}
                     onAvisarRetiradaPreparando={avisarRetiradaPreparando}
                     onAvisarRetiradaPronto={avisarRetiradaPronto}
+                    onConcluirRetirada={concluirRetirada}
                   />
                 );
               })
