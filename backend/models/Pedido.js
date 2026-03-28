@@ -34,6 +34,13 @@ const pedidoSchema = new mongoose.Schema(
       },
     },
 
+    tipoEntrega: {
+      type: String,
+      enum: ["entrega", "retirada"],
+      default: "entrega",
+      index: true,
+    },
+
     cepDestino: String,
     totalItensCarrinho: Number,
     subtotalProdutos: Number,
@@ -60,7 +67,16 @@ const pedidoSchema = new mongoose.Schema(
 
     statusInterno: {
       type: String,
-      enum: ["chegou", "para_confirmar", "a_emitir", "emitido", "enviado"],
+      enum: [
+        "chegou",
+        "para_confirmar",
+        "a_emitir",
+        "emitido",
+        "enviado",
+        "retirada_recebido",
+        "retirada_preparando",
+        "retirada_pronto",
+      ],
       default: "chegou",
       index: true,
     },

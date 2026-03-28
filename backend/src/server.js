@@ -91,6 +91,13 @@ function sanitizarString(valor) {
   return String(valor || "").trim();
 }
 
+function isRetiradaPedido(pedido = {}) {
+  return (
+    pedido?.tipoEntrega === "retirada" ||
+    pedido?.freteSelecionado?.nome === "Retirar comigo"
+  );
+}
+
 function normalizarStatusInterno(statusInterno) {
   const valor = String(statusInterno || "").trim().toLowerCase();
 
@@ -99,6 +106,10 @@ function normalizarStatusInterno(statusInterno) {
   if (valor === "a_emitir") return "a_emitir";
   if (valor === "emitido") return "emitido";
   if (valor === "enviado") return "enviado";
+
+  if (valor === "retirada_recebido") return "retirada_recebido";
+  if (valor === "retirada_preparando") return "retirada_preparando";
+  if (valor === "retirada_pronto") return "retirada_pronto";
 
   return "chegou";
 }
@@ -790,12 +801,15 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
     const itensBase = criarItensBasePedido(carrinho, freteSelecionado);
     const items = aplicarDescontoNosItens(itensBase, descontoCupom);
 
+    const tipoEntrega =
+      freteSelecionado?.nome === "Retirar comigo" ? "retirada" : "entrega";
+
     const pedidoSalvo = {
       id: pedidoId,
       pedidoLocalId: pedidoId,
       carrinho,
       freteSelecionado: freteSelecionado || null,
-      tipoEntrega: freteSelecionado?.nome === "Retirar comigo" ? "retirada" : "entrega",
+      tipoEntrega,
       cepDestino: cepDestino || null,
       totalItensCarrinho: totalItensCarrinho || 0,
       subtotalProdutos: subtotalCalculado,
@@ -821,7 +835,7 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       },
 
       status: "pending",
-      statusInterno: "chegou",
+      statusInterno: tipoEntrega === "retirada" ? "retirada_recebido" : "chegou",
       payment_id: null,
       status_detail: null,
       metodo_pagamento: null,
@@ -1158,20 +1172,17 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
       });
     }
 
-    if (
-  pedido?.freteSelecionado?.nome !== "Retirar" &&
-  !pedido?.freteSelecionado?.service
-) {
-  return res.status(400).json({
-    error: "Pedido sem frete selecionado.",
-  });
-}
+    if (isRetiradaPedido(pedido)) {
+      return res.status(400).json({
+        error: "Pedido com retirada não possui etiqueta de envio.",
+      });
+    }
 
-if (pedido?.freteSelecionado?.nome === "Retirar") {
-  return res.status(400).json({
-    error: "Pedido com retirada não possui etiqueta de envio.",
-  });
-}
+    if (!pedido?.freteSelecionado?.service) {
+      return res.status(400).json({
+        error: "Pedido sem frete selecionado.",
+      });
+    }
 
     const pacote =
       pedido?.freteSelecionado?.package ||
@@ -1314,6 +1325,12 @@ app.post("/api/pedidos/:id/emitir-etiqueta", autenticarAdmin, async (req, res) =
     if (!pedido) {
       return res.status(404).json({
         error: "Pedido não encontrado.",
+      });
+    }
+
+    if (isRetiradaPedido(pedido)) {
+      return res.status(400).json({
+        error: "Pedido com retirada não possui emissão de etiqueta.",
       });
     }
 

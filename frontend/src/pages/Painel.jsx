@@ -20,8 +20,26 @@ function formatarData(data) {
   }
 }
 
-function normalizarStatus(status) {
+function isRetiradaPedido(pedido = {}) {
+  return (
+    pedido?.tipoEntrega === "retirada" ||
+    pedido?.freteSelecionado?.nome === "Retirar comigo"
+  );
+}
+
+function normalizarStatus(status, pedido = {}) {
   const valor = String(status || "").toLowerCase().trim();
+  const isRetirada = isRetiradaPedido(pedido);
+
+  if (isRetirada) {
+    if (valor === "recebido") return "retirada_recebido";
+    if (valor === "chegou") return "retirada_recebido";
+    if (valor === "para_confirmar") return "retirada_recebido";
+    if (valor === "retirada_recebido") return "retirada_recebido";
+    if (valor === "retirada_preparando") return "retirada_preparando";
+    if (valor === "retirada_pronto") return "retirada_pronto";
+    return "retirada_recebido";
+  }
 
   if (valor === "recebido") return "para_confirmar";
   if (valor === "chegou") return "para_confirmar";
@@ -38,16 +56,31 @@ function tituloStatus(status) {
   if (status === "a_emitir") return "A emitir";
   if (status === "emitido") return "Emitido";
   if (status === "enviado") return "Enviado";
+
+  if (status === "retirada_recebido") return "Retirada: recebido";
+  if (status === "retirada_preparando") return "Retirada: preparando";
+  if (status === "retirada_pronto") return "Retirada: pronto";
+
   return "Todos";
 }
 
 function corStatus(status) {
-  if (status === "para_confirmar") {
+  if (status === "para_confirmar" || status === "retirada_recebido") {
     return "bg-violet-100 text-violet-800 border-violet-200";
   }
-  if (status === "a_emitir") return "bg-amber-100 text-amber-800 border-amber-200";
-  if (status === "emitido") return "bg-blue-100 text-blue-800 border-blue-200";
-  if (status === "enviado") return "bg-emerald-100 text-emerald-800 border-emerald-200";
+
+  if (status === "a_emitir" || status === "retirada_preparando") {
+    return "bg-amber-100 text-amber-800 border-amber-200";
+  }
+
+  if (status === "emitido" || status === "retirada_pronto") {
+    return "bg-blue-100 text-blue-800 border-blue-200";
+  }
+
+  if (status === "enviado") {
+    return "bg-emerald-100 text-emerald-800 border-emerald-200";
+  }
+
   return "bg-zinc-100 text-zinc-700 border-zinc-200";
 }
 
@@ -82,12 +115,17 @@ function classeStatusPagamento(status) {
 }
 
 function textoStatusEtiqueta(pedido) {
+  if (isRetiradaPedido(pedido)) return "Retirada no local";
   if (pedido?.etiquetaEmitida) return "Etiqueta emitida";
   if (pedido?.etiquetaGerada) return "Etiqueta gerada";
   return "Sem etiqueta";
 }
 
 function classeStatusEtiqueta(pedido) {
+  if (isRetiradaPedido(pedido)) {
+    return "bg-orange-100 text-orange-800 border-orange-200";
+  }
+
   if (pedido?.etiquetaEmitida) {
     return "bg-emerald-100 text-emerald-800 border-emerald-200";
   }
@@ -122,7 +160,7 @@ function construirMensagemConfirmacao(pedido) {
     : "- Itens do pedido";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso \u2705`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso ✅`,
     "",
     "Já estamos preparando tudo para a confecção.",
     "",
@@ -132,7 +170,7 @@ function construirMensagemConfirmacao(pedido) {
     resumoItens,
     "",
     "Assim que avançarmos para a próxima etapa, avisaremos você.",
-    "Obrigado pela preferência \uD83D\uDC9B",
+    "Obrigado pela preferência 💛",
   ].join("\n");
 }
 
@@ -142,12 +180,66 @@ function construirMensagemEmbalando(pedido) {
   const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
 
   return [
-    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem \uD83D\uDCE6`,
+    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem 📦`,
     "",
     "Estamos preparando tudo com carinho e cuidado para você.",
     "Assim que houver a próxima atualização, avisaremos por aqui.",
     "",
-    "Obrigado pela preferência \uD83D\uDC9B",
+    "Obrigado pela preferência 💛",
+  ].join("\n");
+}
+
+function construirMensagemRetiradaRecebido(pedido) {
+  const cliente = pedido?.dadosCliente || {};
+  const nome = cliente.nome ? cliente.nome.split(" ")[0] : "cliente";
+  const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
+  const itens = Array.isArray(pedido?.carrinho) ? pedido.carrinho : [];
+
+  const resumoItens = itens.length
+    ? itens
+        .map((item) => `- ${item?.nome || "Produto"} x${item?.quantidade || 0}`)
+        .join("\n")
+    : "- Itens do pedido";
+
+  return [
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso ✅`,
+    "",
+    "*Resumo do pedido:*",
+    resumoItens,
+    "",
+    "Em breve avisaremos você sobre o andamento da preparação.",
+    "",
+    "Obrigado pela preferência 💛",
+  ].join("\n");
+}
+
+function construirMensagemRetiradaPreparando(pedido) {
+  const cliente = pedido?.dadosCliente || {};
+  const nome = cliente.nome ? cliente.nome.split(" ")[0] : "cliente";
+  const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
+
+  return [
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está sendo preparado 🛠️`,
+    "",
+    "Estamos cuidando de tudo para deixar seu pedido pronto.",
+    "",
+    "Assim que estiver disponível para retirada, avisaremos você por aqui.",
+    "",
+    "Obrigado pela preferência 💛",
+  ].join("\n");
+}
+
+function construirMensagemRetiradaPronto(pedido) {
+  const cliente = pedido?.dadosCliente || {};
+  const nome = cliente.nome ? cliente.nome.split(" ")[0] : "cliente";
+  const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
+
+  return [
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está pronto para retirada ✅`,
+    "",
+    "Pode me chamar por aqui para combinarmos a retirada.",
+    "",
+    "Obrigado pela preferência 💛",
   ].join("\n");
 }
 
@@ -169,6 +261,33 @@ function gerarLinkWhatsAppEmbalando(pedido) {
   return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
 }
 
+function gerarLinkWhatsAppRetiradaRecebido(pedido) {
+  const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
+
+  if (!telefone) return "";
+
+  const mensagem = construirMensagemRetiradaRecebido(pedido);
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+}
+
+function gerarLinkWhatsAppRetiradaPreparando(pedido) {
+  const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
+
+  if (!telefone) return "";
+
+  const mensagem = construirMensagemRetiradaPreparando(pedido);
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+}
+
+function gerarLinkWhatsAppRetiradaPronto(pedido) {
+  const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
+
+  if (!telefone) return "";
+
+  const mensagem = construirMensagemRetiradaPronto(pedido);
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+}
+
 function PedidoCard({
   pedido,
   atualizando,
@@ -178,9 +297,13 @@ function PedidoCard({
   onConfirmarPedido,
   onGerarEtiqueta,
   onEmitirEtiqueta,
+  onAvisarRetiradaRecebido,
+  onAvisarRetiradaPreparando,
+  onAvisarRetiradaPronto,
 }) {
   const statusOperacional = normalizarStatus(
-    pedido.statusInterno || pedido.status
+    pedido.statusInterno || pedido.status,
+    pedido
   );
 
   const itens = Array.isArray(pedido.carrinho) ? pedido.carrinho : [];
@@ -190,7 +313,7 @@ function PedidoCard({
   const frete = Number(pedido?.freteSelecionado?.preco || 0);
   const desconto = Number(pedido?.descontoCupom || 0);
   const cupom = pedido?.cupomAplicado?.codigo || "";
-  const isRetirada = pedido?.freteSelecionado?.nome === "Retirar comigo";
+  const isRetirada = isRetiradaPedido(pedido);
 
   const cliente = pedido.dadosCliente || {};
   const entrega = pedido.enderecoEntrega || {};
@@ -209,12 +332,59 @@ function PedidoCard({
     !!pedido?.etiquetaGerada && !pedido?.etiquetaEmitida;
 
   function renderBotaoPrincipal() {
+    if (isRetirada && statusOperacional === "retirada_recebido") {
+      return (
+        <button
+          type="button"
+          onClick={() => onAvisarRetiradaRecebido(pedido)}
+          disabled={
+            atualizando || gerandoEtiqueta || emitindoEtiqueta || confirmandoPedido
+          }
+          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Avisar que recebemos o pedido
+        </button>
+      );
+    }
+
+    if (isRetirada && statusOperacional === "retirada_preparando") {
+      return (
+        <button
+          type="button"
+          onClick={() => onAvisarRetiradaPreparando(pedido)}
+          disabled={
+            atualizando || gerandoEtiqueta || emitindoEtiqueta || confirmandoPedido
+          }
+          className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Avisar que o produto está sendo preparado
+        </button>
+      );
+    }
+
+    if (isRetirada && statusOperacional === "retirada_pronto") {
+      return (
+        <button
+          type="button"
+          onClick={() => onAvisarRetiradaPronto(pedido)}
+          disabled={
+            atualizando || gerandoEtiqueta || emitindoEtiqueta || confirmandoPedido
+          }
+          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Avisar que pode retirar
+        </button>
+      );
+    }
+
     if (statusOperacional === "para_confirmar") {
       return (
         <button
           type="button"
           onClick={() => onConfirmarPedido(pedido)}
-          disabled={atualizando || gerandoEtiqueta || emitindoEtiqueta || confirmandoPedido}
+          disabled={
+            atualizando || gerandoEtiqueta || emitindoEtiqueta || confirmandoPedido
+          }
           className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {confirmandoPedido ? "Confirmando..." : "Confirmar recebimento"}
@@ -241,7 +411,12 @@ function PedidoCard({
       );
     }
 
-    if (statusOperacional === "a_emitir" && pedido?.etiquetaGerada && !pedido?.etiquetaEmitida && !isRetirada) {
+    if (
+      statusOperacional === "a_emitir" &&
+      pedido?.etiquetaGerada &&
+      !pedido?.etiquetaEmitida &&
+      !isRetirada
+    ) {
       return (
         <button
           type="button"
@@ -339,7 +514,9 @@ function PedidoCard({
         </div>
 
         <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
-          <p className="font-semibold text-zinc-900">Entrega</p>
+          <p className="font-semibold text-zinc-900">
+            {isRetirada ? "Retirada" : "Entrega"}
+          </p>
           <div className="mt-2 space-y-1">
             <p>CEP: {entrega.cep || pedido.cepDestino || "-"}</p>
             <p className="truncate">
@@ -379,7 +556,7 @@ function PedidoCard({
             <p>Subtotal: {formatarMoeda(subtotal)}</p>
             <p>Frete: {formatarMoeda(frete)}</p>
             {cupom ? <p className="truncate">Cupom: {cupom}</p> : null}
-            {(cupom || desconto > 0 || pedido?.descontoCupom != null) ? (
+            {cupom || desconto > 0 || pedido?.descontoCupom != null ? (
               <p>Desconto: - {formatarMoeda(desconto)}</p>
             ) : null}
             <p className="font-semibold text-zinc-900">
@@ -420,7 +597,7 @@ function PedidoCard({
           </div>
         </div>
 
-        {pedido?.urlEtiqueta ? (
+        {pedido?.urlEtiqueta && !isRetirada ? (
           <div className="md:col-span-2 xl:col-span-4 rounded-xl border border-zinc-100 bg-zinc-50 p-4">
             <p className="font-semibold text-zinc-900">Etiqueta</p>
             <a
@@ -435,9 +612,7 @@ function PedidoCard({
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {renderBotaoPrincipal()}
-      </div>
+      <div className="mt-4 flex flex-wrap gap-2">{renderBotaoPrincipal()}</div>
     </article>
   );
 }
@@ -503,7 +678,10 @@ export default function Painel() {
       setPedidos(
         lista.map((pedido) => ({
           ...pedido,
-          statusInterno: normalizarStatus(pedido.statusInterno || pedido.status),
+          statusInterno: normalizarStatus(
+            pedido.statusInterno || pedido.status,
+            pedido
+          ),
         }))
       );
     } catch (error) {
@@ -581,6 +759,115 @@ export default function Painel() {
       alert(error.message || "Erro ao confirmar pedido.");
     } finally {
       setConfirmandoPedidoId(null);
+    }
+  };
+
+  const atualizarStatusRetiradaComWhatsApp = async ({
+    pedido,
+    novoStatus,
+    gerarLink,
+    mensagemErroPadrao,
+  }) => {
+    const pedidoId = pedido.id || pedido.pedidoLocalId;
+
+    if (!pedidoId) {
+      alert("Esse pedido não possui ID.");
+      return;
+    }
+
+    const linkWhatsApp = gerarLink(pedido);
+
+    if (!linkWhatsApp) {
+      alert("Esse pedido não possui telefone válido para abrir o WhatsApp.");
+      return;
+    }
+
+    const abaWhatsApp = window.open(linkWhatsApp, "_blank");
+
+    try {
+      setAtualizandoId(pedidoId);
+
+      const response = await fetch(`${apiPedidosUrl}/${pedidoId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...headersAutenticados,
+        },
+        body: JSON.stringify({
+          status: novoStatus,
+        }),
+      });
+
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error || mensagemErroPadrao);
+      }
+
+      setPedidos((anterior) =>
+        anterior.map((item) =>
+          (item.id || item.pedidoLocalId) === pedidoId
+            ? {
+                ...item,
+                ...data?.pedido,
+                statusInterno: novoStatus,
+              }
+            : item
+        )
+      );
+
+      if (!abaWhatsApp) {
+        alert("Status atualizado, mas o navegador bloqueou a abertura do WhatsApp.");
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar retirada:", error);
+      alert(error.message || mensagemErroPadrao);
+    } finally {
+      setAtualizandoId(null);
+    }
+  };
+
+  const avisarRetiradaRecebido = async (pedido) => {
+    await atualizarStatusRetiradaComWhatsApp({
+      pedido,
+      novoStatus: "retirada_preparando",
+      gerarLink: gerarLinkWhatsAppRetiradaRecebido,
+      mensagemErroPadrao: "Erro ao avisar que o pedido foi recebido.",
+    });
+  };
+
+  const avisarRetiradaPreparando = async (pedido) => {
+    await atualizarStatusRetiradaComWhatsApp({
+      pedido,
+      novoStatus: "retirada_pronto",
+      gerarLink: gerarLinkWhatsAppRetiradaPreparando,
+      mensagemErroPadrao: "Erro ao avisar que o pedido está sendo preparado.",
+    });
+  };
+
+  const avisarRetiradaPronto = async (pedido) => {
+    const pedidoId = pedido.id || pedido.pedidoLocalId;
+
+    if (!pedidoId) {
+      alert("Esse pedido não possui ID.");
+      return;
+    }
+
+    const linkWhatsApp = gerarLinkWhatsAppRetiradaPronto(pedido);
+
+    if (!linkWhatsApp) {
+      alert("Esse pedido não possui telefone válido para abrir o WhatsApp.");
+      return;
+    }
+
+    const abaWhatsApp = window.open(linkWhatsApp, "_blank");
+
+    if (!abaWhatsApp) {
+      alert("O navegador bloqueou a abertura do WhatsApp.");
     }
   };
 
@@ -716,6 +1003,7 @@ export default function Painel() {
           pedido.status_detail,
           pedido.cupomAplicado?.codigo,
           pedido.descontoCupom,
+          pedido.tipoEntrega,
           cliente.nome,
           cliente.email,
           cliente.telefone,
@@ -741,7 +1029,8 @@ export default function Painel() {
     if (filtroStatus !== "todos") {
       lista = lista.filter(
         (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status) === filtroStatus
+          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
+          filtroStatus
       );
     }
 
@@ -753,19 +1042,23 @@ export default function Painel() {
       todos: pedidos.length,
       para_confirmar: pedidos.filter(
         (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status) === "para_confirmar"
+          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
+          "para_confirmar"
       ).length,
       a_emitir: pedidos.filter(
         (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status) === "a_emitir"
+          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
+          "a_emitir"
       ).length,
       emitido: pedidos.filter(
         (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status) === "emitido"
+          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
+          "emitido"
       ).length,
       enviado: pedidos.filter(
         (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status) === "enviado"
+          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
+          "enviado"
       ).length,
     };
   }, [pedidos]);
@@ -923,6 +1216,9 @@ export default function Painel() {
                     onConfirmarPedido={confirmarPedido}
                     onGerarEtiqueta={gerarEtiqueta}
                     onEmitirEtiqueta={emitirEtiqueta}
+                    onAvisarRetiradaRecebido={avisarRetiradaRecebido}
+                    onAvisarRetiradaPreparando={avisarRetiradaPreparando}
+                    onAvisarRetiradaPronto={avisarRetiradaPronto}
                   />
                 );
               })
