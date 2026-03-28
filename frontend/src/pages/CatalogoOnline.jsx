@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/+$/, "");
+const SITE_BASE_URL = import.meta.env.BASE_URL || "/";
+
 const menuCategorias = [
   {
     nome: "Chaveiro",
@@ -176,6 +179,39 @@ const slidesDestaque = [
   }, */
 ];
 
+function assetUrl(caminho) {
+  const limpo = String(caminho || "").replace(/^\/+/, "");
+  return `${SITE_BASE_URL}${limpo}`;
+}
+
+function isCaminhoImagemBackend(caminho) {
+  const valor = String(caminho || "").trim().replace(/\\/g, "/");
+  return (
+    valor.startsWith("/imagens/produtos/") ||
+    valor.startsWith("imagens/produtos/") ||
+    valor.startsWith("/backend/data/imagens/") ||
+    valor.startsWith("backend/data/imagens/")
+  );
+}
+
+function normalizarCaminhoImagemCSV(caminho) {
+  let valor = String(caminho || "").trim().replace(/\r/g, "").replace(/\\/g, "/");
+
+  if (!valor) return "";
+
+  valor = valor.replace(/^https?:\/\/[^/]+/i, "");
+
+  if (valor.startsWith("backend/data/imagens/")) {
+    valor = valor.replace(/^backend\/data\/imagens/i, "/imagens");
+  } else if (valor.startsWith("/backend/data/imagens/")) {
+    valor = valor.replace(/^\/backend\/data\/imagens/i, "/imagens");
+  } else if (valor.startsWith("imagens/")) {
+    valor = `/${valor}`;
+  }
+
+  return valor;
+}
+
 function IconeCarrinho({ className = "h-5 w-5" }) {
   return (
     <svg
@@ -266,9 +302,8 @@ function parseCSV(texto) {
 
     const imagens = imagensBrutas
       .split("|")
-      .map((img) => limparCampo(img))
-      .filter(Boolean)
-      .map((img) => (img.startsWith("/") ? img : `/${img}`));
+      .map((img) => normalizarCaminhoImagemCSV(limparCampo(img)))
+      .filter(Boolean);
 
     const montarVariacao = (nome, valores) => {
       const nomeLimpo = limparCampo(nome);
@@ -291,39 +326,42 @@ function parseCSV(texto) {
     ].filter(Boolean);
 
     return {
-  id: item.id || String(index + 1),
-  nome: item.nome || "Produto sem nome",
-  categoria: item.categoria || "Outros",
-  subcategoria: item.subcategoria || "",
-  preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
-  destaque: item.destaque || "Produto em impressão 3D",
-  descricao:
-    item.descricao ||
-    "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
-  imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
-  variacoes,
+      id: item.id || String(index + 1),
+      nome: item.nome || "Produto sem nome",
+      categoria: item.categoria || "Outros",
+      subcategoria: item.subcategoria || "",
+      preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
+      destaque: item.destaque || "Produto em impressão 3D",
+      descricao:
+        item.descricao ||
+        "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
+      imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
+      variacoes,
 
-  // 🔥 NOVOS CAMPOS (FRETE)
-  peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
-altura: Number(String(item.altura || "0").replace(",", ".")) || 0,
-largura: Number(String(item.largura || "0").replace(",", ".")) || 0,
-comprimento: Number(String(item.comprimento || "0").replace(",", ".")) || 0,
-};
+      peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
+      altura: Number(String(item.altura || "0").replace(",", ".")) || 0,
+      largura: Number(String(item.largura || "0").replace(",", ".")) || 0,
+      comprimento: Number(String(item.comprimento || "0").replace(",", ".")) || 0,
+    };
   });
 }
 
 function getImagemSrc(imagem) {
   if (!imagem) {
-    return `${import.meta.env.BASE_URL}imagens/placeholder.png`;
+    return assetUrl("imagens/placeholder.png");
   }
 
   if (imagem.startsWith("http://") || imagem.startsWith("https://")) {
     return imagem;
   }
 
-  const caminhoLimpo = imagem.replace(/\r/g, "").trim().replace(/^\/+/, "");
+  const caminhoLimpo = normalizarCaminhoImagemCSV(imagem).replace(/^\/+/, "");
 
-  return `${import.meta.env.BASE_URL}${caminhoLimpo}`;
+  if (isCaminhoImagemBackend(imagem) || caminhoLimpo.startsWith("imagens/produtos/")) {
+    return `${API_URL}/${caminhoLimpo}`;
+  }
+
+  return assetUrl(caminhoLimpo);
 }
 
 function ImagemProduto({ src, alt, className }) {
@@ -335,7 +373,7 @@ function ImagemProduto({ src, alt, className }) {
       loading="lazy"
       onError={(e) => {
         e.currentTarget.onerror = null;
-        e.currentTarget.src = `${import.meta.env.BASE_URL}imagens/placeholder.png`;
+        e.currentTarget.src = assetUrl("imagens/placeholder.png");
       }}
     />
   );
@@ -446,29 +484,28 @@ export default function CatalogoOnline() {
   const whatsapp = "5511978635579";
 
   const [carrinho, setCarrinho] = useState(() => {
-  try {
-    const carrinhoSalvo = localStorage.getItem("carrinhoAdditiveHub");
-    return carrinhoSalvo ? JSON.parse(carrinhoSalvo) : [];
-  } catch (error) {
-    console.error("Erro ao carregar carrinho:", error);
-    return [];
-  }
-});
+    try {
+      const carrinhoSalvo = localStorage.getItem("carrinhoAdditiveHub");
+      return carrinhoSalvo ? JSON.parse(carrinhoSalvo) : [];
+    } catch (error) {
+      console.error("Erro ao carregar carrinho:", error);
+      return [];
+    }
+  });
 
-useEffect(() => {
-  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-}, [carrinho]);
+  useEffect(() => {
+    localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+  }, [carrinho]);
 
-useEffect(() => {
-  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-}, [carrinho]);
+  useEffect(() => {
+    localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+  }, [carrinho]);
 
   useEffect(() => {
     document.documentElement.lang = "pt-BR";
     document.documentElement.setAttribute("translate", "no");
     document.body.setAttribute("translate", "no");
   }, []);
-
 
   useEffect(() => {
     const html = document.documentElement;
@@ -490,7 +527,7 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}produtos.csv`)
+    fetch(`${API_URL}/produtos.csv`)
       .then((res) => {
         if (!res.ok) {
           throw new Error("Arquivo CSV não encontrado");
@@ -808,7 +845,7 @@ useEffect(() => {
           <div className="flex items-center gap-4 md:gap-12 flex-1">
             <div className="flex items-center gap-3">
               <img
-                src={`${import.meta.env.BASE_URL}logo.png`}
+                src={assetUrl("logo.png")}
                 alt="Additive Hub"
                 className="h-10 w-auto"
                 onError={(e) => {
@@ -906,19 +943,19 @@ useEffect(() => {
             </button>
 
             <a
-  href="/#/acompanhar-pedido"
-  className="hidden lg:inline-flex rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
->
-  Acompanhar pedido
-</a>
+              href="/#/acompanhar-pedido"
+              className="hidden lg:inline-flex rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
+            >
+              Acompanhar pedido
+            </a>
 
             <motion.button
               ref={botaoCarrinhoRef}
               type="button"
               onClick={() => {
-  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-  window.location.href = "/#/carrinho";
-}}
+                localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+                window.location.href = "/#/carrinho";
+              }}
               animate={
                 carrinhoDestacado
                   ? { scale: [1, 1.12, 1], y: [0, -2, 0] }
@@ -968,22 +1005,22 @@ useEffect(() => {
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
               <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-4">
-  <div>
-    <p className="text-lg font-bold text-zinc-900">Categorias</p>
-    <p className="text-sm text-zinc-500">Explore o catálogo</p>
-  </div>
+                <div>
+                  <p className="text-lg font-bold text-zinc-900">Categorias</p>
+                  <p className="text-sm text-zinc-500">Explore o catálogo</p>
+                </div>
 
-  <a
-    href="/#/acompanhar-pedido"
-    onClick={() => {
-      setMenuMobileAberto(false);
-      setCategoriaMobileAberta(null);
-    }}
-    className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
-  >
-    Acompanhar Pedido
-  </a>
-</div>
+                <a
+                  href="/#/acompanhar-pedido"
+                  onClick={() => {
+                    setMenuMobileAberto(false);
+                    setCategoriaMobileAberta(null);
+                  }}
+                  className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+                >
+                  Acompanhar Pedido
+                </a>
+              </div>
 
               <div className="p-3">
                 <button
@@ -1071,14 +1108,12 @@ useEffect(() => {
                             >
                               {item}
                             </button>
-                            
                           ))}
                         </div>
                       )}
                     </div>
                   );
                 })}
-                
               </div>
             </motion.div>
           </motion.div>
@@ -1109,16 +1144,16 @@ useEffect(() => {
 
               <div className="mt-5 min-h-[190px] sm:min-h-[170px] lg:min-h-[210px]">
                 <p className="max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
-                {slideSelecionado?.tag === "Em breve" ? (
-                  <>
-                    {slideSelecionado.subtitulo.split("Aguarde")[0]}
-                    <span className="mt-3 block font-semibold text-[#b38200]">
-                      Aguarde — em breve disponível para encomenda.
-                    </span>
-                  </>
-                ) : (
-                  slideSelecionado?.subtitulo
-                )}
+                  {slideSelecionado?.tag === "Em breve" ? (
+                    <>
+                      {slideSelecionado.subtitulo.split("Aguarde")[0]}
+                      <span className="mt-3 block font-semibold text-[#b38200]">
+                        Aguarde — em breve disponível para encomenda.
+                      </span>
+                    </>
+                  ) : (
+                    slideSelecionado?.subtitulo
+                  )}
                 </p>
               </div>
 
@@ -1490,9 +1525,9 @@ useEffect(() => {
               <motion.button
                 type="button"
                 onClick={() => {
-  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-  window.location.href = "/#/carrinho";
-}}
+                  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+                  window.location.href = "/#/carrinho";
+                }}
                 initial={{ scale: 0.96 }}
                 animate={{ scale: [1, 1.03, 1] }}
                 transition={{ duration: 0.35, ease: "easeOut" }}
@@ -1517,7 +1552,7 @@ useEffect(() => {
                   </span>
                 </div>
               </motion.button>
-</div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1534,9 +1569,9 @@ useEffect(() => {
             <button
               type="button"
               onClick={() => {
-  localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-  window.location.href = "/#/carrinho";
-}}
+                localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+                window.location.href = "/#/carrinho";
+              }}
               className="group flex items-center gap-3 rounded-full bg-[#f4b400] px-4 py-3 text-left text-black shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(0,0,0,0.22)]"
             >
               <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-white">
@@ -1579,240 +1614,240 @@ useEffect(() => {
       </a>
 
       <AnimatePresence>
-  {produtoSelecionado && (
-    <motion.div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
-      onClick={fecharDetalhes}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center py-6">
-        <motion.div
-          className="grid w-full overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)] lg:max-h-[90vh] lg:grid-cols-2"
-          onClick={(e) => e.stopPropagation()}
-          initial={{ opacity: 0, y: 20, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.98 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
-        >
-          <div className="flex flex-col bg-zinc-100">
-            <div className="relative h-[240px] w-full bg-zinc-100 sm:h-[300px] md:h-[360px] lg:h-[500px]">
-              <ImagemProduto
-                src={produtoSelecionado?.imagens?.[imagemAtiva]}
-                alt={`${produtoSelecionado?.nome || "Produto"} - foto ${imagemAtiva + 1}`}
-                className="h-full w-full object-cover md:scale-[1.05]"
-              />
-
-              <button
-                onClick={fecharDetalhes}
-                className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+        {produtoSelecionado && (
+          <motion.div
+            className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
+            onClick={fecharDetalhes}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center py-6">
+              <motion.div
+                className="grid w-full overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)] lg:max-h-[90vh] lg:grid-cols-2"
+                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.98 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
               >
-                Fechar
-              </button>
+                <div className="flex flex-col bg-zinc-100">
+                  <div className="relative h-[240px] w-full bg-zinc-100 sm:h-[300px] md:h-[360px] lg:h-[500px]">
+                    <ImagemProduto
+                      src={produtoSelecionado?.imagens?.[imagemAtiva]}
+                      alt={`${produtoSelecionado?.nome || "Produto"} - foto ${imagemAtiva + 1}`}
+                      className="h-full w-full object-cover md:scale-[1.05]"
+                    />
 
-              {produtoSelecionado.imagens?.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setImagemAtiva((atual) =>
-                        atual === 0
-                          ? produtoSelecionado.imagens.length - 1
-                          : atual - 1
-                      )
-                    }
-                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
-                  >
-                    ←
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setImagemAtiva((atual) =>
-                        (atual + 1) % produtoSelecionado.imagens.length
-                      )
-                    }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
-                  >
-                    →
-                  </button>
-                </>
-              )}
-            </div>
-
-            {produtoSelecionado.imagens?.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto border-t border-zinc-200 bg-white p-4">
-                {produtoSelecionado.imagens.map((img, index) => {
-                  const ativa = imagemAtiva === index;
-
-                  return (
                     <button
-                      key={`${produtoSelecionado.id}-${index}`}
-                      type="button"
-                      onClick={() => setImagemAtiva(index)}
-                      className={`shrink-0 overflow-hidden rounded-2xl border-2 transition ${
-                        ativa
-                          ? "border-[#f4b400]"
-                          : "border-zinc-200 hover:border-zinc-300"
-                      }`}
+                      onClick={fecharDetalhes}
+                      className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
                     >
-                      <ImagemProduto
-                        src={img}
-                        alt={`${produtoSelecionado.nome} ${index + 1}`}
-                        className="h-20 w-20 object-cover"
-                      />
+                      Fechar
                     </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
-          <div className="max-h-[90vh] overflow-y-auto p-6 md:p-8">
-            <div>
-              <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
-                {produtoSelecionado.categoria || "Produto"}
-              </span>
+                    {produtoSelecionado.imagens?.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setImagemAtiva((atual) =>
+                              atual === 0
+                                ? produtoSelecionado.imagens.length - 1
+                                : atual - 1
+                            )
+                          }
+                          className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+                        >
+                          ←
+                        </button>
 
-              <h3 className="mt-4 text-3xl font-bold">
-                {produtoSelecionado.nome}
-              </h3>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setImagemAtiva((atual) =>
+                              (atual + 1) % produtoSelecionado.imagens.length
+                            )
+                          }
+                          className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
+                        >
+                          →
+                        </button>
+                      </>
+                    )}
+                  </div>
 
-              {produtoSelecionado.subcategoria && (
-                <p className="mt-2 text-sm font-medium uppercase tracking-wide text-zinc-500">
-                  {produtoSelecionado.subcategoria}
-                </p>
-              )}
+                  {produtoSelecionado.imagens?.length > 1 && (
+                    <div className="flex gap-3 overflow-x-auto border-t border-zinc-200 bg-white p-4">
+                      {produtoSelecionado.imagens.map((img, index) => {
+                        const ativa = imagemAtiva === index;
 
-              <p className="mt-2 text-lg font-semibold text-[#b38200]">
-                R$ {produtoSelecionado.preco.toFixed(2)}
-              </p>
-
-              <p className="mt-5 whitespace-pre-line leading-7 text-zinc-600">
-                {produtoSelecionado.descricao}
-              </p>
-
-              {produtoTemVariacoes(produtoSelecionado) && (
-                <div className="mt-6 space-y-4">
-                  {produtoSelecionado.variacoes.map((variacao) => (
-                    <div key={`${produtoSelecionado.id}-${variacao.nome}`}>
-                      <p className="mb-2 text-sm font-semibold text-zinc-800">
-                        {variacao.nome}
-                      </p>
-
-                      <div className="flex flex-wrap gap-2">
-                        {variacao.opcoes.map((opcao) => {
-                          const ativa =
-                            selecoesVariacao?.[variacao.nome] === opcao;
-
-                          return (
-                            <button
-                              key={`${variacao.nome}-${opcao}`}
-                              type="button"
-                              onClick={() =>
-                                atualizarSelecaoVariacao(variacao.nome, opcao)
-                              }
-                              className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
-                                ativa
-                                  ? "border-[#f4b400] bg-[#fff8df] text-[#8b6900]"
-                                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                              }`}
-                            >
-                              {opcao}
-                            </button>
-                          );
-                        })}
-                      </div>
+                        return (
+                          <button
+                            key={`${produtoSelecionado.id}-${index}`}
+                            type="button"
+                            onClick={() => setImagemAtiva(index)}
+                            className={`shrink-0 overflow-hidden rounded-2xl border-2 transition ${
+                              ativa
+                                ? "border-[#f4b400]"
+                                : "border-zinc-200 hover:border-zinc-300"
+                            }`}
+                          >
+                            <ImagemProduto
+                              src={img}
+                              alt={`${produtoSelecionado.nome} ${index + 1}`}
+                              className="h-20 w-20 object-cover"
+                            />
+                          </button>
+                        );
+                      })}
                     </div>
-                  ))}
-
-                  {!variacoesPreenchidas(produtoSelecionado, selecoesVariacao) && (
-                    <p className="text-sm font-medium text-amber-700">
-                      Selecione todas as opções para adicionar ao carrinho.
-                    </p>
                   )}
                 </div>
-              )}
 
-              <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-                <p className="text-sm text-zinc-500">Destaque</p>
-                <p className="mt-1 font-medium text-zinc-900">
-                  {produtoSelecionado.destaque}
-                </p>
-              </div>
+                <div className="max-h-[90vh] overflow-y-auto p-6 md:p-8">
+                  <div>
+                    <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
+                      {produtoSelecionado.categoria || "Produto"}
+                    </span>
+
+                    <h3 className="mt-4 text-3xl font-bold">
+                      {produtoSelecionado.nome}
+                    </h3>
+
+                    {produtoSelecionado.subcategoria && (
+                      <p className="mt-2 text-sm font-medium uppercase tracking-wide text-zinc-500">
+                        {produtoSelecionado.subcategoria}
+                      </p>
+                    )}
+
+                    <p className="mt-2 text-lg font-semibold text-[#b38200]">
+                      R$ {produtoSelecionado.preco.toFixed(2)}
+                    </p>
+
+                    <p className="mt-5 whitespace-pre-line leading-7 text-zinc-600">
+                      {produtoSelecionado.descricao}
+                    </p>
+
+                    {produtoTemVariacoes(produtoSelecionado) && (
+                      <div className="mt-6 space-y-4">
+                        {produtoSelecionado.variacoes.map((variacao) => (
+                          <div key={`${produtoSelecionado.id}-${variacao.nome}`}>
+                            <p className="mb-2 text-sm font-semibold text-zinc-800">
+                              {variacao.nome}
+                            </p>
+
+                            <div className="flex flex-wrap gap-2">
+                              {variacao.opcoes.map((opcao) => {
+                                const ativa =
+                                  selecoesVariacao?.[variacao.nome] === opcao;
+
+                                return (
+                                  <button
+                                    key={`${variacao.nome}-${opcao}`}
+                                    type="button"
+                                    onClick={() =>
+                                      atualizarSelecaoVariacao(variacao.nome, opcao)
+                                    }
+                                    className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
+                                      ativa
+                                        ? "border-[#f4b400] bg-[#fff8df] text-[#8b6900]"
+                                        : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                                    }`}
+                                  >
+                                    {opcao}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+
+                        {!variacoesPreenchidas(produtoSelecionado, selecoesVariacao) && (
+                          <p className="text-sm font-medium text-amber-700">
+                            Selecione todas as opções para adicionar ao carrinho.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+                      <p className="text-sm text-zinc-500">Destaque</p>
+                      <p className="mt-1 font-medium text-zinc-900">
+                        {produtoSelecionado.destaque}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    {produtoTemVariacoes(produtoSelecionado) ? (
+                      quantidadeModal > 0 ? (
+                        <ControleQuantidade
+                          quantidade={quantidadeModal}
+                          onDiminuir={() =>
+                            diminuirQuantidade({
+                              carrinhoKey: gerarChaveCarrinho(
+                                produtoSelecionado,
+                                selecoesVariacao
+                              ),
+                            })
+                          }
+                          onAumentar={(e) =>
+                            adicionarAoCarrinho(
+                              produtoSelecionado,
+                              e,
+                              selecoesVariacao
+                            )
+                          }
+                        />
+                      ) : (
+                        <button
+                          onClick={(e) =>
+                            adicionarAoCarrinho(
+                              produtoSelecionado,
+                              e,
+                              selecoesVariacao
+                            )
+                          }
+                          className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+                        >
+                          Adicionar ao carrinho
+                        </button>
+                      )
+                    ) : quantidadeNoCarrinho(produtoSelecionado.id) > 0 ? (
+                      <ControleQuantidade
+                        quantidade={quantidadeNoCarrinho(produtoSelecionado.id)}
+                        onDiminuir={() =>
+                          diminuirQuantidade(
+                            carrinho.find(
+                              (item) => String(item.id) === String(produtoSelecionado.id)
+                            )
+                          )
+                        }
+                        onAumentar={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
+                      />
+                    ) : (
+                      <button
+                        onClick={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
+                        className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+                      >
+                        Adicionar ao carrinho
+                      </button>
+                    )}
+
+                    <button
+                      onClick={fecharDetalhes}
+                      className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+                    >
+                      Voltar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
             </div>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              {produtoTemVariacoes(produtoSelecionado) ? (
-                quantidadeModal > 0 ? (
-                  <ControleQuantidade
-                    quantidade={quantidadeModal}
-                    onDiminuir={() =>
-                      diminuirQuantidade({
-                        carrinhoKey: gerarChaveCarrinho(
-                          produtoSelecionado,
-                          selecoesVariacao
-                        ),
-                      })
-                    }
-                    onAumentar={(e) =>
-                      adicionarAoCarrinho(
-                        produtoSelecionado,
-                        e,
-                        selecoesVariacao
-                      )
-                    }
-                  />
-                ) : (
-                  <button
-                    onClick={(e) =>
-                      adicionarAoCarrinho(
-                        produtoSelecionado,
-                        e,
-                        selecoesVariacao
-                      )
-                    }
-                    className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
-                  >
-                    Adicionar ao carrinho
-                  </button>
-                )
-              ) : quantidadeNoCarrinho(produtoSelecionado.id) > 0 ? (
-                <ControleQuantidade
-                  quantidade={quantidadeNoCarrinho(produtoSelecionado.id)}
-                  onDiminuir={() =>
-                    diminuirQuantidade(
-                      carrinho.find(
-                        (item) => String(item.id) === String(produtoSelecionado.id)
-                      )
-                    )
-                  }
-                  onAumentar={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
-                />
-              ) : (
-                <button
-                  onClick={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
-                  className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
-                >
-                  Adicionar ao carrinho
-                </button>
-              )}
-
-              <button
-                onClick={fecharDetalhes}
-                className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
-              >
-                Voltar
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </motion.div>
-  )}
-</AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {carrinhoAberto && (
@@ -1917,7 +1952,6 @@ useEffect(() => {
                           <span>{totalItensCarrinho} item(ns)</span>
                           <span>Subtotal: R$ {totalCarrinho.toFixed(2)}</span>
                         </div>
-                        
 
                         <div className="flex items-center justify-between text-sm text-zinc-600">
                           <span>Frete</span>
@@ -2040,7 +2074,6 @@ useEffect(() => {
                                         R$ {preco.toFixed(2)}
                                       </p>
                                     </div>
-                                    
                                   </button>
                                 );
                               })}
@@ -2052,58 +2085,57 @@ useEffect(() => {
                   </>
                 )}
                 <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5">
-  <h3 className="text-lg font-bold text-zinc-900">
-    Dados do comprador
-  </h3>
+                  <h3 className="text-lg font-bold text-zinc-900">
+                    Dados do comprador
+                  </h3>
 
-  <p className="mt-1 text-sm text-zinc-600">
-    Preencha para concluir seu pedido
-  </p>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Preencha para concluir seu pedido
+                  </p>
 
-  <div className="mt-4 grid gap-3 md:grid-cols-2">
-    <input
-      type="text"
-      placeholder="Nome completo"
-      value={dadosCliente.nome}
-      onChange={(e) =>
-        atualizarDadosCliente("nome", e.target.value)
-      }
-      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-    />
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="Nome completo"
+                      value={dadosCliente.nome}
+                      onChange={(e) =>
+                        atualizarDadosCliente("nome", e.target.value)
+                      }
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                    />
 
-    <input
-      type="email"
-      placeholder="E-mail"
-      value={dadosCliente.email}
-      onChange={(e) =>
-        atualizarDadosCliente("email", e.target.value)
-      }
-      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-    />
+                    <input
+                      type="email"
+                      placeholder="E-mail"
+                      value={dadosCliente.email}
+                      onChange={(e) =>
+                        atualizarDadosCliente("email", e.target.value)
+                      }
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                    />
 
-    <input
-      type="text"
-      placeholder="Telefone / WhatsApp"
-      value={dadosCliente.telefone}
-      onChange={(e) =>
-        atualizarDadosCliente("telefone", e.target.value)
-      }
-      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-    />
+                    <input
+                      type="text"
+                      placeholder="Telefone / WhatsApp"
+                      value={dadosCliente.telefone}
+                      onChange={(e) =>
+                        atualizarDadosCliente("telefone", e.target.value)
+                      }
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                    />
 
-    <input
-      type="text"
-      placeholder="CPF (opcional)"
-      value={dadosCliente.cpf}
-      onChange={(e) =>
-        atualizarDadosCliente("cpf", e.target.value)
-      }
-      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-    />
-  </div>
-</div>
+                    <input
+                      type="text"
+                      placeholder="CPF (opcional)"
+                      value={dadosCliente.cpf}
+                      onChange={(e) =>
+                        atualizarDadosCliente("cpf", e.target.value)
+                      }
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                    />
+                  </div>
+                </div>
               </div>
-              
 
               <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4">
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -2129,7 +2161,6 @@ useEffect(() => {
                   >
                     Pedir ajuda no WhatsApp
                   </button>
-                  
 
                   <button
                     type="button"
