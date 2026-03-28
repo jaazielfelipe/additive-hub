@@ -530,6 +530,15 @@ class GeradorCatalogoApp:
         )
         self.var_pasta_produto.set(pasta)
 
+    def obter_caminho_csv(self) -> Path:
+        pasta_projeto = self.var_pasta_projeto.get().strip()
+        if not pasta_projeto:
+            raise ValueError("Selecione a pasta do projeto.")
+
+        caminho_csv = Path(pasta_projeto) / "backend" / "data" / "produtos.csv"
+        caminho_csv.parent.mkdir(parents=True, exist_ok=True)
+        return caminho_csv
+
     def selecionar_pasta_projeto(self):
         pasta = filedialog.askdirectory(title="Selecione a pasta do projeto")
         if not pasta:
@@ -659,7 +668,7 @@ class GeradorCatalogoApp:
                 self.var_id.set("1")
                 return
 
-            caminho_csv = Path(pasta_projeto) / "public" / "produtos.csv"
+            caminho_csv = self.obter_caminho_csv()
             if not caminho_csv.exists():
                 self.var_id.set("1")
                 self._set_status("ID automático definido como 1.")
@@ -754,7 +763,7 @@ class GeradorCatalogoApp:
             if not campo_imagens:
                 raise ValueError("Processe as imagens antes de adicionar ao CSV.")
 
-            caminho_csv = Path(pasta_projeto) / "public" / "produtos.csv"
+            caminho_csv = self.obter_caminho_csv()
             descricao = limpar_descricao_linha_unica(
                 self.txt_descricao.get("1.0", tk.END)
             )
@@ -825,7 +834,7 @@ class GeradorCatalogoApp:
             if not pasta_projeto:
                 return
 
-            caminho_csv = Path(pasta_projeto) / "public" / "produtos.csv"
+            caminho_csv = self.obter_caminho_csv()
             if not caminho_csv.exists():
                 self.produtos_csv_cache = []
                 self.combo_produtos["values"] = []
@@ -996,7 +1005,7 @@ class GeradorCatalogoApp:
             if not pasta_fotos:
                 raise ValueError("Selecione a pasta base das fotos.")
 
-            caminho_csv_saida = Path(pasta_projeto) / "public" / "produtos.csv"
+            caminho_csv_saida = self.obter_caminho_csv()
 
             produtos_saida = []
             relatorio = []
@@ -1229,7 +1238,7 @@ class GeradorCatalogoApp:
             pasta_projeto = self.var_pasta_projeto.get().strip()
             if not pasta_projeto:
                 raise ValueError("Selecione a pasta do projeto primeiro.")
-            caminho_csv = Path(pasta_projeto) / "public" / "produtos.csv"
+            caminho_csv = self.obter_caminho_csv()
             abrir_no_sistema(caminho_csv)
             self._set_status("produtos.csv aberto.")
         except Exception as e:

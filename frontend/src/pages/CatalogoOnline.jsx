@@ -17,7 +17,7 @@ const menuCategorias = [
   },
   {
     nome: "Decoração",
-    itens: ["Imãs", "Miniaturas", "Funko-Pop", "Esqueletos", "Letreiros"],
+    itens: ["Imãs", "Miniaturas", "Funko-Pop", "Esqueletos", "Letreiros", "Anty"],
   },
   /* {
     nome: "Cozinha & Confeitaria",
