@@ -152,6 +152,20 @@ function classeStatusEtiqueta(pedido) {
   return "bg-zinc-100 text-zinc-700 border-zinc-200";
 }
 
+function statusPagamentoNormalizado(status) {
+  return String(status || "").toLowerCase().trim();
+}
+
+function pagamentoAprovado(pedido = {}) {
+  return statusPagamentoNormalizado(pedido?.status) === "approved";
+}
+
+function pagamentoPendenteOuBloqueado(pedido = {}) {
+  const status = statusPagamentoNormalizado(pedido?.status);
+
+  return ["pending", "in_process", "rejected", "cancelled"].includes(status);
+}
+
 function normalizarTelefoneWhatsApp(telefone) {
   const numeros = String(telefone || "").replace(/\D/g, "");
 
@@ -340,6 +354,9 @@ function PedidoCard({
   const entrega = pedido.enderecoEntrega || {};
   const linkWhatsAppEmbalando = gerarLinkWhatsAppEmbalando(pedido);
 
+  const pagamentoLiberado = pagamentoAprovado(pedido);
+  const pagamentoBloqueado = !pagamentoLiberado;
+
   const podeGerarEtiqueta =
     !isRetirada &&
     !pedido?.etiquetaGerada &&
@@ -356,6 +373,16 @@ function PedidoCard({
     !pedido?.etiquetaEmitida;
 
   function renderBotaoPrincipal() {
+    if (pagamentoBloqueado) {
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700">
+            Aguardando aprovação do pagamento
+          </span>
+        </div>
+      );
+    }
+
     if (isRetirada && statusOperacional === "retirada_recebido") {
       return (
         <button
@@ -565,6 +592,12 @@ function PedidoCard({
         </div>
       </div>
 
+      {pagamentoPendenteOuBloqueado(pedido) && (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          Este pedido está bloqueado para preparo e logística até a aprovação do pagamento.
+        </div>
+      )}
+
       <div className="mt-4 grid gap-3 text-sm text-zinc-700 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
           <p className="font-semibold text-zinc-900">Cliente</p>
@@ -767,6 +800,11 @@ export default function Painel() {
       return;
     }
 
+    if (!pagamentoAprovado(pedido)) {
+      alert("Não é possível confirmar o pedido antes da aprovação do pagamento.");
+      return;
+    }
+
     const linkWhatsApp = gerarLinkWhatsApp(pedido);
 
     if (!linkWhatsApp) {
@@ -835,6 +873,11 @@ export default function Painel() {
 
     if (!pedidoId) {
       alert("Esse pedido não possui ID.");
+      return;
+    }
+
+    if (!pagamentoAprovado(pedido)) {
+      alert("Não é possível avançar o pedido enquanto o pagamento não estiver aprovado.");
       return;
     }
 
@@ -920,6 +963,11 @@ export default function Painel() {
       return;
     }
 
+    if (!pagamentoAprovado(pedido)) {
+      alert("Não é possível avisar retirada antes da aprovação do pagamento.");
+      return;
+    }
+
     const linkWhatsApp = gerarLinkWhatsAppRetiradaPronto(pedido);
 
     if (!linkWhatsApp) {
@@ -939,6 +987,11 @@ export default function Painel() {
 
     if (!pedidoId) {
       alert("Esse pedido não possui ID.");
+      return;
+    }
+
+    if (!pagamentoAprovado(pedido)) {
+      alert("Não é possível concluir retirada antes da aprovação do pagamento.");
       return;
     }
 
@@ -990,6 +1043,11 @@ export default function Painel() {
   const gerarEtiqueta = async (pedido) => {
     if (isRetiradaPedido(pedido)) {
       alert("Pedidos de retirada não podem gerar etiqueta.");
+      return;
+    }
+
+    if (!pagamentoAprovado(pedido)) {
+      alert("Não é possível gerar etiqueta antes da aprovação do pagamento.");
       return;
     }
 
@@ -1050,6 +1108,11 @@ export default function Painel() {
   const emitirEtiqueta = async (pedido) => {
     if (isRetiradaPedido(pedido)) {
       alert("Pedidos de retirada não podem emitir etiqueta.");
+      return;
+    }
+
+    if (!pagamentoAprovado(pedido)) {
+      alert("Não é possível emitir etiqueta antes da aprovação do pagamento.");
       return;
     }
 

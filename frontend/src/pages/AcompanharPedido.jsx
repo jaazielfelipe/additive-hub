@@ -92,6 +92,104 @@ function obterClasseStatus(status) {
   return "bg-red-100 text-red-700";
 }
 
+function isRetiradaPedido(pedido = {}) {
+  const tipoEntrega = String(pedido?.tipoEntrega || "").toLowerCase().trim();
+  const nomeFrete = String(pedido?.freteSelecionado?.nome || "")
+    .toLowerCase()
+    .trim();
+
+  return (
+    tipoEntrega.includes("retirada") ||
+    tipoEntrega.includes("retirar") ||
+    tipoEntrega.includes("pickup") ||
+    nomeFrete.includes("retirada") ||
+    nomeFrete.includes("retirar") ||
+    nomeFrete.includes("pickup")
+  );
+}
+
+function normalizarStatusPedido(status, pedido = {}) {
+  const valor = String(status || "").toLowerCase().trim();
+  const isRetirada = isRetiradaPedido(pedido);
+
+  if (isRetirada) {
+    if (valor === "recebido") return "retirada_recebido";
+    if (valor === "chegou") return "retirada_recebido";
+    if (valor === "para_confirmar") return "retirada_recebido";
+    if (valor === "retirada_recebido") return "retirada_recebido";
+    if (valor === "retirada_preparando") return "retirada_preparando";
+    if (valor === "retirada_pronto") return "retirada_pronto";
+    if (valor === "retirada_concluido") return "retirada_concluido";
+    return "retirada_recebido";
+  }
+
+  if (valor === "recebido") return "para_confirmar";
+  if (valor === "chegou") return "para_confirmar";
+  if (valor === "para_confirmar") return "para_confirmar";
+  if (valor === "a_emitir") return "a_emitir";
+  if (valor === "emitido") return "emitido";
+  if (valor === "enviado") return "enviado";
+
+  return "para_confirmar";
+}
+
+function obterStatusPedidoTraduzido(status, pedido = {}) {
+  const statusNormalizado = normalizarStatusPedido(
+    pedido?.statusInterno || status,
+    pedido
+  );
+
+  if (statusNormalizado === "para_confirmar") return "Pedido recebido";
+  if (statusNormalizado === "a_emitir") return "Pedido confirmado";
+  if (statusNormalizado === "emitido") return "Em preparo";
+  if (statusNormalizado === "enviado") return "Enviado";
+
+  if (statusNormalizado === "retirada_recebido") return "Pedido recebido";
+  if (statusNormalizado === "retirada_preparando") return "Em preparo";
+  if (statusNormalizado === "retirada_pronto") return "Pronto para retirada";
+  if (statusNormalizado === "retirada_concluido") return "Retirado";
+
+  return "Em andamento";
+}
+
+function obterClasseStatusPedido(status, pedido = {}) {
+  const statusNormalizado = normalizarStatusPedido(
+    pedido?.statusInterno || status,
+    pedido
+  );
+
+  if (
+    statusNormalizado === "para_confirmar" ||
+    statusNormalizado === "retirada_recebido"
+  ) {
+    return "bg-violet-100 text-violet-700";
+  }
+
+  if (statusNormalizado === "a_emitir") {
+    return "bg-amber-100 text-amber-700";
+  }
+
+  if (
+    statusNormalizado === "emitido" ||
+    statusNormalizado === "retirada_preparando"
+  ) {
+    return "bg-orange-100 text-orange-700";
+  }
+
+  if (
+    statusNormalizado === "enviado" ||
+    statusNormalizado === "retirada_pronto"
+  ) {
+    return "bg-blue-100 text-blue-700";
+  }
+
+  if (statusNormalizado === "retirada_concluido") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+
+  return "bg-zinc-100 text-zinc-700";
+}
+
 function extrairPedidos(data, tipo) {
   if (tipo === "cpf" || tipo === "email") {
     if (Array.isArray(data?.pedidos)) return data.pedidos;
@@ -132,7 +230,6 @@ function calcularDescontoCupom(pedido) {
   const frete = calcularFrete(pedido);
   const totalSalvo = Number(pedido?.totalComFrete);
 
-  // se tem total salvo, SEMPRE usa ele como fonte da verdade
   if (pedido?.totalComFrete != null && Number.isFinite(totalSalvo)) {
     const desconto = subtotal + frete - totalSalvo;
 
@@ -141,7 +238,6 @@ function calcularDescontoCupom(pedido) {
     }
   }
 
-  // fallback
   return Number(pedido?.descontoCupom || 0);
 }
 
@@ -198,12 +294,27 @@ function CardPedido({ pedido }) {
           </p>
         </div>
 
-        <div
-          className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${obterClasseStatus(
-            pedido?.status
-          )}`}
-        >
-          {obterStatusTraduzido(pedido?.status)}
+        <div className="flex flex-wrap gap-2">
+          <div
+            className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${obterClasseStatusPedido(
+              pedido?.statusInterno || pedido?.status,
+              pedido
+            )}`}
+          >
+            Pedido:{" "}
+            {obterStatusPedidoTraduzido(
+              pedido?.statusInterno || pedido?.status,
+              pedido
+            )}
+          </div>
+
+          <div
+            className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${obterClasseStatus(
+              pedido?.status
+            )}`}
+          >
+            Pagamento: {obterStatusTraduzido(pedido?.status)}
+          </div>
         </div>
       </div>
 
@@ -310,7 +421,17 @@ function CardPedido({ pedido }) {
 
           <div className="mt-3 space-y-2 text-sm text-zinc-700">
             <div className="flex items-center justify-between">
-              <span>Status</span>
+              <span>Status do pedido</span>
+              <span className="font-medium">
+                {obterStatusPedidoTraduzido(
+                  pedido?.statusInterno || pedido?.status,
+                  pedido
+                )}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span>Status do pagamento</span>
               <span className="font-medium">
                 {obterStatusTraduzido(pedido?.status)}
               </span>
