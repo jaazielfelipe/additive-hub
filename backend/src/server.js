@@ -7,10 +7,23 @@ import Pedido from "../models/Pedido.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import CUPONS from "./config/cupons.js";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ajuste estes caminhos se este arquivo estiver em outra pasta.
+// Ex.: se este arquivo está em backend/src/server.js,
+// então backend/data fica em ../data
+const DATA_DIR = path.resolve(__dirname, "../data");
+const CSV_PATH = path.join(DATA_DIR, "produtos.csv");
+const IMAGES_DIR = path.join(DATA_DIR, "imagens");
 
 const PORT = process.env.PORT || 3001;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -56,6 +69,63 @@ const JWT_SECRET = process.env.JWT_SECRET || "troque-essa-chave-forte";
 
 app.use(cors());
 app.use(express.json());
+
+// garante que a estrutura exista
+fs.mkdirSync(DATA_DIR, { recursive: true });
+fs.mkdirSync(IMAGES_DIR, { recursive: true });
+
+/* =========================
+   ARQUIVOS ESTÁTICOS DO CATÁLOGO
+========================= */
+
+// Compatível com o front atual:
+// fetch(`${import.meta.env.BASE_URL}produtos.csv`)
+app.get("/produtos.csv", (req, res) => {
+  if (!fs.existsSync(CSV_PATH)) {
+    return res.status(404).json({
+      error: "Arquivo produtos.csv não encontrado.",
+      path: CSV_PATH,
+    });
+  }
+
+  return res.sendFile(CSV_PATH);
+});
+
+// Compatível com CSVs que salvam caminho absoluto relativo ao projeto
+app.get("/backend/data/produtos.csv", (req, res) => {
+  if (!fs.existsSync(CSV_PATH)) {
+    return res.status(404).json({
+      error: "Arquivo produtos.csv não encontrado.",
+      path: CSV_PATH,
+    });
+  }
+
+  return res.sendFile(CSV_PATH);
+});
+
+// Compatível com imagens no formato:
+// /imagens/produtos/...
+app.use(
+  "/imagens",
+  express.static(IMAGES_DIR, {
+    fallthrough: true,
+    extensions: false,
+    index: false,
+    maxAge: "7d",
+  })
+);
+
+// Compatível com CSVs que salvam:
+// backend/data/imagens/produtos/...
+app.use(
+  "/backend/data/imagens",
+  express.static(IMAGES_DIR, {
+    fallthrough: true,
+    extensions: false,
+    index: false,
+    maxAge: "7d",
+  })
+);
 
 const mpClient = new MercadoPagoConfig({
   accessToken: MP_ACCESS_TOKEN,
@@ -1437,13 +1507,25 @@ async function conectarMongo() {
 }
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    dataDir: DATA_DIR,
+    csvPath: CSV_PATH,
+    imagensPath: IMAGES_DIR,
+    csvExiste: fs.existsSync(CSV_PATH),
+    imagensExiste: fs.existsSync(IMAGES_DIR),
+  });
 });
 
 conectarMongo()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
+      console.log(`CSV público em: /produtos.csv`);
+      console.log(`CSV alternativo em: /backend/data/produtos.csv`);
+      console.log(`Imagens públicas em: /imagens/...`);
+      console.log(`Imagens alternativas em: /backend/data/imagens/...`);
+      console.log(`DATA_DIR: ${DATA_DIR}`);
     });
   })
   .catch((error) => {

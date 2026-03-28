@@ -539,6 +539,18 @@ class GeradorCatalogoApp:
         caminho_csv.parent.mkdir(parents=True, exist_ok=True)
         return caminho_csv
 
+    def obter_base_imagens_backend(self) -> Path:
+        pasta_projeto = self.var_pasta_projeto.get().strip()
+        if not pasta_projeto:
+            raise ValueError("Selecione a pasta do projeto.")
+
+        base_imagens = Path(pasta_projeto) / "backend" / "data" / "imagens" / "produtos"
+        base_imagens.mkdir(parents=True, exist_ok=True)
+        return base_imagens
+
+    def montar_caminho_relativo_imagem_backend(self, subpasta_categoria: str, pasta_produto: str, nome_arquivo: str) -> str:
+        return f"backend/data/imagens/produtos/{subpasta_categoria}/{pasta_produto}/{nome_arquivo}"
+
     def selecionar_pasta_projeto(self):
         pasta = filedialog.askdirectory(title="Selecione a pasta do projeto")
         if not pasta:
@@ -611,23 +623,15 @@ class GeradorCatalogoApp:
         self._set_status("Imagem removida da seleção.")
 
     def _obter_pasta_destino(self) -> Path:
-        pasta_projeto = self.var_pasta_projeto.get().strip()
         pasta_produto = self.var_pasta_produto.get().strip()
         subpasta_categoria = self._obter_subpasta_categoria()
 
-        if not pasta_projeto:
+        if not self.var_pasta_projeto.get().strip():
             raise ValueError("Selecione a pasta do projeto.")
         if not pasta_produto:
             raise ValueError("Informe a pasta do produto.")
 
-        return (
-            Path(pasta_projeto)
-            / "public"
-            / "imagens"
-            / "produtos"
-            / subpasta_categoria
-            / pasta_produto
-        )
+        return self.obter_base_imagens_backend() / subpasta_categoria / pasta_produto
 
     def processar_imagens(self):
         try:
@@ -636,6 +640,9 @@ class GeradorCatalogoApp:
 
             destino = self._obter_pasta_destino()
             destino.mkdir(parents=True, exist_ok=True)
+
+            subpasta_categoria = self._obter_subpasta_categoria()
+            pasta_produto = self.var_pasta_produto.get().strip()
 
             caminhos_csv = []
             arquivos_gerados = []
@@ -646,9 +653,10 @@ class GeradorCatalogoApp:
                 destino_arquivo = destino / novo_nome
                 shutil.copy2(origem, destino_arquivo)
 
-                caminho_relativo = (
-                    f"/imagens/produtos/{self._obter_subpasta_categoria()}/"
-                    f"{self.var_pasta_produto.get().strip()}/{novo_nome}"
+                caminho_relativo = self.montar_caminho_relativo_imagem_backend(
+                    subpasta_categoria,
+                    pasta_produto,
+                    novo_nome,
                 )
                 caminhos_csv.append(caminho_relativo)
                 arquivos_gerados.append(f"{origem.name}  ->  {novo_nome}")
@@ -1094,14 +1102,7 @@ class GeradorCatalogoApp:
 
                 subpasta_categoria = self._obter_subpasta_categoria(categoria)
 
-                destino = (
-                    Path(pasta_projeto)
-                    / "public"
-                    / "imagens"
-                    / "produtos"
-                    / subpasta_categoria
-                    / pasta_produto
-                )
+                destino = self.obter_base_imagens_backend() / subpasta_categoria / pasta_produto
                 destino.mkdir(parents=True, exist_ok=True)
 
                 arquivos_validos = sorted(
@@ -1126,12 +1127,13 @@ class GeradorCatalogoApp:
 
                     shutil.copy2(arquivo, destino_arquivo)
 
-                    caminho_site = (
-                        f"/imagens/produtos/{subpasta_categoria}/"
-                        f"{pasta_produto}/{novo_nome}"
+                    caminho_backend = self.montar_caminho_relativo_imagem_backend(
+                        subpasta_categoria,
+                        pasta_produto,
+                        novo_nome,
                     )
 
-                    imagens.append(caminho_site)
+                    imagens.append(caminho_backend)
                     arquivos_copiados.append(f"{arquivo.name} -> {novo_nome}")
 
                 produtos_saida.append([
@@ -1235,8 +1237,7 @@ class GeradorCatalogoApp:
 
     def abrir_csv(self):
         try:
-            pasta_projeto = self.var_pasta_projeto.get().strip()
-            if not pasta_projeto:
+            if not self.var_pasta_projeto.get().strip():
                 raise ValueError("Selecione a pasta do projeto primeiro.")
             caminho_csv = self.obter_caminho_csv()
             abrir_no_sistema(caminho_csv)
