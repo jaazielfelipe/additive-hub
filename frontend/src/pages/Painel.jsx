@@ -62,15 +62,15 @@ function normalizarStatus(status, pedido = {}) {
 }
 
 function tituloStatus(status) {
-  if (status === "para_confirmar") return "Para confirmar";
-  if (status === "a_emitir") return "A emitir";
-  if (status === "emitido") return "Emitido";
+  if (status === "para_confirmar") return "Novo pedido";
+  if (status === "a_emitir") return "Ação necessária";
+  if (status === "emitido") return "Em preparo";
   if (status === "enviado") return "Enviado";
 
-  if (status === "retirada_recebido") return "Retirada: recebido";
-  if (status === "retirada_preparando") return "Retirada: preparando";
-  if (status === "retirada_pronto") return "Retirada: pronto";
-  if (status === "retirada_concluido") return "Retirada concluída";
+  if (status === "retirada_recebido") return "Novo pedido";
+  if (status === "retirada_preparando") return "Em preparo";
+  if (status === "retirada_pronto") return "Pronto para retirada";
+  if (status === "retirada_concluido") return "Retirado";
 
   return "Todos";
 }
@@ -80,15 +80,19 @@ function corStatus(status) {
     return "bg-violet-100 text-violet-800 border-violet-200";
   }
 
-  if (status === "a_emitir" || status === "retirada_preparando") {
+  if (status === "a_emitir") {
     return "bg-amber-100 text-amber-800 border-amber-200";
   }
 
-  if (status === "emitido" || status === "retirada_pronto") {
+  if (status === "emitido" || status === "retirada_preparando") {
+    return "bg-orange-100 text-orange-800 border-orange-200";
+  }
+
+  if (status === "enviado" || status === "retirada_pronto") {
     return "bg-blue-100 text-blue-800 border-blue-200";
   }
 
-  if (status === "enviado" || status === "retirada_concluido") {
+  if (status === "retirada_concluido") {
     return "bg-emerald-100 text-emerald-800 border-emerald-200";
   }
 
@@ -261,11 +265,11 @@ function gerarLinkWhatsApp(pedido) {
 
   const mensagem = construirMensagemConfirmacao(pedido);
 
-const mensagemSegura = encodeURIComponent(
-  mensagem.replace(/[\u2705]/g, "✔")
-);
+  const mensagemSegura = encodeURIComponent(
+    mensagem.replace(/[\u2705]/g, "✔")
+  );
 
-return `https://wa.me/${telefone}?text=${mensagemSegura}`;
+  return `https://wa.me/${telefone}?text=${mensagemSegura}`;
 }
 
 function gerarLinkWhatsAppEmbalando(pedido) {
@@ -1155,8 +1159,24 @@ export default function Painel() {
           pedido
         );
 
+        if (filtroStatus === "novos") {
+          return status === "para_confirmar" || status === "retirada_recebido";
+        }
+
+        if (filtroStatus === "acao_necessaria") {
+          return status === "a_emitir";
+        }
+
+        if (filtroStatus === "em_preparo") {
+          return status === "emitido" || status === "retirada_preparando";
+        }
+
+        if (filtroStatus === "prontos") {
+          return status === "retirada_pronto" || status === "enviado";
+        }
+
         if (filtroStatus === "concluidos") {
-          return status === "enviado" || status === "retirada_concluido";
+          return status === "retirada_concluido";
         }
 
         return status === filtroStatus;
@@ -1169,27 +1189,40 @@ export default function Painel() {
   const contagem = useMemo(() => {
     return {
       todos: pedidos.length,
-      para_confirmar: pedidos.filter(
-        (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
-          "para_confirmar"
-      ).length,
-      a_emitir: pedidos.filter(
-        (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
-          "a_emitir"
-      ).length,
-      emitido: pedidos.filter(
-        (pedido) =>
-          normalizarStatus(pedido.statusInterno || pedido.status, pedido) ===
-          "emitido"
-      ).length,
+      novos: pedidos.filter((pedido) => {
+        const status = normalizarStatus(
+          pedido.statusInterno || pedido.status,
+          pedido
+        );
+        return status === "para_confirmar" || status === "retirada_recebido";
+      }).length,
+      acao_necessaria: pedidos.filter((pedido) => {
+        const status = normalizarStatus(
+          pedido.statusInterno || pedido.status,
+          pedido
+        );
+        return status === "a_emitir";
+      }).length,
+      em_preparo: pedidos.filter((pedido) => {
+        const status = normalizarStatus(
+          pedido.statusInterno || pedido.status,
+          pedido
+        );
+        return status === "emitido" || status === "retirada_preparando";
+      }).length,
+      prontos: pedidos.filter((pedido) => {
+        const status = normalizarStatus(
+          pedido.statusInterno || pedido.status,
+          pedido
+        );
+        return status === "retirada_pronto" || status === "enviado";
+      }).length,
       concluidos: pedidos.filter((pedido) => {
         const status = normalizarStatus(
           pedido.statusInterno || pedido.status,
           pedido
         );
-        return status === "enviado" || status === "retirada_concluido";
+        return status === "retirada_concluido";
       }).length,
     };
   }, [pedidos]);
@@ -1227,7 +1260,7 @@ export default function Painel() {
           </div>
         </div>
 
-        <div className="mb-6 grid gap-4 md:grid-cols-5">
+        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <button
             type="button"
             onClick={() => setFiltroStatus("todos")}
@@ -1243,41 +1276,54 @@ export default function Painel() {
 
           <button
             type="button"
-            onClick={() => setFiltroStatus("para_confirmar")}
+            onClick={() => setFiltroStatus("novos")}
             className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
-              filtroStatus === "para_confirmar"
+              filtroStatus === "novos"
                 ? "border-violet-700 bg-violet-700 text-white"
                 : "border-violet-200 bg-violet-50 text-violet-900"
             }`}
           >
-            <p className="text-sm opacity-80">Para confirmar</p>
-            <p className="mt-2 text-3xl font-black">{contagem.para_confirmar}</p>
+            <p className="text-sm opacity-80">Novos</p>
+            <p className="mt-2 text-3xl font-black">{contagem.novos}</p>
           </button>
 
           <button
             type="button"
-            onClick={() => setFiltroStatus("a_emitir")}
+            onClick={() => setFiltroStatus("acao_necessaria")}
             className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
-              filtroStatus === "a_emitir"
+              filtroStatus === "acao_necessaria"
                 ? "border-amber-600 bg-amber-600 text-white"
                 : "border-amber-200 bg-amber-50 text-amber-900"
             }`}
           >
-            <p className="text-sm opacity-80">A emitir</p>
-            <p className="mt-2 text-3xl font-black">{contagem.a_emitir}</p>
+            <p className="text-sm opacity-80">Ação necessária</p>
+            <p className="mt-2 text-3xl font-black">{contagem.acao_necessaria}</p>
           </button>
 
           <button
             type="button"
-            onClick={() => setFiltroStatus("emitido")}
+            onClick={() => setFiltroStatus("em_preparo")}
             className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
-              filtroStatus === "emitido"
+              filtroStatus === "em_preparo"
+                ? "border-orange-600 bg-orange-600 text-white"
+                : "border-orange-200 bg-orange-50 text-orange-900"
+            }`}
+          >
+            <p className="text-sm opacity-80">Em preparo</p>
+            <p className="mt-2 text-3xl font-black">{contagem.em_preparo}</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFiltroStatus("prontos")}
+            className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
+              filtroStatus === "prontos"
                 ? "border-blue-700 bg-blue-700 text-white"
                 : "border-blue-200 bg-blue-50 text-blue-900"
             }`}
           >
-            <p className="text-sm opacity-80">Emitidos</p>
-            <p className="mt-2 text-3xl font-black">{contagem.emitido}</p>
+            <p className="text-sm opacity-80">Prontos / enviados</p>
+            <p className="mt-2 text-3xl font-black">{contagem.prontos}</p>
           </button>
 
           <button
