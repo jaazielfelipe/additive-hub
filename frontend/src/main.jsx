@@ -19,23 +19,26 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <HashRouter>
       <Routes>
         <Route path="/" element={<CatalogoOnline />} />
+        <Route path="/categoria/:categoria" element={<CatalogoOnline />} />
+        <Route path="/categoria/:categoria/:subcategoria" element={<CatalogoOnline />} />
+        <Route path="/categoria/:categoria/:subcategoria/:subcategoria2" element={<CatalogoOnline />} />
+
         <Route path="/carrinho" element={<Carrinho />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/acompanhar-pedido" element={<AcompanharPedido />} />
         <Route path="/pagamento/sucesso" element={<PaginaSucesso />} />
         <Route path="/pagamento/falha" element={<PaginaFalha />} />
         <Route path="/pagamento/pendente" element={<PaginaPendente />} />
-        
+
         <Route path="/login" element={<Login />} />
         <Route
-  path="/painel"
-  element={
-    <RotaProtegida>
-      <Painel />
-    </RotaProtegida>
-  }
-/>
-
+          path="/painel"
+          element={
+            <RotaProtegida>
+              <Painel />
+            </RotaProtegida>
+          }
+        />
       </Routes>
     </HashRouter>
   </React.StrictMode>

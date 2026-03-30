@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/+$/, "");
@@ -529,6 +530,8 @@ export default function CatalogoOnline() {
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
   const [mostrarBarraCarrinhoMobile, setMostrarBarraCarrinhoMobile] = useState(false);
   const [selecoesVariacao, setSelecoesVariacao] = useState({});
+  const navigate = useNavigate();
+  const { categoria, subcategoria, subcategoria2 } = useParams();
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
@@ -556,6 +559,26 @@ export default function CatalogoOnline() {
     document.documentElement.setAttribute("translate", "no");
     document.body.setAttribute("translate", "no");
   }, []);
+
+  useEffect(() => {
+  if (categoria) {
+    setCategoriaAtiva(categoria);
+  } else {
+    setCategoriaAtiva("Todos");
+  }
+
+  if (subcategoria) {
+    setSubcategoriaAtiva(subcategoria);
+  } else {
+    setSubcategoriaAtiva("Todos");
+  }
+
+  if (subcategoria2) {
+    setSubcategoria2Ativa(subcategoria2);
+  } else {
+    setSubcategoria2Ativa("Todos");
+  }
+}, [categoria, subcategoria, subcategoria2]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -749,15 +772,15 @@ export default function CatalogoOnline() {
   const produtosFiltrados = useMemo(() => {
     return produtos.filter((produto) => {
       const bateCategoria =
-        categoriaAtiva === "Todos" || produto.categoria === categoriaAtiva;
+        categoriaAtiva === "Todos" || slugCategoria(produto.categoria) === categoriaAtiva
 
       const bateSubcategoria =
         subcategoriaAtiva === "Todos" ||
-        produto.subcategoria === subcategoriaAtiva;
+        slugCategoria(produto.subcategoria) === subcategoriaAtiva
 
       const bateSubcategoria2 =
         subcategoria2Ativa === "Todos" ||
-        produto.subcategoria2 === subcategoria2Ativa;
+        slugCategoria(produto.subcategoria2) === subcategoria2Ativa
 
       const termo = busca.toLowerCase().trim();
       const bateBusca =
@@ -947,43 +970,18 @@ export default function CatalogoOnline() {
   };
 
   const selecionarCategoria = (categoria) => {
-    setCategoriaAtiva(categoria);
-    setSubcategoriaAtiva("Todos");
-    setSubcategoria2Ativa("Todos");
-    setBusca("");
-    setMenuMobileAberto(false);
-    setCategoriaMobileAberta(null);
-
-    setTimeout(() => {
-      irParaCatalogo();
-    }, 50);
-  };
+  navigate(`/categoria/${categoria}`);
+};
 
   const selecionarSubcategoria = (categoria, subcategoria) => {
-    setCategoriaAtiva(categoria);
-    setSubcategoriaAtiva(subcategoria);
-    setSubcategoria2Ativa("Todos");
-    setBusca("");
-    setMenuMobileAberto(false);
-    setCategoriaMobileAberta(null);
-
-    setTimeout(() => {
-      irParaCatalogo();
-    }, 50);
-  };
+  navigate(`/categoria/${categoria}/${slugCategoria(subcategoria)}`);
+};
 
   const selecionarSubcategoria2 = (categoria, subcategoria, subcategoria2) => {
-    setCategoriaAtiva(categoria);
-    setSubcategoriaAtiva(subcategoria);
-    setSubcategoria2Ativa(subcategoria2);
-    setBusca("");
-    setMenuMobileAberto(false);
-    setCategoriaMobileAberta(null);
-
-    setTimeout(() => {
-      irParaCatalogo();
-    }, 50);
-  };
+  navigate(
+    `/categoria/${categoria}/${slugCategoria(subcategoria)}/${slugCategoria(subcategoria2)}`
+  );
+};
 
   const proximoSlide = () => {
     setSlideAtual((atual) => (atual + 1) % slidesDestaque.length);
@@ -1069,17 +1067,31 @@ export default function CatalogoOnline() {
                       <div className="my-2 border-t border-zinc-100" />
 
                       {categoria.itens.map((item) => (
-                        <div key={item} className="rounded-xl hover:bg-zinc-50">
+  <div key={item} className="group/item relative rounded-xl hover:bg-zinc-50">
                           <button
-                            type="button"
-                            onClick={() => selecionarSubcategoria(categoria.chave, item)}
-                            className="block w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-zinc-700"
-                          >
-                            {item}
-                          </button>
+  type="button"
+  onClick={() => selecionarSubcategoria(categoria.chave, item)}
+  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium text-zinc-700"
+>
+  {item}
+
+  {categoria.itensNivel2?.[item]?.length > 0 && (
+    <svg
+      className="h-4 w-4 text-zinc-400 transition group-hover/item:translate-x-1"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )}
+</button>
 
                           {categoria.itensNivel2?.[item]?.length > 0 && (
-                            <div className="pb-2 pl-3">
+  <div className="invisible absolute left-full top-0 z-50 ml-1 w-64 rounded-2xl border border-zinc-200 bg-white p-2 opacity-0 shadow-xl transition-all duration-200 group-hover/item:visible group-hover/item:opacity-100">
                               {categoria.itensNivel2[item].map((itemNivel2) => (
                                 <button
                                   type="button"
