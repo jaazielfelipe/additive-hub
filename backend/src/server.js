@@ -165,6 +165,148 @@ function obterCodigoRastreio(data) {
   );
 }
 
+function limparCep(valor) {
+  return String(valor || "").replace(/\D/g, "");
+}
+
+function validarConfiguracaoFrete() {
+  const faltando = [];
+
+  if (!SUPERFRETE_TOKEN) faltando.push("SUPERFRETE_TOKEN");
+  if (!SUPERFRETE_USER_AGENT) faltando.push("SUPERFRETE_USER_AGENT");
+  if (!CEP_ORIGEM) faltando.push("CEP_ORIGEM");
+
+  if (faltando.length > 0) {
+    throw new Error(`Variáveis de ambiente ausentes: ${faltando.join(", ")}`);
+  }
+}
+
+function calcularSubtotalFrete(carrinho = []) {
+  return carrinho.reduce((acc, item) => {
+    const preco = Number(item.preco || 0);
+    const quantidade = Math.max(1, Number(item.quantidade || 1));
+    return acc + preco * quantidade;
+  }, 0);
+}
+
+function montarPacoteUnico(carrinho = []) {
+  let pesoTotal = 0;
+  const caixas = [];
+
+  for (const item of carrinho) {
+    const quantidade = Math.max(1, Math.round(num(item.quantidade, 1)));
+
+    const peso = num(item.peso, 0);
+    const altura = num(item.altura, 0);
+    const largura = num(item.largura, 0);
+    const comprimento = num(item.comprimento, 0);
+
+    if (peso <= 0 || altura <= 0 || largura <= 0 || comprimento <= 0) {
+      throw new Error(`Produto com medidas inválidas: ${item.nome || item.id}`);
+    }
+
+    for (let i = 0; i < quantidade; i += 1) {
+      const lados = [altura, largura, comprimento].sort((a, b) => b - a);
+
+      caixas.push({
+        length: lados[0],
+        width: lados[1],
+        height: lados[2],
+      });
+
+      pesoTotal += peso;
+    }
+  }
+
+  caixas.sort((a, b) => (b.length * b.width) - (a.length * a.width));
+
+  function montarComLarguraMaxima(larguraMaximaLinha) {
+    const linhas = [];
+    let linhaAtual = {
+      itens: [],
+      widthUsada: 0,
+      maxLength: 0,
+      maxHeight: 0,
+    };
+
+    for (const caixa of caixas) {
+      const cabeNaLinha =
+        linhaAtual.itens.length === 0 ||
+        linhaAtual.widthUsada + caixa.width <= larguraMaximaLinha;
+
+      if (cabeNaLinha) {
+        linhaAtual.itens.push(caixa);
+        linhaAtual.widthUsada += caixa.width;
+        linhaAtual.maxLength = Math.max(linhaAtual.maxLength, caixa.length);
+        linhaAtual.maxHeight = Math.max(linhaAtual.maxHeight, caixa.height);
+      } else {
+        linhas.push(linhaAtual);
+        linhaAtual = {
+          itens: [caixa],
+          widthUsada: caixa.width,
+          maxLength: caixa.length,
+          maxHeight: caixa.height,
+        };
+      }
+    }
+
+    if (linhaAtual.itens.length > 0) {
+      linhas.push(linhaAtual);
+    }
+
+    let comprimentoFinal = 0;
+    let larguraFinal = 0;
+    let alturaFinal = 0;
+
+    for (const linha of linhas) {
+      comprimentoFinal = Math.max(comprimentoFinal, linha.maxLength);
+      larguraFinal = Math.max(larguraFinal, linha.widthUsada);
+      alturaFinal += linha.maxHeight;
+    }
+
+    // folga de embalagem
+    comprimentoFinal += 2;
+    larguraFinal += 2;
+    alturaFinal += 1;
+
+    const ladosFinais = [comprimentoFinal, larguraFinal, alturaFinal].sort(
+      (a, b) => b - a
+    );
+
+    const pacote = {
+      length: Number(Math.ceil(ladosFinais[0] * 10) / 10),
+      width: Number(Math.ceil(ladosFinais[1] * 10) / 10),
+      height: Number(Math.max(1, Math.ceil(ladosFinais[2] * 10) / 10)),
+    };
+
+    const volume = pacote.length * pacote.width * pacote.height;
+    const custo =
+      volume +
+      pacote.length * 2 +
+      pacote.width * 1.5 +
+      pacote.height * 2;
+
+    return {
+      larguraMaximaLinha,
+      pacote,
+      custo,
+    };
+  }
+
+  const tentativas = [10, 12, 14, 16, 18].map(montarComLarguraMaxima);
+  const melhor = tentativas.reduce((a, b) => (b.custo < a.custo ? b : a));
+
+  return {
+    id: "pacote-unico",
+    name: "Pacote consolidado",
+    quantity: 1,
+    weight: Number((pesoTotal + 0.03).toFixed(3)),
+    length: melhor.pacote.length,
+    width: melhor.pacote.width,
+    height: melhor.pacote.height,
+  };
+}
+
 function calcularSubtotalCarrinho(carrinho = []) {
   return arredondar(
     carrinho.reduce(
@@ -625,10 +767,9 @@ app.post("/api/admin/login", async (req, res) => {
    FRETE
 ========================= */
 app.post("/api/frete", async (req, res) => {
-  console.log("ENTROU EM /api/frete");
-  console.log("BODY FRETE:", req.body);
-
   try {
+    validarConfiguracaoFrete();
+
     const { cepDestino, carrinho } = req.body || {};
 
     if (!cepDestino) {
@@ -639,30 +780,31 @@ app.post("/api/frete", async (req, res) => {
       return res.status(400).json({ error: "Carrinho vazio." });
     }
 
+    const cepDestinoLimpo = limparCep(cepDestino);
+    const cepOrigemLimpo = limparCep(CEP_ORIGEM);
+
+    if (cepOrigemLimpo.length !== 8) {
+      return res.status(400).json({ error: "CEP de origem inválido." });
+    }
+
+    if (cepDestinoLimpo.length !== 8) {
+      return res.status(400).json({ error: "CEP de destino inválido." });
+    }
+
+    const subtotal = calcularSubtotalFrete(carrinho);
     const pacoteUnico = montarPacoteUnico(carrinho);
 
     const produtos = [
       {
         id: String(pacoteUnico.id),
+        name: pacoteUnico.name,
+        quantity: 1,
         width: Number(pacoteUnico.width),
         height: Number(pacoteUnico.height),
         length: Number(pacoteUnico.length),
         weight: Number(pacoteUnico.weight),
-        insurance_value: null,
-        quantity: 1,
       },
     ];
-
-    console.log("PACOTE ÚNICO:", JSON.stringify(pacoteUnico, null, 2));
-    console.log("PRODUTOS ENVIADOS:", JSON.stringify(produtos, null, 2));
-
-    console.log("CONFIG SUPERFRETE:", {
-      SUPERFRETE_ENV,
-      SUPERFRETE_BASE_URL,
-      temToken: !!SUPERFRETE_TOKEN,
-      temUserAgent: !!SUPERFRETE_USER_AGENT,
-      CEP_ORIGEM,
-    });
 
     const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/calculator`, {
       method: "POST",
@@ -673,35 +815,31 @@ app.post("/api/frete", async (req, res) => {
         "User-Agent": SUPERFRETE_USER_AGENT,
       },
       body: JSON.stringify({
-        from: { postal_code: CEP_ORIGEM },
-        to: { postal_code: cepDestino },
+        from: { postal_code: cepOrigemLimpo },
+        to: { postal_code: cepDestinoLimpo },
         services: SERVICES,
+        options: {
+          own_hand: false,
+          receipt: false,
+          insurance_value: Number(subtotal.toFixed(2)),
+          use_insurance_value: false,
+        },
         products: produtos,
       }),
     });
 
     const raw = await freteResponse.text();
 
-    console.log("STATUS SUPERFRETE:", freteResponse.status);
-    console.log(
-      "CONTENT-TYPE SUPERFRETE:",
-      freteResponse.headers.get("content-type")
-    );
-    console.log("RAW SUPERFRETE:", raw);
-
     let data;
     try {
       data = JSON.parse(raw);
-    } catch (parseError) {
+    } catch {
       return res.status(502).json({
         error: "A SuperFrete não retornou JSON no cálculo de frete.",
         status: freteResponse.status,
-        contentType: freteResponse.headers.get("content-type"),
         raw,
       });
     }
-
-    console.log("RESPOSTA SUPERFRETE:", JSON.stringify(data, null, 2));
 
     if (!freteResponse.ok) {
       return res.status(freteResponse.status).json({
