@@ -418,6 +418,9 @@ function autenticarAdmin(req, res, next) {
   }
 }
 
+/* =========================
+   AJUSTE INTELIGENTE DE PACOTE
+========================= */
 function montarPacoteUnico(carrinho) {
   let pesoTotal = 0;
   const caixas = [];
@@ -493,6 +496,7 @@ function montarPacoteUnico(carrinho) {
       alturaFinal += linha.maxHeight;
     }
 
+    // folga de embalagem
     comprimentoFinal += 2;
     larguraFinal += 2;
     alturaFinal += 1;
@@ -1211,6 +1215,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
 
     const pacote =
       pedido?.freteSelecionado?.package ||
+      pedido?.superfretePackage ||
       montarPacoteUnico(pedido.carrinho || []);
 
     const payloadEtiqueta = {
@@ -1310,8 +1315,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
     pedido.superfreteService = Number(
       pedido?.freteSelecionado?.service || pedido.superfreteService || 0
     );
-    pedido.superfretePackage =
-      pedido?.freteSelecionado?.package || pedido.superfretePackage || null;
+    pedido.superfretePackage = pacote;
     pedido.urlEtiqueta = obterEtiquetaUrl(data) || pedido.urlEtiqueta || "";
     pedido.codigoRastreio =
       obterCodigoRastreio(data) || pedido.codigoRastreio || "";
