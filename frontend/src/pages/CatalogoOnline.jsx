@@ -203,7 +203,10 @@ function assetUrl(caminho) {
 }
 
 function normalizarCaminhoImagemCSV(caminho) {
-  let valor = String(caminho || "").trim().replace(/\r/g, "").replace(/\\/g, "/");
+  let valor = String(caminho || "")
+    .trim()
+    .replace(/\r/g, "")
+    .replace(/\\/g, "/");
 
   if (!valor) return "";
 
@@ -211,13 +214,32 @@ function normalizarCaminhoImagemCSV(caminho) {
   valor = valor.replace(/^\/+/, "");
 
   if (valor.startsWith("backend/data/imagens/produtos/")) {
-    valor = valor.replace(/^backend\/data\/imagens\/produtos/i, "produtos/imagens");
-  } else if (valor.startsWith("frontend/public/produtos/imagens/")) {
-    valor = valor.replace(/^frontend\/public\/produtos\/imagens/i, "produtos/imagens");
-  } else if (valor.startsWith("produtos/imagens/")) {
+    return valor.replace(
+      /^backend\/data\/imagens\/produtos/i,
+      "imagens/produtos"
+    );
+  }
+
+  if (valor.startsWith("frontend/public/imagens/produtos/")) {
+    return valor.replace(
+      /^frontend\/public\/imagens\/produtos/i,
+      "imagens/produtos"
+    );
+  }
+
+  if (valor.startsWith("frontend/public/produtos/imagens/")) {
+    return valor.replace(
+      /^frontend\/public\/produtos\/imagens/i,
+      "produtos/imagens"
+    );
+  }
+
+  if (valor.startsWith("imagens/produtos/")) {
     return valor;
-  } else if (valor.startsWith("imagens/produtos/")) {
-    valor = valor.replace(/^imagens\/produtos/i, "produtos/imagens");
+  }
+
+  if (valor.startsWith("produtos/imagens/")) {
+    return valor;
   }
 
   return valor;
@@ -544,24 +566,36 @@ export default function CatalogoOnline() {
   }, []);
 
   useEffect(() => {
-    fetch(assetUrl("produtos/produtos.csv"))
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Arquivo CSV não encontrado");
-        }
-        return res.text();
-      })
-      .then((texto) => {
+  async function carregarCSV() {
+    const caminhos = [
+      assetUrl("produtos.csv"),
+      assetUrl("produtos/produtos.csv"),
+    ];
+
+    for (const caminho of caminhos) {
+      try {
+        const res = await fetch(caminho);
+
+        if (!res.ok) continue;
+
+        const texto = await res.text();
         const lista = parseCSV(texto);
+
         if (lista.length > 0) {
           setProdutos(lista);
+          return;
         }
-      })
-      .catch((erro) => {
-        console.error("Erro ao carregar CSV:", erro);
-        setProdutos(produtosPadrao);
-      });
-  }, []);
+      } catch (erro) {
+        console.error(`Erro ao carregar CSV em ${caminho}:`, erro);
+      }
+    }
+
+    console.error("Nenhum CSV válido encontrado.");
+    setProdutos(produtosPadrao);
+  }
+
+  carregarCSV();
+}, []);
 
   useEffect(() => {
     const intervalo = setInterval(() => {
