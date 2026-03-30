@@ -294,7 +294,10 @@ function parseCSV(texto) {
       linhaAtual.push(campoAtual);
       campoAtual = "";
 
-      const linhaTemConteudo = linhaAtual.some((campo) => String(campo).trim() !== "");
+      const linhaTemConteudo = linhaAtual.some(
+        (campo) => String(campo).trim() !== ""
+      );
+
       if (linhaTemConteudo) {
         linhas.push(linhaAtual);
       }
@@ -306,9 +309,11 @@ function parseCSV(texto) {
   }
 
   linhaAtual.push(campoAtual);
+
   const ultimaLinhaTemConteudo = linhaAtual.some(
     (campo) => String(campo).trim() !== ""
   );
+
   if (ultimaLinhaTemConteudo) {
     linhas.push(linhaAtual);
   }
@@ -321,6 +326,13 @@ function parseCSV(texto) {
       .trim();
 
   const cabecalhos = linhas[0].map((item) => limparCampo(item).toLowerCase());
+
+  const cabecalhosEsperados = ["status", "id", "nome", "categoria"];
+  const ehCSVValido = cabecalhosEsperados.every((coluna) =>
+    cabecalhos.includes(coluna)
+  );
+
+  if (!ehCSVValido) return [];
 
   return linhas.slice(1).map((colunas, index) => {
     const item = {};
@@ -379,7 +391,6 @@ function parseCSV(texto) {
         "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
       imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
       variacoes,
-
       peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
       altura: Number(String(item.altura || "0").replace(",", ".")) || 0,
       largura: Number(String(item.largura || "0").replace(",", ".")) || 0,
@@ -565,21 +576,41 @@ export default function CatalogoOnline() {
     };
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
   async function carregarCSV() {
     const caminhos = [
       assetUrl("produtos.csv"),
       assetUrl("produtos/produtos.csv"),
     ];
 
+    console.log("BASE_URL:", import.meta.env.BASE_URL);
+    console.log("Caminhos testados:", caminhos);
+
     for (const caminho of caminhos) {
       try {
-        const res = await fetch(caminho);
+        console.log("Tentando carregar CSV em:", caminho);
+
+        const res = await fetch(caminho, { cache: "no-store" });
+        console.log("Status fetch:", caminho, res.status, res.ok);
 
         if (!res.ok) continue;
 
         const texto = await res.text();
+        console.log("Primeiros 300 caracteres do CSV:", texto.slice(0, 300));
+
+        const inicio = texto.trim().toLowerCase();
+
+        if (
+          inicio.startsWith("<!doctype html") ||
+          inicio.startsWith("<html")
+        ) {
+          console.warn(`O caminho ${caminho} retornou HTML, não CSV.`);
+          continue;
+        }
+
         const lista = parseCSV(texto);
+        console.log("Quantidade de produtos lidos:", lista.length);
+        console.log("Primeiro produto lido:", lista[0]);
 
         if (lista.length > 0) {
           setProdutos(lista);
