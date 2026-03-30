@@ -433,6 +433,15 @@ function montarPacoteUnico(carrinho) {
     const largura = num(item.largura, 0);
     const comprimento = num(item.comprimento, 0);
 
+    console.log("📦 ITEM ORIGINAL:", {
+      nome: item.nome,
+      quantidade: item.quantidade,
+      peso: peso,
+      altura: altura,
+      largura: largura,
+      comprimento: comprimento,
+    });
+
     if (peso <= 0 || altura <= 0 || largura <= 0 || comprimento <= 0) {
       throw new Error(`Produto com medidas inválidas: ${item.nome || item.id}`);
     }
@@ -441,6 +450,12 @@ function montarPacoteUnico(carrinho) {
       const lados = [altura, largura, comprimento].sort((a, b) => b - a);
 
       caixas.push({
+        length: lados[0],
+        width: lados[1],
+        height: lados[2],
+      });
+
+      console.log("📦 CAIXA GERADA:", {
         length: lados[0],
         width: lados[1],
         height: lados[2],
@@ -518,15 +533,35 @@ function montarPacoteUnico(carrinho) {
       pacote.width * 1.5 +
       pacote.height * 2;
 
+    console.log("🧠 TENTATIVA DE ARRANJO:", {
+      larguraMaximaLinha,
+      pacote,
+      volume,
+      custo,
+    });
+
     return {
       larguraMaximaLinha,
       pacote,
       custo,
+      volume,
     };
   }
 
   const tentativas = [10, 12, 14, 16, 18].map(montarComLarguraMaxima);
   const melhor = tentativas.reduce((a, b) => (b.custo < a.custo ? b : a));
+
+  console.log("🚚 PACOTE FINAL CALCULADO:", {
+    pesoTotal: pesoTotal,
+    pesoFinalComFolga: Number((pesoTotal + 0.03).toFixed(3)),
+    dimensoes: {
+      length: melhor.pacote.length,
+      width: melhor.pacote.width,
+      height: melhor.pacote.height,
+    },
+    melhorTentativa: melhor,
+    tentativas,
+  });
 
   return {
     id: "pacote-unico",
@@ -692,6 +727,22 @@ app.post("/api/frete", async (req, res) => {
       },
     ];
 
+    const payloadSuperFrete = {
+      from: { postal_code: cepOrigemLimpo },
+      to: { postal_code: cepDestinoLimpo },
+      services: SERVICES,
+      options: {
+        own_hand: false,
+        receipt: false,
+        insurance_value: Number(subtotal.toFixed(2)),
+        use_insurance_value: false,
+      },
+      products: produtos,
+    };
+
+    console.log("🚚 PAYLOAD ENVIADO PARA SUPERFRETE:");
+    console.log(JSON.stringify(payloadSuperFrete, null, 2));
+
     const freteResponse = await fetch(`${SUPERFRETE_BASE_URL}/api/v0/calculator`, {
       method: "POST",
       headers: {
@@ -700,21 +751,14 @@ app.post("/api/frete", async (req, res) => {
         Authorization: `Bearer ${SUPERFRETE_TOKEN}`,
         "User-Agent": SUPERFRETE_USER_AGENT,
       },
-      body: JSON.stringify({
-        from: { postal_code: cepOrigemLimpo },
-        to: { postal_code: cepDestinoLimpo },
-        services: SERVICES,
-        options: {
-          own_hand: false,
-          receipt: false,
-          insurance_value: Number(subtotal.toFixed(2)),
-          use_insurance_value: false,
-        },
-        products: produtos,
-      }),
+      body: JSON.stringify(payloadSuperFrete),
     });
 
     const raw = await freteResponse.text();
+
+    console.log("📡 STATUS SUPERFRETE:", freteResponse.status);
+    console.log("📡 CONTENT-TYPE:", freteResponse.headers.get("content-type"));
+    console.log("📡 RESPOSTA BRUTA:", raw);
 
     let data;
     try {

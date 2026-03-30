@@ -761,6 +761,7 @@ class GeradorCatalogoApp:
             descricao = limpar_descricao_linha_unica(
                 self.txt_descricao.get("1.0", tk.END)
             )
+            imagens = self.txt_campo_imagens.get("1.0", tk.END).strip()
 
             linha = [
                 self.var_status.get().strip() or "ativo",
@@ -776,6 +777,7 @@ class GeradorCatalogoApp:
                 self.var_preco.get().strip(),
                 self.var_destaque.get().strip(),
                 descricao,
+                imagens,
                 self.var_nome_variacao_1.get().strip(),
                 self.var_variacoes_1.get().strip(),
                 self.var_nome_variacao_2.get().strip(),
@@ -815,6 +817,7 @@ class GeradorCatalogoApp:
             descricao = limpar_descricao_linha_unica(
                 self.txt_descricao.get("1.0", tk.END)
             )
+            imagens = self.txt_campo_imagens.get("1.0", tk.END).strip()
 
             cabecalho = [
                 "status",
@@ -830,6 +833,7 @@ class GeradorCatalogoApp:
                 "preco",
                 "destaque",
                 "descricao",
+                "imagens",
                 "nome_variacao_1",
                 "variacoes_1",
                 "nome_variacao_2",
@@ -851,6 +855,7 @@ class GeradorCatalogoApp:
                 self.var_preco.get().strip(),
                 self.var_destaque.get().strip(),
                 descricao,
+                imagens,
                 self.var_nome_variacao_1.get().strip(),
                 self.var_variacoes_1.get().strip(),
                 self.var_nome_variacao_2.get().strip(),
@@ -948,9 +953,13 @@ class GeradorCatalogoApp:
             self.var_nome_variacao_2.set(produto.get("nome_variacao_2", "").strip())
             self.var_variacoes_2.set(produto.get("variacoes_2", "").strip())
 
-            descricao_valor = produto.get("descricao", "").strip() or produto.get("descricao", "").strip()
+            descricao_valor = produto.get("descricao", "").strip()
+            imagens_valor = produto.get("imagens", "").strip()
+
             self.txt_descricao.delete("1.0", tk.END)
             self.txt_descricao.insert("1.0", descricao_valor)
+
+            self._set_texto(self.txt_campo_imagens, imagens_valor)
 
             if not self.var_pasta_produto.get().strip():
                 self.var_pasta_produto.set(
@@ -963,7 +972,6 @@ class GeradorCatalogoApp:
             self._set_texto(self.txt_linha_csv, "")
             self._set_texto(self.txt_arquivos_gerados, "")
             self._set_texto(self.txt_pasta_saida, "")
-            self._set_texto(self.txt_campo_imagens, "")
 
             self.imagens_selecionadas = []
             self.atualizar_lista_imagens()
@@ -1191,6 +1199,8 @@ class GeradorCatalogoApp:
                     caminhos_auxiliares.append(caminho_publico)
                     arquivos_copiados.append(f"{arquivo.name} -> {novo_nome}")
 
+                imagens = "|".join(caminhos_auxiliares)
+
                 produtos_saida.append([
                     "ativo",
                     id_produto,
@@ -1205,6 +1215,7 @@ class GeradorCatalogoApp:
                     preco,
                     destaque,
                     descricao,
+                    imagens,
                     nome_variacao_1,
                     variacoes_1,
                     nome_variacao_2,
@@ -1243,6 +1254,7 @@ class GeradorCatalogoApp:
                     "preco",
                     "destaque",
                     "descricao",
+                    "imagens",
                     "nome_variacao_1",
                     "variacoes_1",
                     "nome_variacao_2",
