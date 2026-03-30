@@ -734,7 +734,7 @@ app.post("/api/frete", async (req, res) => {
       options: {
         own_hand: false,
         receipt: false,
-        insurance_value: Number(subtotal.toFixed(2)),
+        insurance_value: null,
         use_insurance_value: false,
       },
       products: produtos,
