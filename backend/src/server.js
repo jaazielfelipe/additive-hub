@@ -428,19 +428,21 @@ function montarPacoteUnico(carrinho) {
   for (const item of carrinho) {
     const quantidade = Math.max(1, Math.round(num(item.quantidade, 1)));
 
-    const peso = num(item.peso, 0);
-    const altura = num(item.altura, 0);
-    const largura = num(item.largura, 0);
-    const comprimento = num(item.comprimento, 0);
+    const pesoBruto = num(item.peso, 0);
+const peso = pesoBruto > 1 ? pesoBruto / 1000 : pesoBruto;
+const altura = num(item.altura, 0);
+const largura = num(item.largura, 0);
+const comprimento = num(item.comprimento, 0);
 
-    console.log("📦 ITEM ORIGINAL:", {
-      nome: item.nome,
-      quantidade: item.quantidade,
-      peso: peso,
-      altura: altura,
-      largura: largura,
-      comprimento: comprimento,
-    });
+console.log("📦 ITEM ORIGINAL:", {
+  nome: item.nome,
+  quantidade: item.quantidade,
+  pesoInformado: pesoBruto,
+  pesoConsideradoKg: peso,
+  altura,
+  largura,
+  comprimento,
+});
 
     if (peso <= 0 || altura <= 0 || largura <= 0 || comprimento <= 0) {
       throw new Error(`Produto com medidas inválidas: ${item.nome || item.id}`);
