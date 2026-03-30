@@ -4,48 +4,66 @@ import { motion, AnimatePresence } from "framer-motion";
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/+$/, "");
 const SITE_BASE_URL = import.meta.env.BASE_URL || "/";
 
-const menuCategorias = [
+function slugCategoria(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+function tituloCategoria(valor) {
+  const chave = slugCategoria(valor);
+
+  const mapa = {
+    "casa-oraganizacao": "Casa & Organização",
+    "casa-organizacao": "Casa & Organização",
+    chaveiros: "Chaveiros",
+    decoracao: "Decoração",
+  };
+
+  if (mapa[chave]) return mapa[chave];
+
+  return String(valor || "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (letra) => letra.toUpperCase());
+}
+
+function tituloItem(valor) {
+  return String(valor || "").trim();
+}
+
+const menuCategoriasPadrao = [
   {
-    nome: "Chaveiro",
+    nome: "Casa & Organização",
+    chave: "casa-oraganizacao",
     itens: [
-      "Slim Classic",
-      "Slim Smart",
-      "Slim Personalizado",
-      "Slim Relevo",
-      "3D Basic",
-      "3D Classic",
-      "3D Spin",
-      "3D Mini-Flexi",
+      "Banheiro",
+      "Cozinha",
+      "Escritório",
+      "Jogos & Hobby",
+      "Lavanderia",
+      "Quarto",
+      "Sala",
     ],
+  },
+  {
+    nome: "Chaveiros",
+    chave: "chaveiros",
+    itens: ["Slim", "3D"],
   },
   {
     nome: "Decoração",
-    itens: ["Imãs", "Miniaturas", "Funko-Pop", "Esqueletos", "Letreiros", "Anty"],
+    chave: "decoracao",
+    itens: ["Imãs", "Letreiros", "Miniaturas", "Porta-retrato", "Vasos"],
   },
-  /* {
-    nome: "Cozinha & Confeitaria",
-    itens: [
-      "Cortadores de biscoito",
-      "Marcadores de massa",
-      "Carimbos para doces",
-      "Utensílios personalizados",
-    ],
-  }, */
-  {
-    nome: "Utilidades",
-    itens: [
-      "Organizadores",
-      "Suportes para Celular",
-      "Suportes para Controle",
-      "Suportes para Fone",
-    ],
-  },
-  /* {
-    nome: "Personalizados",
-    itens: ["Projetos sob medida", "Brindes para empresas", "Datas comemorativas"],
-  }, */
   {
     nome: "Quem somos",
+    chave: "quem-somos",
     itens: [],
   },
 ];
@@ -184,29 +202,22 @@ function assetUrl(caminho) {
   return `${SITE_BASE_URL}${limpo}`;
 }
 
-function isCaminhoImagemBackend(caminho) {
-  const valor = String(caminho || "").trim().replace(/\\/g, "/");
-  return (
-    valor.startsWith("/imagens/produtos/") ||
-    valor.startsWith("imagens/produtos/") ||
-    valor.startsWith("/backend/data/imagens/") ||
-    valor.startsWith("backend/data/imagens/")
-  );
-}
-
 function normalizarCaminhoImagemCSV(caminho) {
   let valor = String(caminho || "").trim().replace(/\r/g, "").replace(/\\/g, "/");
 
   if (!valor) return "";
 
   valor = valor.replace(/^https?:\/\/[^/]+/i, "");
+  valor = valor.replace(/^\/+/, "");
 
-  if (valor.startsWith("backend/data/imagens/")) {
-    valor = valor.replace(/^backend\/data\/imagens/i, "/imagens");
-  } else if (valor.startsWith("/backend/data/imagens/")) {
-    valor = valor.replace(/^\/backend\/data\/imagens/i, "/imagens");
-  } else if (valor.startsWith("imagens/")) {
-    valor = `/${valor}`;
+  if (valor.startsWith("backend/data/imagens/produtos/")) {
+    valor = valor.replace(/^backend\/data\/imagens\/produtos/i, "produtos/imagens");
+  } else if (valor.startsWith("frontend/public/produtos/imagens/")) {
+    valor = valor.replace(/^frontend\/public\/produtos\/imagens/i, "produtos/imagens");
+  } else if (valor.startsWith("produtos/imagens/")) {
+    return valor;
+  } else if (valor.startsWith("imagens/produtos/")) {
+    valor = valor.replace(/^imagens\/produtos/i, "produtos/imagens");
   }
 
   return valor;
@@ -325,15 +336,24 @@ function parseCSV(texto) {
       montarVariacao(item.nome_variacao_2, item.variacoes_2),
     ].filter(Boolean);
 
+    const categoriaNormalizada = slugCategoria(item.categoria || "outros");
+    const subcategoria = item.subcategoria || "";
+    const subcategoria2 = item.subcategoria2 || "";
+
     return {
       id: item.id || String(index + 1),
       nome: item.nome || "Produto sem nome",
-      categoria: item.categoria || "Outros",
-      subcategoria: item.subcategoria || "",
+      categoria: categoriaNormalizada,
+      categoriaLabel: tituloCategoria(item.categoria || categoriaNormalizada),
+      subcategoria,
+      subcategoriaLabel: tituloItem(subcategoria),
+      subcategoria2,
+      subcategoria2Label: tituloItem(subcategoria2),
       preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
       destaque: item.destaque || "Produto em impressão 3D",
       descricao:
         item.descricao ||
+        item["descrição"] ||
         "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
       imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
       variacoes,
@@ -357,11 +377,7 @@ function getImagemSrc(imagem) {
 
   const caminhoLimpo = normalizarCaminhoImagemCSV(imagem).replace(/^\/+/, "");
 
-  if (isCaminhoImagemBackend(imagem) || caminhoLimpo.startsWith("imagens/produtos/")) {
-    return `${API_URL}/${caminhoLimpo}`;
-  }
-
-  return assetUrl(caminhoLimpo);
+  return assetUrl(caminhoLimpo || "imagens/placeholder.png");
 }
 
 function ImagemProduto({ src, alt, className }) {
@@ -468,6 +484,7 @@ export default function CatalogoOnline() {
   const [produtos, setProdutos] = useState(produtosPadrao);
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
   const [subcategoriaAtiva, setSubcategoriaAtiva] = useState("Todos");
+  const [subcategoria2Ativa, setSubcategoria2Ativa] = useState("Todos");
   const [busca, setBusca] = useState("");
   const [produtoSelecionado, setProdutoSelecionado] = useState(null);
   const [imagemAtiva, setImagemAtiva] = useState(0);
@@ -527,7 +544,7 @@ export default function CatalogoOnline() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_URL}/produtos.csv`)
+    fetch(assetUrl("produtos/produtos.csv"))
       .then((res) => {
         if (!res.ok) {
           throw new Error("Arquivo CSV não encontrado");
@@ -579,6 +596,52 @@ export default function CatalogoOnline() {
     return () => window.removeEventListener("keydown", tecla);
   }, [produtoSelecionado]);
 
+  const menuCategorias = useMemo(() => {
+    const mapa = new Map();
+
+    produtos.forEach((produto) => {
+      const chaveCategoria = slugCategoria(produto.categoria);
+      if (!chaveCategoria) return;
+
+      if (!mapa.has(chaveCategoria)) {
+        mapa.set(chaveCategoria, {
+          nome: produto.categoriaLabel || tituloCategoria(chaveCategoria),
+          chave: chaveCategoria,
+          itensMap: new Map(),
+        });
+      }
+
+      const grupo = mapa.get(chaveCategoria);
+      const sub = tituloItem(produto.subcategoriaLabel || produto.subcategoria);
+      const sub2 = tituloItem(produto.subcategoria2Label || produto.subcategoria2);
+
+      if (sub) {
+        if (!grupo.itensMap.has(sub)) {
+          grupo.itensMap.set(sub, new Set());
+        }
+        if (sub2) {
+          grupo.itensMap.get(sub).add(sub2);
+        }
+      }
+    });
+
+    const lista = Array.from(mapa.values())
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+      .map((item) => ({
+        nome: item.nome,
+        chave: item.chave,
+        itens: Array.from(item.itensMap.keys()).sort((a, b) => a.localeCompare(b, "pt-BR")),
+        itensNivel2: Object.fromEntries(
+          Array.from(item.itensMap.entries()).map(([sub, set]) => [
+            sub,
+            Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR")),
+          ])
+        ),
+      }));
+
+    return [...lista, { nome: "Quem somos", chave: "quem-somos", itens: [], itensNivel2: {} }];
+  }, [produtos]);
+
   const categorias = useMemo(() => {
     const lista = [...new Set(produtos.map((produto) => produto.categoria))];
     return ["Todos", ...lista];
@@ -589,17 +652,34 @@ export default function CatalogoOnline() {
       return [];
     }
 
-    const lista = [
+    return [
       ...new Set(
         produtos
           .filter((produto) => produto.categoria === categoriaAtiva)
           .map((produto) => produto.subcategoria)
           .filter(Boolean)
       ),
-    ];
-
-    return lista;
+    ].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [produtos, categoriaAtiva]);
+
+  const subcategorias2Visiveis = useMemo(() => {
+    if (categoriaAtiva === "Todos" || subcategoriaAtiva === "Todos") {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        produtos
+          .filter(
+            (produto) =>
+              produto.categoria === categoriaAtiva &&
+              produto.subcategoria === subcategoriaAtiva
+          )
+          .map((produto) => produto.subcategoria2)
+          .filter(Boolean)
+      ),
+    ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [produtos, categoriaAtiva, subcategoriaAtiva]);
 
   const produtosFiltrados = useMemo(() => {
     return produtos.filter((produto) => {
@@ -610,12 +690,17 @@ export default function CatalogoOnline() {
         subcategoriaAtiva === "Todos" ||
         produto.subcategoria === subcategoriaAtiva;
 
+      const bateSubcategoria2 =
+        subcategoria2Ativa === "Todos" ||
+        produto.subcategoria2 === subcategoria2Ativa;
+
       const termo = busca.toLowerCase().trim();
       const bateBusca =
         termo === "" ||
         produto.nome.toLowerCase().includes(termo) ||
-        produto.categoria.toLowerCase().includes(termo) ||
-        (produto.subcategoria || "").toLowerCase().includes(termo) ||
+        (produto.categoriaLabel || produto.categoria || "").toLowerCase().includes(termo) ||
+        (produto.subcategoriaLabel || produto.subcategoria || "").toLowerCase().includes(termo) ||
+        (produto.subcategoria2Label || produto.subcategoria2 || "").toLowerCase().includes(termo) ||
         produto.destaque.toLowerCase().includes(termo) ||
         produto.descricao.toLowerCase().includes(termo) ||
         (produto.variacoes || []).some(
@@ -624,9 +709,9 @@ export default function CatalogoOnline() {
             variacao.opcoes.some((opcao) => opcao.toLowerCase().includes(termo))
         );
 
-      return bateCategoria && bateSubcategoria && bateBusca;
+      return bateCategoria && bateSubcategoria && bateSubcategoria2 && bateBusca;
     });
-  }, [produtos, categoriaAtiva, subcategoriaAtiva, busca]);
+  }, [produtos, categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca]);
 
   const totalItensCarrinho = useMemo(() => {
     return carrinho.reduce((total, item) => total + item.quantidade, 0);
@@ -799,6 +884,7 @@ export default function CatalogoOnline() {
   const selecionarCategoria = (categoria) => {
     setCategoriaAtiva(categoria);
     setSubcategoriaAtiva("Todos");
+    setSubcategoria2Ativa("Todos");
     setBusca("");
     setMenuMobileAberto(false);
     setCategoriaMobileAberta(null);
@@ -811,6 +897,20 @@ export default function CatalogoOnline() {
   const selecionarSubcategoria = (categoria, subcategoria) => {
     setCategoriaAtiva(categoria);
     setSubcategoriaAtiva(subcategoria);
+    setSubcategoria2Ativa("Todos");
+    setBusca("");
+    setMenuMobileAberto(false);
+    setCategoriaMobileAberta(null);
+
+    setTimeout(() => {
+      irParaCatalogo();
+    }, 50);
+  };
+
+  const selecionarSubcategoria2 = (categoria, subcategoria, subcategoria2) => {
+    setCategoriaAtiva(categoria);
+    setSubcategoriaAtiva(subcategoria);
+    setSubcategoria2Ativa(subcategoria2);
     setBusca("");
     setMenuMobileAberto(false);
     setCategoriaMobileAberta(null);
@@ -866,9 +966,9 @@ export default function CatalogoOnline() {
 
                 if (!temSubmenu) {
                   const acao =
-                    categoria.nome === "Quem somos"
+                    categoria.chave === "quem-somos"
                       ? irParaQuemSomos
-                      : () => selecionarCategoria(categoria.nome);
+                      : () => selecionarCategoria(categoria.chave);
 
                   return (
                     <button
@@ -886,7 +986,7 @@ export default function CatalogoOnline() {
                   <div key={categoria.nome} className="group relative">
                     <button
                       type="button"
-                      onClick={() => selecionarCategoria(categoria.nome)}
+                      onClick={() => selecionarCategoria(categoria.chave)}
                       className="rounded-xl px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
                       {categoria.nome}
@@ -895,7 +995,7 @@ export default function CatalogoOnline() {
                     <div className="invisible absolute left-0 top-full z-40 mt-2 w-72 rounded-2xl border border-zinc-200 bg-white p-2 opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
                       <button
                         type="button"
-                        onClick={() => selecionarCategoria(categoria.nome)}
+                        onClick={() => selecionarCategoria(categoria.chave)}
                         className="block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#b38200] transition hover:bg-[#fff8df]"
                       >
                         Ver tudo em {categoria.nome}
@@ -904,14 +1004,30 @@ export default function CatalogoOnline() {
                       <div className="my-2 border-t border-zinc-100" />
 
                       {categoria.itens.map((item) => (
-                        <button
-                          type="button"
-                          key={item}
-                          onClick={() => selecionarSubcategoria(categoria.nome, item)}
-                          className="block w-full rounded-xl px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50"
-                        >
-                          {item}
-                        </button>
+                        <div key={item} className="rounded-xl hover:bg-zinc-50">
+                          <button
+                            type="button"
+                            onClick={() => selecionarSubcategoria(categoria.chave, item)}
+                            className="block w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-zinc-700"
+                          >
+                            {item}
+                          </button>
+
+                          {categoria.itensNivel2?.[item]?.length > 0 && (
+                            <div className="pb-2 pl-3">
+                              {categoria.itensNivel2[item].map((itemNivel2) => (
+                                <button
+                                  type="button"
+                                  key={`${item}-${itemNivel2}`}
+                                  onClick={() => selecionarSubcategoria2(categoria.chave, item, itemNivel2)}
+                                  className="block w-full rounded-xl px-3 py-1.5 text-left text-xs text-zinc-500 transition hover:bg-white"
+                                >
+                                  {itemNivel2}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1037,7 +1153,7 @@ export default function CatalogoOnline() {
 
                   if (!temSubmenu) {
                     const acao =
-                      categoria.nome === "Quem somos"
+                      categoria.chave === "quem-somos"
                         ? () => {
                             setMenuMobileAberto(false);
                             setCategoriaMobileAberta(null);
@@ -1045,7 +1161,7 @@ export default function CatalogoOnline() {
                               irParaQuemSomos();
                             }, 50);
                           }
-                        : () => selecionarCategoria(categoria.nome);
+                        : () => selecionarCategoria(categoria.chave);
 
                     return (
                       <button
@@ -1067,7 +1183,7 @@ export default function CatalogoOnline() {
                       <div className="flex items-center">
                         <button
                           type="button"
-                          onClick={() => selecionarCategoria(categoria.nome)}
+                          onClick={() => selecionarCategoria(categoria.chave)}
                           className="flex-1 px-4 py-3 text-left text-sm font-semibold text-zinc-900"
                         >
                           {categoria.nome}
@@ -1091,23 +1207,41 @@ export default function CatalogoOnline() {
                         <div className="border-t border-zinc-100 bg-zinc-50 p-2">
                           <button
                             type="button"
-                            onClick={() => selecionarCategoria(categoria.nome)}
+                            onClick={() => selecionarCategoria(categoria.chave)}
                             className="mb-1 block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#b38200]"
                           >
                             Ver tudo em {categoria.nome}
                           </button>
 
                           {categoria.itens.map((item) => (
-                            <button
-                              key={item}
-                              type="button"
-                              onClick={() =>
-                                selecionarSubcategoria(categoria.nome, item)
-                              }
-                              className="block w-full rounded-xl px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-white"
-                            >
-                              {item}
-                            </button>
+                            <div key={item}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  selecionarSubcategoria(categoria.chave, item)
+                                }
+                                className="block w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-zinc-700 transition hover:bg-white"
+                              >
+                                {item}
+                              </button>
+
+                              {categoria.itensNivel2?.[item]?.length > 0 && (
+                                <div className="pb-2 pl-3">
+                                  {categoria.itensNivel2[item].map((itemNivel2) => (
+                                    <button
+                                      key={`${item}-${itemNivel2}`}
+                                      type="button"
+                                      onClick={() =>
+                                        selecionarSubcategoria2(categoria.chave, item, itemNivel2)
+                                      }
+                                      className="block w-full rounded-xl px-3 py-1.5 text-left text-xs text-zinc-500 transition hover:bg-white"
+                                    >
+                                      {itemNivel2}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ))}
                         </div>
                       )}
@@ -1234,7 +1368,7 @@ export default function CatalogoOnline() {
 
                   return (
                     <button
-                      key={categoria}
+                      key={categoria === "Todos" ? "Todos" : tituloCategoria(categoria)}
                       onClick={() => selecionarCategoria(categoria)}
                       className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                         ativa
@@ -1242,7 +1376,7 @@ export default function CatalogoOnline() {
                           : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
                       }`}
                     >
-                      {categoria}
+                      {categoria === "Todos" ? "Todos" : tituloCategoria(categoria)}
                     </button>
                   );
                 })}
@@ -1251,7 +1385,10 @@ export default function CatalogoOnline() {
               {subcategoriasVisiveis.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSubcategoriaAtiva("Todos")}
+                    onClick={() => {
+                      setSubcategoriaAtiva("Todos");
+                      setSubcategoria2Ativa("Todos");
+                    }}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                       subcategoriaAtiva === "Todos"
                         ? "bg-zinc-900 text-white"
@@ -1264,7 +1401,10 @@ export default function CatalogoOnline() {
                   {subcategoriasVisiveis.map((subcategoria) => (
                     <button
                       key={subcategoria}
-                      onClick={() => setSubcategoriaAtiva(subcategoria)}
+                      onClick={() => {
+                        setSubcategoriaAtiva(subcategoria);
+                        setSubcategoria2Ativa("Todos");
+                      }}
                       className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                         subcategoriaAtiva === subcategoria
                           ? "bg-zinc-900 text-white"
@@ -1272,6 +1412,35 @@ export default function CatalogoOnline() {
                       }`}
                     >
                       {subcategoria}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {subcategorias2Visiveis.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSubcategoria2Ativa("Todos")}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                      subcategoria2Ativa === "Todos"
+                        ? "bg-[#f4b400] text-black"
+                        : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                    }`}
+                  >
+                    Todos os tipos
+                  </button>
+
+                  {subcategorias2Visiveis.map((subcategoria2) => (
+                    <button
+                      key={subcategoria2}
+                      onClick={() => setSubcategoria2Ativa(subcategoria2)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        subcategoria2Ativa === subcategoria2
+                          ? "bg-[#f4b400] text-black"
+                          : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                      }`}
+                    >
+                      {subcategoria2}
                     </button>
                   ))}
                 </div>
@@ -1291,8 +1460,9 @@ export default function CatalogoOnline() {
             </p>
             {categoriaAtiva !== "Todos" && (
               <p className="mt-1 text-sm text-zinc-500">
-                {categoriaAtiva}
+                {categoriaAtiva === "Todos" ? "Todos" : tituloCategoria(categoriaAtiva)}
                 {subcategoriaAtiva !== "Todos" ? ` • ${subcategoriaAtiva}` : ""}
+                {subcategoria2Ativa !== "Todos" ? ` • ${subcategoria2Ativa}` : ""}
               </p>
             )}
           </div>
@@ -1318,7 +1488,7 @@ export default function CatalogoOnline() {
 
                 <div className="absolute inset-x-0 top-0 flex items-start p-2">
                   <span className="max-w-[60%] truncate rounded-full bg-white/92 px-2.5 py-1 text-[10px] font-semibold text-zinc-800 shadow-sm backdrop-blur sm:text-xs">
-                    {produto.categoria}
+                    {produto.categoriaLabel || tituloCategoria(produto.categoria)}
                   </span>
                 </div>
 

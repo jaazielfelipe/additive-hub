@@ -35,6 +35,10 @@ def slugify(texto: str) -> str:
     return texto.strip("-")
 
 
+def normalizar_chave(texto: str) -> str:
+    return slugify(str(texto).strip())
+
+
 def limpar_descricao_linha_unica(texto: str) -> str:
     return " ".join(str(texto).replace("\r", " ").replace("\n", " ").split())
 
@@ -72,10 +76,12 @@ class GeradorCatalogoApp:
         self.var_nome_produto = tk.StringVar()
         self.var_categoria = tk.StringVar(value="Chaveiro")
         self.var_subcategoria = tk.StringVar()
+        self.var_subcategoria2 = tk.StringVar()
         self.var_preco = tk.StringVar()
         self.var_destaque = tk.StringVar()
         self.var_pasta_produto = tk.StringVar()
         self.var_produto_existente = tk.StringVar()
+        self.var_caminho_origem = tk.StringVar()
 
         self.var_nome_variacao_1 = tk.StringVar()
         self.var_variacoes_1 = tk.StringVar()
@@ -91,7 +97,6 @@ class GeradorCatalogoApp:
 
         self.categorias = {
             "Chaveiro": {
-                "pasta": "chaveiros",
                 "subcategorias": [
                     "Slim Classic",
                     "Slim Smart",
@@ -104,7 +109,6 @@ class GeradorCatalogoApp:
                 ],
             },
             "Decoração": {
-                "pasta": "decoracoes",
                 "subcategorias": [
                     "Miniaturas",
                     "Itens para cozinha",
@@ -112,7 +116,6 @@ class GeradorCatalogoApp:
                 ],
             },
             "Cozinha & Confeitaria": {
-                "pasta": "cozinha-confeitaria",
                 "subcategorias": [
                     "Cortadores",
                     "Marcadores",
@@ -120,7 +123,6 @@ class GeradorCatalogoApp:
                 ],
             },
             "Utilidades": {
-                "pasta": "utilidades",
                 "subcategorias": [
                     "Organizadores",
                     "Suportes",
@@ -128,7 +130,6 @@ class GeradorCatalogoApp:
                 ],
             },
             "Personalizados": {
-                "pasta": "personalizados",
                 "subcategorias": [
                     "Projetos sob medida",
                     "Brindes personalizados",
@@ -391,6 +392,11 @@ class GeradorCatalogoApp:
         )
         self.combo_subcategoria.pack(side="left", fill="x", expand=True)
 
+        linha4b = ttk.Frame(form)
+        linha4b.pack(fill="x", pady=4)
+        ttk.Label(linha4b, text="Subcategoria 2", width=20).pack(side="left")
+        ttk.Entry(linha4b, textvariable=self.var_subcategoria2).pack(side="left", fill="x", expand=True)
+
         linha5 = ttk.Frame(form)
         linha5.pack(fill="x", pady=4)
         ttk.Label(linha5, text="Destaque", width=20).pack(side="left")
@@ -400,6 +406,11 @@ class GeradorCatalogoApp:
         linha6.pack(fill="x", pady=4)
         ttk.Label(linha6, text="Pasta do produto", width=20).pack(side="left")
         ttk.Entry(linha6, textvariable=self.var_pasta_produto).pack(side="left", fill="x", expand=True)
+
+        linha6b = ttk.Frame(form)
+        linha6b.pack(fill="x", pady=4)
+        ttk.Label(linha6b, text="Caminho origem", width=20).pack(side="left")
+        ttk.Entry(linha6b, textvariable=self.var_caminho_origem).pack(side="left", fill="x", expand=True)
 
         linha7 = ttk.Frame(form)
         linha7.pack(fill="x", pady=4)
@@ -445,7 +456,7 @@ class GeradorCatalogoApp:
             side="left", fill="x", expand=True
         )
 
-        ttk.Label(form, text="Descrição").pack(anchor="w", pady=(8, 4))
+        ttk.Label(form, text="Descricao").pack(anchor="w", pady=(8, 4))
         self.txt_descricao = tk.Text(form, height=5, wrap="word")
         self.txt_descricao.pack(fill="x")
 
@@ -461,7 +472,7 @@ class GeradorCatalogoApp:
         self.txt_pasta_saida = tk.Text(frame, height=2, wrap="word")
         self.txt_pasta_saida.pack(fill="x", pady=(4, 8))
 
-        ttk.Label(frame, text='Campo "imagens"').pack(anchor="w")
+        ttk.Label(frame, text="Campo auxiliar de imagens").pack(anchor="w")
         self.txt_campo_imagens = tk.Text(frame, height=5, wrap="word")
         self.txt_campo_imagens.pack(fill="x", pady=(4, 6))
 
@@ -469,7 +480,7 @@ class GeradorCatalogoApp:
         linha_botoes.pack(fill="x", pady=(0, 8))
         ttk.Button(
             linha_botoes,
-            text='Copiar campo "imagens"',
+            text="Copiar campo de imagens",
             command=self.copiar_campo_imagens,
         ).pack(side="left", padx=(0, 8))
         ttk.Button(
@@ -493,22 +504,52 @@ class GeradorCatalogoApp:
         widget.delete("1.0", tk.END)
         widget.insert("1.0", texto)
 
-    def _obter_subpasta_categoria(self, categoria=None) -> str:
-        categoria = (categoria or self.var_categoria.get()).strip()
-        if categoria not in self.categorias:
-            return "outros"
-        return self.categorias[categoria]["pasta"]
+    def _slug_pasta(self, valor: str) -> str:
+        valor = normalizar_chave(valor)
+        return valor or "sem-categoria"
+
+    def _normalizar_categoria_para_match(self, valor: str) -> str:
+        return normalizar_chave(valor)
+
+    def _encontrar_categoria_cadastrada(self, valor_csv: str) -> str:
+        chave_csv = self._normalizar_categoria_para_match(valor_csv)
+
+        for categoria_interface in self.categorias.keys():
+            if self._normalizar_categoria_para_match(categoria_interface) == chave_csv:
+                return categoria_interface
+
+        return valor_csv.strip() if str(valor_csv).strip() else "Chaveiro"
+
+    def _obter_partes_pasta_categoria(self, categoria=None, subcategoria=None, subcategoria2=None):
+        categoria_final = (categoria if categoria is not None else self.var_categoria.get()).strip()
+        subcategoria_final = (subcategoria if subcategoria is not None else self.var_subcategoria.get()).strip()
+        subcategoria2_final = (subcategoria2 if subcategoria2 is not None else self.var_subcategoria2.get()).strip()
+
+        partes = [self._slug_pasta(categoria_final)]
+
+        if subcategoria_final:
+            partes.append(self._slug_pasta(subcategoria_final))
+
+        if subcategoria2_final:
+            partes.append(self._slug_pasta(subcategoria2_final))
+
+        return partes
 
     def _atualizar_subcategorias(self):
         categoria = self.var_categoria.get()
-        lista = self.categorias.get(categoria, {}).get("subcategorias", [])
+        categoria_real = self._encontrar_categoria_cadastrada(categoria)
+        lista = self.categorias.get(categoria_real, {}).get("subcategorias", [])
         self.combo_subcategoria["values"] = lista
-        if lista:
-            self.var_subcategoria.set(lista[0])
-        else:
-            self.var_subcategoria.set("")
+
+        if self.var_subcategoria.get().strip() not in lista:
+            if lista:
+                self.var_subcategoria.set(lista[0])
+            else:
+                self.var_subcategoria.set("")
 
     def ao_mudar_categoria(self, _event=None):
+        categoria_real = self._encontrar_categoria_cadastrada(self.var_categoria.get())
+        self.var_categoria.set(categoria_real)
         self._atualizar_subcategorias()
 
     def montar_nome_pasta_produto(self, id_produto: str, nome_produto: str) -> str:
@@ -535,21 +576,22 @@ class GeradorCatalogoApp:
         if not pasta_projeto:
             raise ValueError("Selecione a pasta do projeto.")
 
-        caminho_csv = Path(pasta_projeto) / "backend" / "data" / "produtos.csv"
+        caminho_csv = Path(pasta_projeto) / "frontend" / "public" / "produtos" / "produtos.csv"
         caminho_csv.parent.mkdir(parents=True, exist_ok=True)
         return caminho_csv
 
-    def obter_base_imagens_backend(self) -> Path:
+    def obter_base_imagens_frontend(self) -> Path:
         pasta_projeto = self.var_pasta_projeto.get().strip()
         if not pasta_projeto:
             raise ValueError("Selecione a pasta do projeto.")
 
-        base_imagens = Path(pasta_projeto) / "backend" / "data" / "imagens" / "produtos"
+        base_imagens = Path(pasta_projeto) / "frontend" / "public" / "produtos" / "imagens"
         base_imagens.mkdir(parents=True, exist_ok=True)
         return base_imagens
 
-    def montar_caminho_relativo_imagem_backend(self, subpasta_categoria: str, pasta_produto: str, nome_arquivo: str) -> str:
-        return f"backend/data/imagens/produtos/{subpasta_categoria}/{pasta_produto}/{nome_arquivo}"
+    def montar_caminho_relativo_imagem_frontend(self, categoria: str, subcategoria: str, subcategoria2: str, pasta_produto: str, nome_arquivo: str) -> str:
+        partes = self._obter_partes_pasta_categoria(categoria, subcategoria, subcategoria2)
+        return f"produtos/imagens/{'/'.join(partes)}/{pasta_produto}/{nome_arquivo}"
 
     def selecionar_pasta_projeto(self):
         pasta = filedialog.askdirectory(title="Selecione a pasta do projeto")
@@ -624,14 +666,14 @@ class GeradorCatalogoApp:
 
     def _obter_pasta_destino(self) -> Path:
         pasta_produto = self.var_pasta_produto.get().strip()
-        subpasta_categoria = self._obter_subpasta_categoria()
 
         if not self.var_pasta_projeto.get().strip():
             raise ValueError("Selecione a pasta do projeto.")
         if not pasta_produto:
             raise ValueError("Informe a pasta do produto.")
 
-        return self.obter_base_imagens_backend() / subpasta_categoria / pasta_produto
+        partes = self._obter_partes_pasta_categoria()
+        return self.obter_base_imagens_frontend().joinpath(*partes, pasta_produto)
 
     def processar_imagens(self):
         try:
@@ -641,10 +683,12 @@ class GeradorCatalogoApp:
             destino = self._obter_pasta_destino()
             destino.mkdir(parents=True, exist_ok=True)
 
-            subpasta_categoria = self._obter_subpasta_categoria()
+            categoria = self.var_categoria.get().strip()
+            subcategoria = self.var_subcategoria.get().strip()
+            subcategoria2 = self.var_subcategoria2.get().strip()
             pasta_produto = self.var_pasta_produto.get().strip()
 
-            caminhos_csv = []
+            caminhos_auxiliares = []
             arquivos_gerados = []
 
             for i, origem in enumerate(self.imagens_selecionadas, start=1):
@@ -653,16 +697,18 @@ class GeradorCatalogoApp:
                 destino_arquivo = destino / novo_nome
                 shutil.copy2(origem, destino_arquivo)
 
-                caminho_relativo = self.montar_caminho_relativo_imagem_backend(
-                    subpasta_categoria,
+                caminho_relativo = self.montar_caminho_relativo_imagem_frontend(
+                    categoria,
+                    subcategoria,
+                    subcategoria2,
                     pasta_produto,
                     novo_nome,
                 )
-                caminhos_csv.append(caminho_relativo)
+                caminhos_auxiliares.append(caminho_relativo)
                 arquivos_gerados.append(f"{origem.name}  ->  {novo_nome}")
 
             self._set_texto(self.txt_pasta_saida, str(destino))
-            self._set_texto(self.txt_campo_imagens, "|".join(caminhos_csv))
+            self._set_texto(self.txt_campo_imagens, "|".join(caminhos_auxiliares))
             self._set_texto(self.txt_arquivos_gerados, "\n".join(arquivos_gerados))
             self._set_status("Imagens copiadas, organizadas e renomeadas com sucesso.")
 
@@ -712,10 +758,6 @@ class GeradorCatalogoApp:
 
     def gerar_linha_csv(self):
         try:
-            campo_imagens = self.txt_campo_imagens.get("1.0", tk.END).strip()
-            if not campo_imagens:
-                raise ValueError("Processe as imagens antes de gerar a linha CSV.")
-
             descricao = limpar_descricao_linha_unica(
                 self.txt_descricao.get("1.0", tk.END)
             )
@@ -724,20 +766,22 @@ class GeradorCatalogoApp:
                 self.var_status.get().strip() or "ativo",
                 self.var_id.get().strip(),
                 self.var_nome_produto.get().strip(),
-                self.var_categoria.get().strip(),
+                normalizar_chave(self.var_categoria.get().strip()),
                 self.var_subcategoria.get().strip(),
-                self.var_preco.get().strip(),
-                self.var_destaque.get().strip(),
-                descricao,
-                campo_imagens,
-                self.var_nome_variacao_1.get().strip(),
-                self.var_variacoes_1.get().strip(),
-                self.var_nome_variacao_2.get().strip(),
-                self.var_variacoes_2.get().strip(),
+                self.var_subcategoria2.get().strip(),
                 self.var_peso.get().strip(),
                 self.var_altura.get().strip(),
                 self.var_largura.get().strip(),
                 self.var_comprimento.get().strip(),
+                self.var_preco.get().strip(),
+                self.var_destaque.get().strip(),
+                descricao,
+                self.var_nome_variacao_1.get().strip(),
+                self.var_variacoes_1.get().strip(),
+                self.var_nome_variacao_2.get().strip(),
+                self.var_variacoes_2.get().strip(),
+                self.var_caminho_origem.get().strip(),
+                self.var_pasta_produto.get().strip(),
             ]
 
             temp_path = Path("temp_linha.csv")
@@ -767,10 +811,6 @@ class GeradorCatalogoApp:
             if not pasta_projeto:
                 raise ValueError("Selecione a pasta do projeto.")
 
-            campo_imagens = self.txt_campo_imagens.get("1.0", tk.END).strip()
-            if not campo_imagens:
-                raise ValueError("Processe as imagens antes de adicionar ao CSV.")
-
             caminho_csv = self.obter_caminho_csv()
             descricao = limpar_descricao_linha_unica(
                 self.txt_descricao.get("1.0", tk.END)
@@ -782,37 +822,41 @@ class GeradorCatalogoApp:
                 "nome",
                 "categoria",
                 "subcategoria",
-                "preco",
-                "destaque",
-                "descricao",
-                "imagens",
-                "nome_variacao_1",
-                "variacoes_1",
-                "nome_variacao_2",
-                "variacoes_2",
+                "subcategoria2",
                 "peso",
                 "altura",
                 "largura",
                 "comprimento",
+                "preco",
+                "destaque",
+                "descricao",
+                "nome_variacao_1",
+                "variacoes_1",
+                "nome_variacao_2",
+                "variacoes_2",
+                "caminho_origem",
+                "pasta_produto",
             ]
             linha = [
                 self.var_status.get().strip() or "ativo",
                 self.var_id.get().strip(),
                 self.var_nome_produto.get().strip(),
-                self.var_categoria.get().strip(),
+                normalizar_chave(self.var_categoria.get().strip()),
                 self.var_subcategoria.get().strip(),
-                self.var_preco.get().strip(),
-                self.var_destaque.get().strip(),
-                descricao,
-                campo_imagens,
-                self.var_nome_variacao_1.get().strip(),
-                self.var_variacoes_1.get().strip(),
-                self.var_nome_variacao_2.get().strip(),
-                self.var_variacoes_2.get().strip(),
+                self.var_subcategoria2.get().strip(),
                 self.var_peso.get().strip(),
                 self.var_altura.get().strip(),
                 self.var_largura.get().strip(),
                 self.var_comprimento.get().strip(),
+                self.var_preco.get().strip(),
+                self.var_destaque.get().strip(),
+                descricao,
+                self.var_nome_variacao_1.get().strip(),
+                self.var_variacoes_1.get().strip(),
+                self.var_nome_variacao_2.get().strip(),
+                self.var_variacoes_2.get().strip(),
+                self.var_caminho_origem.get().strip(),
+                self.var_pasta_produto.get().strip(),
             ]
 
             arquivo_existe = caminho_csv.exists()
@@ -880,37 +924,46 @@ class GeradorCatalogoApp:
             if not produto:
                 return
 
+            categoria_csv = produto.get("categoria", "").strip()
+            categoria_interface = self._encontrar_categoria_cadastrada(categoria_csv)
+
             self.var_status.set(produto.get("status", "ativo").strip() or "ativo")
             self.var_id.set(produto.get("id", "").strip())
             self.var_nome_produto.set(produto.get("nome", "").strip())
-            self.var_categoria.set(produto.get("categoria", "").strip() or "Chaveiro")
+            self.var_categoria.set(categoria_interface)
             self._atualizar_subcategorias()
             self.var_subcategoria.set(produto.get("subcategoria", "").strip())
+            self.var_subcategoria2.set(produto.get("subcategoria2", "").strip())
+            self.var_peso.set(produto.get("peso", "").strip())
+            self.var_altura.set(produto.get("altura", "").strip())
+            self.var_largura.set(produto.get("largura", "").strip())
+            self.var_comprimento.set(produto.get("comprimento", "").strip())
             self.var_preco.set(produto.get("preco", "").strip())
             self.var_destaque.set(produto.get("destaque", "").strip())
+            self.var_caminho_origem.set(produto.get("caminho_origem", "").strip())
+            self.var_pasta_produto.set(produto.get("pasta_produto", "").strip())
 
             self.var_nome_variacao_1.set(produto.get("nome_variacao_1", "").strip())
             self.var_variacoes_1.set(produto.get("variacoes_1", "").strip())
             self.var_nome_variacao_2.set(produto.get("nome_variacao_2", "").strip())
             self.var_variacoes_2.set(produto.get("variacoes_2", "").strip())
-            self.var_peso.set(produto.get("peso", "").strip())
-            self.var_altura.set(produto.get("altura", "").strip())
-            self.var_largura.set(produto.get("largura", "").strip())
-            self.var_comprimento.set(produto.get("comprimento", "").strip())
 
+            descricao_valor = produto.get("descricao", "").strip() or produto.get("descricao", "").strip()
             self.txt_descricao.delete("1.0", tk.END)
-            self.txt_descricao.insert("1.0", produto.get("descricao", "").strip())
+            self.txt_descricao.insert("1.0", descricao_valor)
 
-            self.var_pasta_produto.set(
-                self.montar_nome_pasta_produto(
-                    self.var_id.get().strip(),
-                    self.var_nome_produto.get().strip()
+            if not self.var_pasta_produto.get().strip():
+                self.var_pasta_produto.set(
+                    self.montar_nome_pasta_produto(
+                        self.var_id.get().strip(),
+                        self.var_nome_produto.get().strip()
+                    )
                 )
-            )
-            self._set_texto(self.txt_campo_imagens, produto.get("imagens", "").strip())
+
             self._set_texto(self.txt_linha_csv, "")
             self._set_texto(self.txt_arquivos_gerados, "")
             self._set_texto(self.txt_pasta_saida, "")
+            self._set_texto(self.txt_campo_imagens, "")
 
             self.imagens_selecionadas = []
             self.atualizar_lista_imagens()
@@ -1029,6 +1082,11 @@ class GeradorCatalogoApp:
                 "nome",
                 "categoria",
                 "subcategoria",
+                "subcategoria2",
+                "peso",
+                "altura",
+                "largura",
+                "comprimento",
                 "preco",
                 "destaque",
                 "descricao",
@@ -1036,13 +1094,10 @@ class GeradorCatalogoApp:
                 "variacoes_1",
                 "nome_variacao_2",
                 "variacoes_2",
-                "peso",
-                "altura",
-                "largura",
-                "comprimento",
                 "caminho_origem",
                 "pasta_produto",
             }
+
             colunas_planilha = set(linhas_planilha[0].keys())
             faltando = colunas_necessarias - colunas_planilha
             if faltando:
@@ -1059,23 +1114,23 @@ class GeradorCatalogoApp:
                     )
                     continue
 
-                nome = row.get("nome", "").strip()
-                categoria = row.get("categoria", "").strip()
-                subcategoria = row.get("subcategoria", "").strip()
-                destaque = row.get("destaque", "").strip()
-                descricao = limpar_descricao_linha_unica(row.get("descricao", ""))
-                preco = row.get("preco", "").strip()
                 id_produto = row.get("id", "").strip()
-
-                nome_variacao_1 = row.get("nome_variacao_1", "").strip()
-                variacoes_1 = row.get("variacoes_1", "").strip()
-                nome_variacao_2 = row.get("nome_variacao_2", "").strip()
-                variacoes_2 = row.get("variacoes_2", "").strip()
+                nome = row.get("nome", "").strip()
+                categoria_csv = row.get("categoria", "").strip()
+                categoria_para_pasta = categoria_csv
+                subcategoria = row.get("subcategoria", "").strip()
+                subcategoria2 = row.get("subcategoria2", "").strip()
                 peso = row.get("peso", "").strip()
                 altura = row.get("altura", "").strip()
                 largura = row.get("largura", "").strip()
                 comprimento = row.get("comprimento", "").strip()
-
+                preco = row.get("preco", "").strip()
+                destaque = row.get("destaque", "").strip()
+                descricao = limpar_descricao_linha_unica(row.get("descricao", ""))
+                nome_variacao_1 = row.get("nome_variacao_1", "").strip()
+                variacoes_1 = row.get("variacoes_1", "").strip()
+                nome_variacao_2 = row.get("nome_variacao_2", "").strip()
+                variacoes_2 = row.get("variacoes_2", "").strip()
                 caminho_origem = row.get("caminho_origem", "").strip()
                 pasta_produto = row.get("pasta_produto", "").strip()
 
@@ -1100,9 +1155,8 @@ class GeradorCatalogoApp:
                     relatorio.append(f"Linha {numero_linha}: caminho_origem não é pasta -> {origem}")
                     continue
 
-                subpasta_categoria = self._obter_subpasta_categoria(categoria)
-
-                destino = self.obter_base_imagens_backend() / subpasta_categoria / pasta_produto
+                partes_categoria = self._obter_partes_pasta_categoria(categoria_para_pasta, subcategoria, subcategoria2)
+                destino = self.obter_base_imagens_frontend().joinpath(*partes_categoria, pasta_produto)
                 destino.mkdir(parents=True, exist_ok=True)
 
                 arquivos_validos = sorted(
@@ -1117,8 +1171,8 @@ class GeradorCatalogoApp:
                     relatorio.append(f"Linha {numero_linha}: sem imagens válidas em {origem}")
                     continue
 
-                imagens = []
                 arquivos_copiados = []
+                caminhos_auxiliares = []
 
                 for contador, arquivo in enumerate(arquivos_validos, start=1):
                     ext = arquivo.suffix.lower()
@@ -1127,33 +1181,36 @@ class GeradorCatalogoApp:
 
                     shutil.copy2(arquivo, destino_arquivo)
 
-                    caminho_backend = self.montar_caminho_relativo_imagem_backend(
-                        subpasta_categoria,
+                    caminho_publico = self.montar_caminho_relativo_imagem_frontend(
+                        categoria_para_pasta,
+                        subcategoria,
+                        subcategoria2,
                         pasta_produto,
                         novo_nome,
                     )
-
-                    imagens.append(caminho_backend)
+                    caminhos_auxiliares.append(caminho_publico)
                     arquivos_copiados.append(f"{arquivo.name} -> {novo_nome}")
 
                 produtos_saida.append([
                     "ativo",
                     id_produto,
                     nome,
-                    categoria,
+                    normalizar_chave(categoria_csv),
                     subcategoria,
-                    preco,
-                    destaque,
-                    descricao,
-                    "|".join(imagens),
-                    nome_variacao_1,
-                    variacoes_1,
-                    nome_variacao_2,
-                    variacoes_2,
+                    subcategoria2,
                     peso,
                     altura,
                     largura,
                     comprimento,
+                    preco,
+                    destaque,
+                    descricao,
+                    nome_variacao_1,
+                    variacoes_1,
+                    nome_variacao_2,
+                    variacoes_2,
+                    caminho_origem,
+                    pasta_produto,
                 ])
 
                 relatorio.append(
@@ -1161,6 +1218,7 @@ class GeradorCatalogoApp:
                     f"Origem: {origem}\n"
                     f"Destino: {destino}\n"
                     f"Arquivos: {len(arquivos_copiados)}\n"
+                    f"Imagens públicas: {' | '.join(caminhos_auxiliares)}\n"
                 )
 
             with open(caminho_csv_saida, "w", newline="", encoding="utf-8-sig") as f:
@@ -1177,18 +1235,20 @@ class GeradorCatalogoApp:
                     "nome",
                     "categoria",
                     "subcategoria",
-                    "preco",
-                    "destaque",
-                    "descricao",
-                    "imagens",
-                    "nome_variacao_1",
-                    "variacoes_1",
-                    "nome_variacao_2",
-                    "variacoes_2",
+                    "subcategoria2",
                     "peso",
                     "altura",
                     "largura",
                     "comprimento",
+                    "preco",
+                    "destaque",
+                    "descricao",
+                    "nome_variacao_1",
+                    "variacoes_1",
+                    "nome_variacao_2",
+                    "variacoes_2",
+                    "caminho_origem",
+                    "pasta_produto",
                 ])
                 writer.writerows(produtos_saida)
 
@@ -1212,11 +1272,11 @@ class GeradorCatalogoApp:
     def copiar_campo_imagens(self):
         texto = self.txt_campo_imagens.get("1.0", tk.END).strip()
         if not texto:
-            messagebox.showwarning("Aviso", 'O campo "imagens" está vazio.')
+            messagebox.showwarning("Aviso", "O campo auxiliar de imagens está vazio.")
             return
         self.root.clipboard_clear()
         self.root.clipboard_append(texto)
-        self._set_status('Campo "imagens" copiado.')
+        self._set_status("Campo auxiliar de imagens copiado.")
 
     def copiar_linha_csv(self):
         texto = self.txt_linha_csv.get("1.0", tk.END).strip()
@@ -1252,9 +1312,11 @@ class GeradorCatalogoApp:
         self.var_nome_produto.set("")
         self.var_categoria.set("Chaveiro")
         self._atualizar_subcategorias()
+        self.var_subcategoria2.set("")
         self.var_preco.set("")
         self.var_destaque.set("")
         self.var_pasta_produto.set("")
+        self.var_caminho_origem.set("")
 
         self.var_nome_variacao_1.set("")
         self.var_variacoes_1.set("")
