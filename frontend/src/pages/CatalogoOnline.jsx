@@ -1792,12 +1792,16 @@ export default function CatalogoOnline() {
 
     {/* BADGE DESTAQUE MELHORADO */}
     {produto.destaque === "destaque" && (
-      <div className="absolute top-2 right-2 animate-pulse">
-        <span className="rounded-full bg-[#f4b400] px-3 py-1 text-[11px] font-black text-black shadow-lg">
-          ⭐ DESTAQUE
-        </span>
-      </div>
-    )}
+  <div className="absolute top-2 right-2">
+    <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-[#f4b400] text-black shadow-md transition group-hover:scale-110">
+      
+      {/* glow */}
+      <div className="absolute inset-0 rounded-full bg-[#f4b400] blur-md opacity-40 group-hover:opacity-70 transition" />
+
+      <span className="relative">⭐</span>
+    </div>
+  </div>
+)}
   </div>
 
   {/* CONTEÚDO */}
@@ -1956,12 +1960,16 @@ export default function CatalogoOnline() {
 
     {/* BADGE DESTAQUE MELHORADO */}
     {produto.destaque === "destaque" && (
-      <div className="absolute top-2 right-2 animate-pulse">
-        <span className="rounded-full bg-[#f4b400] px-3 py-1 text-[11px] font-black text-black shadow-lg">
-          ⭐ DESTAQUE
-        </span>
-      </div>
-    )}
+  <div className="absolute top-2 right-2">
+    <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-[#f4b400] text-black shadow-md transition group-hover:scale-110">
+      
+      {/* glow */}
+      <div className="absolute inset-0 rounded-full bg-[#f4b400] blur-md opacity-40 group-hover:opacity-70 transition" />
+
+      <span className="relative">⭐</span>
+    </div>
+  </div>
+)}
   </div>
 
   {/* CONTEÚDO */}
