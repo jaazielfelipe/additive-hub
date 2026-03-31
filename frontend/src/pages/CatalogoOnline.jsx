@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/+$/, "");
 const SITE_BASE_URL = import.meta.env.BASE_URL || "/";
 
 function slugCategoria(valor) {
@@ -35,7 +34,17 @@ function tituloCategoria(valor) {
 }
 
 function tituloItem(valor) {
-  return String(valor || "").trim();
+  const chave = slugCategoria(valor);
+
+  const mapa = {
+    "jogos-hobby": "Jogos & Hobby",
+  };
+
+  if (mapa[chave]) return mapa[chave];
+
+  return String(valor || "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (letra) => letra.toUpperCase());
 }
 
 const produtosPadrao = [
@@ -201,25 +210,6 @@ function normalizarCaminhoImagemCSV(caminho) {
   return valor;
 }
 
-function IconeCarrinho({ className = "h-5 w-5" }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="9" cy="20" r="1.5" />
-      <circle cx="18" cy="20" r="1.5" />
-      <path d="M3 4h2l2.2 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 7H7" />
-    </svg>
-  );
-}
-
 function parseCSV(texto) {
   if (!texto || !texto.trim()) return [];
 
@@ -349,10 +339,7 @@ function parseCSV(texto) {
 
 function getImagemSrc(imagem) {
   if (!imagem) return assetUrl("imagens/placeholder.png");
-
-  if (imagem.startsWith("http://") || imagem.startsWith("https://")) {
-    return imagem;
-  }
+  if (imagem.startsWith("http://") || imagem.startsWith("https://")) return imagem;
 
   const caminhoLimpo = normalizarCaminhoImagemCSV(imagem).replace(/^\/+/, "");
   return assetUrl(caminhoLimpo || "imagens/placeholder.png");
@@ -370,6 +357,25 @@ function ImagemProduto({ src, alt, className }) {
         e.currentTarget.src = assetUrl("imagens/placeholder.png");
       }}
     />
+  );
+}
+
+function IconeCarrinho({ className = "h-5 w-5" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="20" r="1.5" />
+      <circle cx="18" cy="20" r="1.5" />
+      <path d="M3 4h2l2.2 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 7H7" />
+    </svg>
   );
 }
 
@@ -527,7 +533,10 @@ export default function CatalogoOnline() {
 
   useEffect(() => {
     async function carregarCSV() {
-      const caminhos = [assetUrl("produtos.csv"), assetUrl("produtos/produtos.csv")];
+      const caminhos = [
+        assetUrl("produtos.csv"),
+        assetUrl("produtos/produtos.csv"),
+      ];
 
       for (const caminho of caminhos) {
         try {
@@ -537,7 +546,10 @@ export default function CatalogoOnline() {
           const texto = await res.text();
           const inicio = texto.trim().toLowerCase();
 
-          if (inicio.startsWith("<!doctype html") || inicio.startsWith("<html")) {
+          if (
+            inicio.startsWith("<!doctype html") ||
+            inicio.startsWith("<html")
+          ) {
             continue;
           }
 
@@ -765,23 +777,24 @@ export default function CatalogoOnline() {
       itens.push({
         label: tituloCategoria(categoriaAtiva),
         tipo: "categoria",
-        valor: categoriaAtiva,
       });
     }
 
     if (subcategoriaAtiva !== "Todos") {
       itens.push({
-        label: tituloItem(subcategoriaAtiva).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        label: tituloItem(subcategoriaAtiva)
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
         tipo: "subcategoria",
-        valor: subcategoriaAtiva,
       });
     }
 
     if (subcategoria2Ativa !== "Todos") {
       itens.push({
-        label: tituloItem(subcategoria2Ativa).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        label: tituloItem(subcategoria2Ativa)
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
         tipo: "subcategoria2",
-        valor: subcategoria2Ativa,
       });
     }
 
@@ -790,11 +803,15 @@ export default function CatalogoOnline() {
 
   const tituloSecao = useMemo(() => {
     if (subcategoria2Ativa !== "Todos") {
-      return tituloItem(subcategoria2Ativa).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+      return tituloItem(subcategoria2Ativa)
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase());
     }
 
     if (subcategoriaAtiva !== "Todos") {
-      return tituloItem(subcategoriaAtiva).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+      return tituloItem(subcategoriaAtiva)
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase());
     }
 
     if (categoriaAtiva !== "Todos") {
@@ -802,6 +819,35 @@ export default function CatalogoOnline() {
     }
 
     return "Produtos em destaque";
+  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
+
+  const estaEmPaginaFiltrada = useMemo(() => {
+    return (
+      categoriaAtiva !== "Todos" ||
+      subcategoriaAtiva !== "Todos" ||
+      subcategoria2Ativa !== "Todos"
+    );
+  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
+
+  const descricaoSecao = useMemo(() => {
+    if (subcategoria2Ativa !== "Todos") {
+      return `Explore nossa seleção de ${tituloItem(subcategoria2Ativa)
+        .replace(/-/g, " ")
+        .toLowerCase()} produzidos em impressão 3D, com foco em qualidade, acabamento e funcionalidade.`;
+    }
+
+    if (subcategoriaAtiva !== "Todos") {
+      return `Confira os produtos da linha ${tituloItem(subcategoriaAtiva)
+        .replace(/-/g, " ")} feitos em impressão 3D, ideais para decoração, organização ou uso no dia a dia.`;
+    }
+
+    if (categoriaAtiva !== "Todos") {
+      return `Veja os produtos da categoria ${tituloCategoria(
+        categoriaAtiva
+      )}, com peças desenvolvidas para unir design, praticidade e personalização.`;
+    }
+
+    return "Explore nosso catálogo de produtos em impressão 3D.";
   }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
 
   useEffect(() => {
@@ -951,6 +997,7 @@ export default function CatalogoOnline() {
     setMenuMobileAberto(false);
     setCategoriaMobileAberta(null);
     navigate("/");
+
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }, 50);
@@ -1349,95 +1396,134 @@ export default function CatalogoOnline() {
         )}
       </AnimatePresence>
 
-      <motion.section
-        className="mx-auto max-w-7xl px-4 pb-8 pt-10"
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-      >
-        <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10 lg:items-stretch">
-            <motion.div
-              className="flex min-h-[380px] flex-col justify-center py-2 sm:min-h-[430px] lg:min-h-[500px]"
-              initial={{ opacity: 0, x: -24 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.55, delay: 0.1, ease: "easeOut" }}
-            >
-              <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
-                {slideSelecionado?.tag || "Novidades"}
-              </span>
+      {!estaEmPaginaFiltrada ? (
+        <motion.section
+          className="mx-auto max-w-7xl px-4 pb-8 pt-10"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+            <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10 lg:items-stretch">
+              <motion.div
+                className="flex min-h-[380px] flex-col justify-center py-2 sm:min-h-[430px] lg:min-h-[500px]"
+                initial={{ opacity: 0, x: -24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.55, delay: 0.1, ease: "easeOut" }}
+              >
+                <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
+                  {slideSelecionado?.tag || "Novidades"}
+                </span>
 
-              <h3 className="mt-5 max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
-                {slideSelecionado?.titulo}
-              </h3>
+                <h3 className="mt-5 max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
+                  {slideSelecionado?.titulo}
+                </h3>
 
-              <div className="mt-5 min-h-[190px] sm:min-h-[170px] lg:min-h-[210px]">
-                <p className="max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
-                  {slideSelecionado?.tag === "Em breve" ? (
-                    <>
-                      {slideSelecionado.subtitulo.split("Aguarde")[0]}
-                      <span className="mt-3 block font-semibold text-[#b38200]">
-                        Aguarde — em breve disponível para encomenda.
-                      </span>
-                    </>
-                  ) : (
-                    slideSelecionado?.subtitulo
-                  )}
-                </p>
-              </div>
-
-              <div className="mt-6 flex items-center gap-2">
-                {slidesDestaque.map((slide, index) => (
-                  <button
-                    key={slide.id}
-                    type="button"
-                    onClick={() => setSlideAtual(index)}
-                    className={`h-2.5 rounded-full transition-all ${
-                      slideAtual === index ? "w-10 bg-[#f4b400]" : "w-2.5 bg-zinc-300"
-                    }`}
-                    aria-label={`Ir para slide ${index + 1}`}
-                  />
-                ))}
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={slideAnterior}
-                  className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
-                >
-                  ←
-                </button>
-
-                <button
-                  type="button"
-                  onClick={proximoSlide}
-                  className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
-                >
-                  →
-                </button>
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="self-center lg:self-stretch"
-              initial={{ opacity: 0, x: 24, scale: 0.98 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
-            >
-              <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
-                <div className="relative h-[220px] w-full overflow-hidden bg-zinc-100 sm:h-[300px] lg:h-[500px]">
-                  <ImagemProduto
-                    src={slideSelecionado?.imagem}
-                    alt={slideSelecionado?.titulo || "Banner em destaque"}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
+                <div className="mt-5 min-h-[190px] sm:min-h-[170px] lg:min-h-[210px]">
+                  <p className="max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
+                    {slideSelecionado?.tag === "Em breve" ? (
+                      <>
+                        {slideSelecionado.subtitulo.split("Aguarde")[0]}
+                        <span className="mt-3 block font-semibold text-[#b38200]">
+                          Aguarde — em breve disponível para encomenda.
+                        </span>
+                      </>
+                    ) : (
+                      slideSelecionado?.subtitulo
+                    )}
+                  </p>
                 </div>
-              </div>
-            </motion.div>
+
+                <div className="mt-6 flex items-center gap-2">
+                  {slidesDestaque.map((slide, index) => (
+                    <button
+                      key={slide.id}
+                      type="button"
+                      onClick={() => setSlideAtual(index)}
+                      className={`h-2.5 rounded-full transition-all ${
+                        slideAtual === index ? "w-10 bg-[#f4b400]" : "w-2.5 bg-zinc-300"
+                      }`}
+                      aria-label={`Ir para slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={slideAnterior}
+                    className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+                  >
+                    ←
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={proximoSlide}
+                    className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+                  >
+                    →
+                  </button>
+                </div>
+              </motion.div>
+
+              <motion.div
+                className="self-center lg:self-stretch"
+                initial={{ opacity: 0, x: 24, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
+              >
+                <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
+                  <div className="relative h-[220px] w-full overflow-hidden bg-zinc-100 sm:h-[300px] lg:h-[500px]">
+                    <ImagemProduto
+                      src={slideSelecionado?.imagem}
+                      alt={slideSelecionado?.titulo || "Banner em destaque"}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           </div>
-        </div>
-      </motion.section>
+        </motion.section>
+      ) : (
+        <motion.section
+          className="mx-auto max-w-7xl px-4 pb-6 pt-8"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+        >
+          <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-sm">
+            <div className="px-6 py-7 md:px-8 md:py-8">
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
+                Coleção
+              </p>
+
+              <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
+                {tituloSecao}
+              </h1>
+
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 md:text-base">
+                {descricaoSecao}
+              </p>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700">
+                  {produtosFiltrados.length} item(ns)
+                </span>
+
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+                >
+                  Ver todos os produtos
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+      )}
 
       <main
         id="catalogo"
@@ -1709,11 +1795,11 @@ export default function CatalogoOnline() {
                 <div className="mt-auto pt-3">
                   <div className="grid grid-cols-1 gap-2">
                     <button
-  onClick={() => navigate(`/produto/${produto.id}`)}
-  className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-50 sm:text-sm"
->
-  Ver produto
-</button>
+                      onClick={() => navigate(`/produto/${produto.id}`)}
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-50 sm:text-sm"
+                    >
+                      Ver produto
+                    </button>
 
                     {produtoTemVariacoes(produto) ? (
                       <button
@@ -2168,6 +2254,13 @@ export default function CatalogoOnline() {
                         Adicionar ao carrinho
                       </button>
                     )}
+
+                    <button
+                      onClick={() => navigate(`/produto/${produtoSelecionado.id}`)}
+                      className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+                    >
+                      Abrir página do produto
+                    </button>
 
                     <button
                       onClick={fecharDetalhes}
