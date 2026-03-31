@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import "./index.css";
 
 import CatalogoOnline from "./pages/CatalogoOnline";
+import ProdutoDetalhe from "./pages/ProdutoDetalhe";
 import PaginaSucesso from "./pages/PaginaSucesso";
 import PaginaFalha from "./pages/PaginaFalha";
 import PaginaPendente from "./pages/PaginaPendente";
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/categoria/:categoria" element={<CatalogoOnline />} />
         <Route path="/categoria/:categoria/:subcategoria" element={<CatalogoOnline />} />
         <Route path="/categoria/:categoria/:subcategoria/:subcategoria2" element={<CatalogoOnline />} />
+        <Route path="/produto/:id" element={<ProdutoDetalhe />} />
 
         <Route path="/carrinho" element={<Carrinho />} />
         <Route path="/checkout" element={<Checkout />} />

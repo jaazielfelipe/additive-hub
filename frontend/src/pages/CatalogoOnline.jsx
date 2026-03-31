@@ -38,37 +38,6 @@ function tituloItem(valor) {
   return String(valor || "").trim();
 }
 
-const menuCategoriasPadrao = [
-  {
-    nome: "Casa & Organização",
-    chave: "casa-oraganizacao",
-    itens: [
-      "Banheiro",
-      "Cozinha",
-      "Escritório",
-      "Jogos & Hobby",
-      "Lavanderia",
-      "Quarto",
-      "Sala",
-    ],
-  },
-  {
-    nome: "Chaveiros",
-    chave: "chaveiros",
-    itens: ["Slim", "3D"],
-  },
-  {
-    nome: "Decoração",
-    chave: "decoracao",
-    itens: ["Imãs", "Letreiros", "Miniaturas", "Porta-retrato", "Vasos"],
-  },
-  {
-    nome: "Quem somos",
-    chave: "quem-somos",
-    itens: [],
-  },
-];
-
 const produtosPadrao = [
   {
     id: 1,
@@ -187,15 +156,6 @@ const slidesDestaque = [
     imagem: "/imagens/banners/banner-3.png",
     produtoId: 3,
   },
-  /* {
-    id: 4,
-    tag: "Novidades",
-    titulo: "Especial de Páscoa 3D",
-    subtitulo:
-      "Prepare-se para a Páscoa com peças criativas e personalizadas. Temos porta-ovos, lembrancinhas, brindes e itens exclusivos em impressão 3D, perfeitos para presentear, vender ou decorar. Produção sob demanda com possibilidade de personalização em cores e nomes.",
-    imagem: "/imagens/banners/banner-4.png",
-    produtoId: 4,
-  }, */
 ];
 
 function assetUrl(caminho) {
@@ -235,13 +195,8 @@ function normalizarCaminhoImagemCSV(caminho) {
     );
   }
 
-  if (valor.startsWith("imagens/produtos/")) {
-    return valor;
-  }
-
-  if (valor.startsWith("produtos/imagens/")) {
-    return valor;
-  }
+  if (valor.startsWith("imagens/produtos/")) return valor;
+  if (valor.startsWith("produtos/imagens/")) return valor;
 
   return valor;
 }
@@ -288,9 +243,7 @@ function parseCSV(texto) {
       linhaAtual.push(campoAtual);
       campoAtual = "";
     } else if ((char === "\n" || char === "\r") && !emAspas) {
-      if (char === "\r" && proximo === "\n") {
-        i += 1;
-      }
+      if (char === "\r" && proximo === "\n") i += 1;
 
       linhaAtual.push(campoAtual);
       campoAtual = "";
@@ -299,10 +252,7 @@ function parseCSV(texto) {
         (campo) => String(campo).trim() !== ""
       );
 
-      if (linhaTemConteudo) {
-        linhas.push(linhaAtual);
-      }
-
+      if (linhaTemConteudo) linhas.push(linhaAtual);
       linhaAtual = [];
     } else {
       campoAtual += char;
@@ -315,10 +265,7 @@ function parseCSV(texto) {
     (campo) => String(campo).trim() !== ""
   );
 
-  if (ultimaLinhaTemConteudo) {
-    linhas.push(linhaAtual);
-  }
-
+  if (ultimaLinhaTemConteudo) linhas.push(linhaAtual);
   if (linhas.length < 2) return [];
 
   const limparCampo = (valor) =>
@@ -401,16 +348,13 @@ function parseCSV(texto) {
 }
 
 function getImagemSrc(imagem) {
-  if (!imagem) {
-    return assetUrl("imagens/placeholder.png");
-  }
+  if (!imagem) return assetUrl("imagens/placeholder.png");
 
   if (imagem.startsWith("http://") || imagem.startsWith("https://")) {
     return imagem;
   }
 
   const caminhoLimpo = normalizarCaminhoImagemCSV(imagem).replace(/^\/+/, "");
-
   return assetUrl(caminhoLimpo || "imagens/placeholder.png");
 }
 
@@ -503,9 +447,7 @@ function montarResumoVariacoes(produto, selecoes) {
 function gerarChaveCarrinho(produto, selecoes = {}) {
   const base = String(produto?.id ?? "");
 
-  if (!produtoTemVariacoes(produto)) {
-    return base;
-  }
+  if (!produtoTemVariacoes(produto)) return base;
 
   const sufixo = produto.variacoes
     .map((variacao) => `${variacao.nome}:${normalizarTexto(selecoes?.[variacao.nome])}`)
@@ -514,12 +456,23 @@ function gerarChaveCarrinho(produto, selecoes = {}) {
   return `${base}__${sufixo}`;
 }
 
+function formatarMoeda(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
 export default function CatalogoOnline() {
+  const navigate = useNavigate();
+  const { categoria, subcategoria, subcategoria2 } = useParams();
+
   const [produtos, setProdutos] = useState(produtosPadrao);
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
   const [subcategoriaAtiva, setSubcategoriaAtiva] = useState("Todos");
   const [subcategoria2Ativa, setSubcategoria2Ativa] = useState("Todos");
   const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState("destaque");
   const [produtoSelecionado, setProdutoSelecionado] = useState(null);
   const [imagemAtiva, setImagemAtiva] = useState(0);
   const [slideAtual, setSlideAtual] = useState(0);
@@ -527,11 +480,8 @@ export default function CatalogoOnline() {
   const [categoriaMobileAberta, setCategoriaMobileAberta] = useState(null);
   const [animacoesCarrinho, setAnimacoesCarrinho] = useState([]);
   const [carrinhoDestacado, setCarrinhoDestacado] = useState(false);
-  const [carrinhoAberto, setCarrinhoAberto] = useState(false);
   const [mostrarBarraCarrinhoMobile, setMostrarBarraCarrinhoMobile] = useState(false);
   const [selecoesVariacao, setSelecoesVariacao] = useState({});
-  const navigate = useNavigate();
-  const { categoria, subcategoria, subcategoria2 } = useParams();
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
@@ -551,34 +501,10 @@ export default function CatalogoOnline() {
   }, [carrinho]);
 
   useEffect(() => {
-    localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
-  }, [carrinho]);
-
-  useEffect(() => {
     document.documentElement.lang = "pt-BR";
     document.documentElement.setAttribute("translate", "no");
     document.body.setAttribute("translate", "no");
   }, []);
-
-  useEffect(() => {
-  if (categoria) {
-    setCategoriaAtiva(categoria);
-  } else {
-    setCategoriaAtiva("Todos");
-  }
-
-  if (subcategoria) {
-    setSubcategoriaAtiva(subcategoria);
-  } else {
-    setSubcategoriaAtiva("Todos");
-  }
-
-  if (subcategoria2) {
-    setSubcategoria2Ativa(subcategoria2);
-  } else {
-    setSubcategoria2Ativa("Todos");
-  }
-}, [categoria, subcategoria, subcategoria2]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -599,57 +525,58 @@ export default function CatalogoOnline() {
     };
   }, []);
 
- useEffect(() => {
-  async function carregarCSV() {
-    const caminhos = [
-      assetUrl("produtos.csv"),
-      assetUrl("produtos/produtos.csv"),
-    ];
+  useEffect(() => {
+    async function carregarCSV() {
+      const caminhos = [assetUrl("produtos.csv"), assetUrl("produtos/produtos.csv")];
 
-    console.log("BASE_URL:", import.meta.env.BASE_URL);
-    console.log("Caminhos testados:", caminhos);
+      for (const caminho of caminhos) {
+        try {
+          const res = await fetch(caminho, { cache: "no-store" });
+          if (!res.ok) continue;
 
-    for (const caminho of caminhos) {
-      try {
-        console.log("Tentando carregar CSV em:", caminho);
+          const texto = await res.text();
+          const inicio = texto.trim().toLowerCase();
 
-        const res = await fetch(caminho, { cache: "no-store" });
-        console.log("Status fetch:", caminho, res.status, res.ok);
+          if (inicio.startsWith("<!doctype html") || inicio.startsWith("<html")) {
+            continue;
+          }
 
-        if (!res.ok) continue;
+          const lista = parseCSV(texto);
 
-        const texto = await res.text();
-        console.log("Primeiros 300 caracteres do CSV:", texto.slice(0, 300));
-
-        const inicio = texto.trim().toLowerCase();
-
-        if (
-          inicio.startsWith("<!doctype html") ||
-          inicio.startsWith("<html")
-        ) {
-          console.warn(`O caminho ${caminho} retornou HTML, não CSV.`);
-          continue;
+          if (lista.length > 0) {
+            setProdutos(lista);
+            return;
+          }
+        } catch (erro) {
+          console.error(`Erro ao carregar CSV em ${caminho}:`, erro);
         }
-
-        const lista = parseCSV(texto);
-        console.log("Quantidade de produtos lidos:", lista.length);
-        console.log("Primeiro produto lido:", lista[0]);
-
-        if (lista.length > 0) {
-          setProdutos(lista);
-          return;
-        }
-      } catch (erro) {
-        console.error(`Erro ao carregar CSV em ${caminho}:`, erro);
       }
+
+      setProdutos(produtosPadrao);
     }
 
-    console.error("Nenhum CSV válido encontrado.");
-    setProdutos(produtosPadrao);
-  }
+    carregarCSV();
+  }, []);
 
-  carregarCSV();
-}, []);
+  useEffect(() => {
+    if (categoria) {
+      setCategoriaAtiva(categoria);
+    } else {
+      setCategoriaAtiva("Todos");
+    }
+
+    if (subcategoria) {
+      setSubcategoriaAtiva(subcategoria);
+    } else {
+      setSubcategoriaAtiva("Todos");
+    }
+
+    if (subcategoria2) {
+      setSubcategoria2Ativa(subcategoria2);
+    } else {
+      setSubcategoria2Ativa("Todos");
+    }
+  }, [categoria, subcategoria, subcategoria2]);
 
   useEffect(() => {
     const intervalo = setInterval(() => {
@@ -736,14 +663,12 @@ export default function CatalogoOnline() {
   }, [produtos]);
 
   const subcategoriasVisiveis = useMemo(() => {
-    if (categoriaAtiva === "Todos") {
-      return [];
-    }
+    if (categoriaAtiva === "Todos") return [];
 
     return [
       ...new Set(
         produtos
-          .filter((produto) => produto.categoria === categoriaAtiva)
+          .filter((produto) => slugCategoria(produto.categoria) === categoriaAtiva)
           .map((produto) => produto.subcategoria)
           .filter(Boolean)
       ),
@@ -751,17 +676,15 @@ export default function CatalogoOnline() {
   }, [produtos, categoriaAtiva]);
 
   const subcategorias2Visiveis = useMemo(() => {
-    if (categoriaAtiva === "Todos" || subcategoriaAtiva === "Todos") {
-      return [];
-    }
+    if (categoriaAtiva === "Todos" || subcategoriaAtiva === "Todos") return [];
 
     return [
       ...new Set(
         produtos
           .filter(
             (produto) =>
-              produto.categoria === categoriaAtiva &&
-              produto.subcategoria === subcategoriaAtiva
+              slugCategoria(produto.categoria) === categoriaAtiva &&
+              slugCategoria(produto.subcategoria) === subcategoriaAtiva
           )
           .map((produto) => produto.subcategoria2)
           .filter(Boolean)
@@ -770,19 +693,21 @@ export default function CatalogoOnline() {
   }, [produtos, categoriaAtiva, subcategoriaAtiva]);
 
   const produtosFiltrados = useMemo(() => {
-    return produtos.filter((produto) => {
+    const termo = busca.toLowerCase().trim();
+
+    const filtrados = produtos.filter((produto) => {
       const bateCategoria =
-        categoriaAtiva === "Todos" || slugCategoria(produto.categoria) === categoriaAtiva
+        categoriaAtiva === "Todos" ||
+        slugCategoria(produto.categoria) === categoriaAtiva;
 
       const bateSubcategoria =
         subcategoriaAtiva === "Todos" ||
-        slugCategoria(produto.subcategoria) === subcategoriaAtiva
+        slugCategoria(produto.subcategoria) === subcategoriaAtiva;
 
       const bateSubcategoria2 =
         subcategoria2Ativa === "Todos" ||
-        slugCategoria(produto.subcategoria2) === subcategoria2Ativa
+        slugCategoria(produto.subcategoria2) === subcategoria2Ativa;
 
-      const termo = busca.toLowerCase().trim();
       const bateBusca =
         termo === "" ||
         produto.nome.toLowerCase().includes(termo) ||
@@ -799,17 +724,27 @@ export default function CatalogoOnline() {
 
       return bateCategoria && bateSubcategoria && bateSubcategoria2 && bateBusca;
     });
-  }, [produtos, categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca]);
+
+    switch (ordenacao) {
+      case "menor-preco":
+        return [...filtrados].sort((a, b) => a.preco - b.preco);
+      case "maior-preco":
+        return [...filtrados].sort((a, b) => b.preco - a.preco);
+      case "nome-az":
+        return [...filtrados].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+      case "nome-za":
+        return [...filtrados].sort((a, b) => b.nome.localeCompare(a.nome, "pt-BR"));
+      default:
+        return filtrados;
+    }
+  }, [produtos, categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, ordenacao]);
 
   const totalItensCarrinho = useMemo(() => {
     return carrinho.reduce((total, item) => total + item.quantidade, 0);
   }, [carrinho]);
 
   const totalCarrinho = useMemo(() => {
-    return carrinho.reduce(
-      (total, item) => total + item.preco * item.quantidade,
-      0
-    );
+    return carrinho.reduce((total, item) => total + item.preco * item.quantidade, 0);
   }, [carrinho]);
 
   useEffect(() => {
@@ -820,12 +755,72 @@ export default function CatalogoOnline() {
       return;
     }
 
-    if (totalItensCarrinho > 0) {
-      setMostrarBarraCarrinhoMobile(true);
-    } else {
-      setMostrarBarraCarrinhoMobile(false);
-    }
+    setMostrarBarraCarrinhoMobile(totalItensCarrinho > 0);
   }, [totalItensCarrinho]);
+
+  const breadcrumb = useMemo(() => {
+    const itens = [{ label: "Início", tipo: "inicio" }];
+
+    if (categoriaAtiva !== "Todos") {
+      itens.push({
+        label: tituloCategoria(categoriaAtiva),
+        tipo: "categoria",
+        valor: categoriaAtiva,
+      });
+    }
+
+    if (subcategoriaAtiva !== "Todos") {
+      itens.push({
+        label: tituloItem(subcategoriaAtiva).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        tipo: "subcategoria",
+        valor: subcategoriaAtiva,
+      });
+    }
+
+    if (subcategoria2Ativa !== "Todos") {
+      itens.push({
+        label: tituloItem(subcategoria2Ativa).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        tipo: "subcategoria2",
+        valor: subcategoria2Ativa,
+      });
+    }
+
+    return itens;
+  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
+
+  const tituloSecao = useMemo(() => {
+    if (subcategoria2Ativa !== "Todos") {
+      return tituloItem(subcategoria2Ativa).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    }
+
+    if (subcategoriaAtiva !== "Todos") {
+      return tituloItem(subcategoriaAtiva).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    }
+
+    if (categoriaAtiva !== "Todos") {
+      return `Produtos de ${tituloCategoria(categoriaAtiva)}`;
+    }
+
+    return "Produtos em destaque";
+  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
+
+  useEffect(() => {
+    const partes = ["Additive Hub"];
+
+    if (categoriaAtiva !== "Todos") partes.unshift(tituloCategoria(categoriaAtiva));
+    if (subcategoriaAtiva !== "Todos") {
+      partes.unshift(
+        tituloItem(subcategoriaAtiva).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+      );
+    }
+    if (subcategoria2Ativa !== "Todos") {
+      partes.unshift(
+        tituloItem(subcategoria2Ativa).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+      );
+    }
+
+    document.title = partes.join(" | ");
+  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
 
   const slideSelecionado = slidesDestaque[slideAtual];
 
@@ -872,10 +867,7 @@ export default function CatalogoOnline() {
     setAnimacoesCarrinho((atual) => [...atual, item]);
     setCarrinhoDestacado(true);
 
-    window.setTimeout(() => {
-      setCarrinhoDestacado(false);
-    }, 450);
-
+    window.setTimeout(() => setCarrinhoDestacado(false), 450);
     window.setTimeout(() => {
       setAnimacoesCarrinho((atual) => atual.filter((anim) => anim.id !== id));
     }, 900);
@@ -922,22 +914,6 @@ export default function CatalogoOnline() {
     });
   };
 
-  const aumentarQuantidade = (itemCarrinho, event) => {
-    if (!itemCarrinho) return;
-
-    if (event) {
-      animarProdutoParaCarrinho(event);
-    }
-
-    setCarrinho((anterior) =>
-      anterior.map((item) =>
-        item.carrinhoKey === itemCarrinho.carrinhoKey
-          ? { ...item, quantidade: item.quantidade + 1 }
-          : item
-      )
-    );
-  };
-
   const diminuirQuantidade = (itemCarrinho) => {
     if (!itemCarrinho) return;
 
@@ -969,19 +945,58 @@ export default function CatalogoOnline() {
     secao?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const selecionarCategoria = (categoria) => {
-  navigate(`/categoria/${categoria}`);
-};
+  const limparFiltros = () => {
+    setBusca("");
+    setOrdenacao("destaque");
+    setMenuMobileAberto(false);
+    setCategoriaMobileAberta(null);
+    navigate("/");
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 50);
+  };
 
-  const selecionarSubcategoria = (categoria, subcategoria) => {
-  navigate(`/categoria/${categoria}/${slugCategoria(subcategoria)}`);
-};
+  const selecionarCategoria = (categoriaEscolhida) => {
+    setBusca("");
+    setMenuMobileAberto(false);
+    setCategoriaMobileAberta(null);
 
-  const selecionarSubcategoria2 = (categoria, subcategoria, subcategoria2) => {
-  navigate(
-    `/categoria/${categoria}/${slugCategoria(subcategoria)}/${slugCategoria(subcategoria2)}`
-  );
-};
+    if (categoriaEscolhida === "Todos") {
+      navigate("/");
+    } else {
+      navigate(`/categoria/${categoriaEscolhida}`);
+    }
+
+    setTimeout(() => {
+      irParaCatalogo();
+    }, 50);
+  };
+
+  const selecionarSubcategoria = (categoriaEscolhida, subEscolhida) => {
+    setBusca("");
+    setMenuMobileAberto(false);
+    setCategoriaMobileAberta(null);
+
+    navigate(`/categoria/${categoriaEscolhida}/${slugCategoria(subEscolhida)}`);
+
+    setTimeout(() => {
+      irParaCatalogo();
+    }, 50);
+  };
+
+  const selecionarSubcategoria2 = (categoriaEscolhida, subEscolhida, sub2Escolhida) => {
+    setBusca("");
+    setMenuMobileAberto(false);
+    setCategoriaMobileAberta(null);
+
+    navigate(
+      `/categoria/${categoriaEscolhida}/${slugCategoria(subEscolhida)}/${slugCategoria(sub2Escolhida)}`
+    );
+
+    setTimeout(() => {
+      irParaCatalogo();
+    }, 50);
+  };
 
   const proximoSlide = () => {
     setSlideAtual((atual) => (atual + 1) % slidesDestaque.length);
@@ -1005,9 +1020,16 @@ export default function CatalogoOnline() {
     >
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4">
-          <div className="flex items-center gap-4 md:gap-12 flex-1">
+          <div className="flex flex-1 items-center gap-4 md:gap-12">
             <div className="flex items-center gap-3">
-              
+              <img
+                src={assetUrl("logo.png")}
+                alt="Additive Hub"
+                className="h-10 w-auto"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
               <div>
                 <h1 className="text-xl font-bold tracking-tight md:text-2xl">
                   Additive Hub
@@ -1017,80 +1039,82 @@ export default function CatalogoOnline() {
             </div>
 
             <nav className="ml-8 hidden flex-1 items-center justify-evenly lg:flex">
-              {menuCategorias.map((categoria) => {
-                const temSubmenu = categoria.itens.length > 0;
+              {menuCategorias.map((categoriaItem) => {
+                const temSubmenu = categoriaItem.itens.length > 0;
 
                 if (!temSubmenu) {
                   const acao =
-                    categoria.chave === "quem-somos"
+                    categoriaItem.chave === "quem-somos"
                       ? irParaQuemSomos
-                      : () => selecionarCategoria(categoria.chave);
+                      : () => selecionarCategoria(categoriaItem.chave);
 
                   return (
                     <button
-                      key={categoria.nome}
+                      key={categoriaItem.nome}
                       type="button"
                       onClick={acao}
                       className="rounded-xl px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
-                      {categoria.nome}
+                      {categoriaItem.nome}
                     </button>
                   );
                 }
 
                 return (
-                  <div key={categoria.nome} className="group relative">
+                  <div key={categoriaItem.nome} className="group relative">
                     <button
                       type="button"
-                      onClick={() => selecionarCategoria(categoria.chave)}
+                      onClick={() => selecionarCategoria(categoriaItem.chave)}
                       className="rounded-xl px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900"
                     >
-                      {categoria.nome}
+                      {categoriaItem.nome}
                     </button>
 
                     <div className="invisible absolute left-0 top-full z-40 mt-2 w-72 rounded-2xl border border-zinc-200 bg-white p-2 opacity-0 shadow-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
                       <button
                         type="button"
-                        onClick={() => selecionarCategoria(categoria.chave)}
+                        onClick={() => selecionarCategoria(categoriaItem.chave)}
                         className="block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#b38200] transition hover:bg-[#fff8df]"
                       >
-                        Ver tudo em {categoria.nome}
+                        Ver tudo em {categoriaItem.nome}
                       </button>
 
                       <div className="my-2 border-t border-zinc-100" />
 
-                      {categoria.itens.map((item) => (
-  <div key={item} className="group/item relative rounded-xl hover:bg-zinc-50">
+                      {categoriaItem.itens.map((item) => (
+                        <div key={item} className="group/item relative rounded-xl hover:bg-zinc-50">
                           <button
-  type="button"
-  onClick={() => selecionarSubcategoria(categoria.chave, item)}
-  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium text-zinc-700"
->
-  {item}
+                            type="button"
+                            onClick={() => selecionarSubcategoria(categoriaItem.chave, item)}
+                            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium text-zinc-700"
+                          >
+                            {item}
 
-  {categoria.itensNivel2?.[item]?.length > 0 && (
-    <svg
-      className="h-4 w-4 text-zinc-400 transition group-hover/item:translate-x-1"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9 18l6-6-6-6" />
-    </svg>
-  )}
-</button>
+                            {categoriaItem.itensNivel2?.[item]?.length > 0 && (
+                              <svg
+                                className="h-4 w-4 text-zinc-400 transition group-hover/item:translate-x-1"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M9 18l6-6-6-6" />
+                              </svg>
+                            )}
+                          </button>
 
-                          {categoria.itensNivel2?.[item]?.length > 0 && (
-  <div className="invisible absolute left-full top-0 z-50 ml-1 w-64 rounded-2xl border border-zinc-200 bg-white p-2 opacity-0 shadow-xl transition-all duration-200 group-hover/item:visible group-hover/item:opacity-100">
-                              {categoria.itensNivel2[item].map((itemNivel2) => (
+                          {categoriaItem.itensNivel2?.[item]?.length > 0 && (
+                            <div className="invisible absolute left-full top-0 z-50 ml-1 w-64 rounded-2xl border border-zinc-200 bg-white p-2 opacity-0 shadow-xl transition-all duration-200 group-hover/item:visible group-hover/item:opacity-100">
+                              {categoriaItem.itensNivel2[item].map((itemNivel2) => (
                                 <button
                                   type="button"
                                   key={`${item}-${itemNivel2}`}
-                                  onClick={() => selecionarSubcategoria2(categoria.chave, item, itemNivel2)}
-                                  className="block w-full rounded-xl px-3 py-1.5 text-left text-xs text-zinc-500 transition hover:bg-white"
+                                  onClick={() =>
+                                    selecionarSubcategoria2(categoriaItem.chave, item, itemNivel2)
+                                  }
+                                  className="block w-full rounded-xl px-3 py-1.5 text-left text-xs text-zinc-500 transition hover:bg-zinc-50"
                                 >
                                   {itemNivel2}
                                 </button>
@@ -1178,9 +1202,6 @@ export default function CatalogoOnline() {
                 setCategoriaMobileAberta(null);
               }}
               aria-label="Fechar menu"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
             />
 
             <motion.div
@@ -1217,13 +1238,13 @@ export default function CatalogoOnline() {
                   Ver todos os produtos
                 </button>
 
-                {menuCategorias.map((categoria) => {
-                  const temSubmenu = categoria.itens.length > 0;
-                  const aberta = categoriaMobileAberta === categoria.nome;
+                {menuCategorias.map((categoriaItem) => {
+                  const temSubmenu = categoriaItem.itens.length > 0;
+                  const aberta = categoriaMobileAberta === categoriaItem.nome;
 
                   if (!temSubmenu) {
                     const acao =
-                      categoria.chave === "quem-somos"
+                      categoriaItem.chave === "quem-somos"
                         ? () => {
                             setMenuMobileAberto(false);
                             setCategoriaMobileAberta(null);
@@ -1231,43 +1252,43 @@ export default function CatalogoOnline() {
                               irParaQuemSomos();
                             }, 50);
                           }
-                        : () => selecionarCategoria(categoria.chave);
+                        : () => selecionarCategoria(categoriaItem.chave);
 
                     return (
                       <button
-                        key={categoria.nome}
+                        key={categoriaItem.nome}
                         type="button"
                         onClick={acao}
                         className="mb-2 block w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-left text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
                       >
-                        {categoria.nome}
+                        {categoriaItem.nome}
                       </button>
                     );
                   }
 
                   return (
                     <div
-                      key={categoria.nome}
+                      key={categoriaItem.nome}
                       className="mb-2 overflow-hidden rounded-2xl border border-zinc-200 bg-white"
                     >
                       <div className="flex items-center">
                         <button
                           type="button"
-                          onClick={() => selecionarCategoria(categoria.chave)}
+                          onClick={() => selecionarCategoria(categoriaItem.chave)}
                           className="flex-1 px-4 py-3 text-left text-sm font-semibold text-zinc-900"
                         >
-                          {categoria.nome}
+                          {categoriaItem.nome}
                         </button>
 
                         <button
                           type="button"
                           onClick={() =>
                             setCategoriaMobileAberta((atual) =>
-                              atual === categoria.nome ? null : categoria.nome
+                              atual === categoriaItem.nome ? null : categoriaItem.nome
                             )
                           }
                           className="px-4 py-3 text-zinc-600"
-                          aria-label={`Expandir ${categoria.nome}`}
+                          aria-label={`Expandir ${categoriaItem.nome}`}
                         >
                           {aberta ? "−" : "+"}
                         </button>
@@ -1277,32 +1298,36 @@ export default function CatalogoOnline() {
                         <div className="border-t border-zinc-100 bg-zinc-50 p-2">
                           <button
                             type="button"
-                            onClick={() => selecionarCategoria(categoria.chave)}
+                            onClick={() => selecionarCategoria(categoriaItem.chave)}
                             className="mb-1 block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#b38200]"
                           >
-                            Ver tudo em {categoria.nome}
+                            Ver tudo em {categoriaItem.nome}
                           </button>
 
-                          {categoria.itens.map((item) => (
+                          {categoriaItem.itens.map((item) => (
                             <div key={item}>
                               <button
                                 type="button"
                                 onClick={() =>
-                                  selecionarSubcategoria(categoria.chave, item)
+                                  selecionarSubcategoria(categoriaItem.chave, item)
                                 }
                                 className="block w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-zinc-700 transition hover:bg-white"
                               >
                                 {item}
                               </button>
 
-                              {categoria.itensNivel2?.[item]?.length > 0 && (
+                              {categoriaItem.itensNivel2?.[item]?.length > 0 && (
                                 <div className="pb-2 pl-3">
-                                  {categoria.itensNivel2[item].map((itemNivel2) => (
+                                  {categoriaItem.itensNivel2[item].map((itemNivel2) => (
                                     <button
                                       key={`${item}-${itemNivel2}`}
                                       type="button"
                                       onClick={() =>
-                                        selecionarSubcategoria2(categoria.chave, item, itemNivel2)
+                                        selecionarSubcategoria2(
+                                          categoriaItem.chave,
+                                          item,
+                                          itemNivel2
+                                        )
                                       }
                                       className="block w-full rounded-xl px-3 py-1.5 text-left text-xs text-zinc-500 transition hover:bg-white"
                                     >
@@ -1414,7 +1439,45 @@ export default function CatalogoOnline() {
         </div>
       </motion.section>
 
-      <main id="catalogo" className={`mx-auto max-w-7xl px-4 pt-8 ${mostrarBarraCarrinhoMobile ? "pb-28" : "pb-16"} lg:pb-16`}>
+      <main
+        id="catalogo"
+        className={`mx-auto max-w-7xl px-4 pt-8 ${mostrarBarraCarrinhoMobile ? "pb-28" : "pb-16"} lg:pb-16`}
+      >
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
+          {breadcrumb.map((item, index) => {
+            const ultimo = index === breadcrumb.length - 1;
+
+            return (
+              <div key={`${item.tipo}-${item.label}`} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (item.tipo === "inicio") return limparFiltros();
+                    if (item.tipo === "categoria") return selecionarCategoria(categoriaAtiva);
+                    if (item.tipo === "subcategoria") {
+                      return selecionarSubcategoria(categoriaAtiva, subcategoriaAtiva);
+                    }
+                    if (item.tipo === "subcategoria2") {
+                      return selecionarSubcategoria2(
+                        categoriaAtiva,
+                        subcategoriaAtiva,
+                        subcategoria2Ativa
+                      );
+                    }
+                  }}
+                  className={`transition hover:text-zinc-900 ${
+                    ultimo ? "font-semibold text-zinc-900" : ""
+                  }`}
+                >
+                  {item.label}
+                </button>
+
+                {!ultimo && <span>/</span>}
+              </div>
+            );
+          })}
+        </div>
+
         <div className="mb-6 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
@@ -1431,22 +1494,36 @@ export default function CatalogoOnline() {
             </div>
 
             <div>
-              <p className="mb-2 text-sm font-medium text-zinc-700">Categorias</p>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-zinc-700">Categorias</p>
+
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+
               <div className="flex flex-wrap gap-2">
-                {categorias.map((categoria) => {
-                  const ativa = categoriaAtiva === categoria;
+                {categorias.map((categoriaItem) => {
+                  const valorCategoria =
+                    categoriaItem === "Todos" ? "Todos" : slugCategoria(categoriaItem);
+
+                  const ativa = categoriaAtiva === valorCategoria;
 
                   return (
                     <button
-                      key={categoria === "Todos" ? "Todos" : tituloCategoria(categoria)}
-                      onClick={() => selecionarCategoria(categoria)}
+                      key={categoriaItem === "Todos" ? "Todos" : tituloCategoria(categoriaItem)}
+                      onClick={() => selecionarCategoria(valorCategoria)}
                       className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                         ativa
                           ? "bg-[#f4b400] text-black shadow-sm"
                           : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
                       }`}
                     >
-                      {categoria === "Todos" ? "Todos" : tituloCategoria(categoria)}
+                      {categoriaItem === "Todos" ? "Todos" : tituloCategoria(categoriaItem)}
                     </button>
                   );
                 })}
@@ -1455,10 +1532,7 @@ export default function CatalogoOnline() {
               {subcategoriasVisiveis.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    onClick={() => {
-                      setSubcategoriaAtiva("Todos");
-                      setSubcategoria2Ativa("Todos");
-                    }}
+                    onClick={() => selecionarCategoria(categoriaAtiva)}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                       subcategoriaAtiva === "Todos"
                         ? "bg-zinc-900 text-white"
@@ -1468,20 +1542,17 @@ export default function CatalogoOnline() {
                     Todas
                   </button>
 
-                  {subcategoriasVisiveis.map((subcategoria) => (
+                  {subcategoriasVisiveis.map((sub) => (
                     <button
-                      key={subcategoria}
-                      onClick={() => {
-                        setSubcategoriaAtiva(subcategoria);
-                        setSubcategoria2Ativa("Todos");
-                      }}
+                      key={sub}
+                      onClick={() => selecionarSubcategoria(categoriaAtiva, sub)}
                       className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                        subcategoriaAtiva === subcategoria
+                        subcategoriaAtiva === slugCategoria(sub)
                           ? "bg-zinc-900 text-white"
                           : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
                       }`}
                     >
-                      {subcategoria}
+                      {sub}
                     </button>
                   ))}
                 </div>
@@ -1490,7 +1561,7 @@ export default function CatalogoOnline() {
               {subcategorias2Visiveis.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSubcategoria2Ativa("Todos")}
+                    onClick={() => selecionarSubcategoria(categoriaAtiva, subcategoriaAtiva)}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                       subcategoria2Ativa === "Todos"
                         ? "bg-[#f4b400] text-black"
@@ -1500,17 +1571,19 @@ export default function CatalogoOnline() {
                     Todos os tipos
                   </button>
 
-                  {subcategorias2Visiveis.map((subcategoria2) => (
+                  {subcategorias2Visiveis.map((sub2) => (
                     <button
-                      key={subcategoria2}
-                      onClick={() => setSubcategoria2Ativa(subcategoria2)}
+                      key={sub2}
+                      onClick={() =>
+                        selecionarSubcategoria2(categoriaAtiva, subcategoriaAtiva, sub2)
+                      }
                       className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                        subcategoria2Ativa === subcategoria2
+                        subcategoria2Ativa === slugCategoria(sub2)
                           ? "bg-[#f4b400] text-black"
                           : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
                       }`}
                     >
-                      {subcategoria2}
+                      {sub2}
                     </button>
                   ))}
                 </div>
@@ -1524,17 +1597,38 @@ export default function CatalogoOnline() {
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
               Catálogo
             </p>
-            <h3 className="mt-1 text-3xl font-bold">Produtos em destaque</h3>
+            <h3 className="mt-1 text-3xl font-bold">{tituloSecao}</h3>
             <p className="mt-2 text-sm text-zinc-500">
               {produtosFiltrados.length} item(ns) encontrado(s)
             </p>
             {categoriaAtiva !== "Todos" && (
               <p className="mt-1 text-sm text-zinc-500">
-                {categoriaAtiva === "Todos" ? "Todos" : tituloCategoria(categoriaAtiva)}
-                {subcategoriaAtiva !== "Todos" ? ` • ${subcategoriaAtiva}` : ""}
-                {subcategoria2Ativa !== "Todos" ? ` • ${subcategoria2Ativa}` : ""}
+                {tituloCategoria(categoriaAtiva)}
+                {subcategoriaAtiva !== "Todos"
+                  ? ` • ${tituloItem(subcategoriaAtiva).replace(/-/g, " ")}`
+                  : ""}
+                {subcategoria2Ativa !== "Todos"
+                  ? ` • ${tituloItem(subcategoria2Ativa).replace(/-/g, " ")}`
+                  : ""}
               </p>
             )}
+          </div>
+
+          <div className="min-w-[220px]">
+            <label className="mb-2 block text-sm font-medium text-zinc-700">
+              Ordenar por
+            </label>
+            <select
+              value={ordenacao}
+              onChange={(e) => setOrdenacao(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-[#f4b400]"
+            >
+              <option value="destaque">Destaque</option>
+              <option value="menor-preco">Menor preço</option>
+              <option value="maior-preco">Maior preço</option>
+              <option value="nome-az">Nome A-Z</option>
+              <option value="nome-za">Nome Z-A</option>
+            </select>
           </div>
         </div>
 
@@ -1588,7 +1682,7 @@ export default function CatalogoOnline() {
 
                 <div className="mt-3">
                   <p className="text-xl font-black leading-none tracking-tight text-zinc-900 sm:text-2xl">
-                    R$ {produto.preco.toFixed(2)}
+                    {formatarMoeda(produto.preco)}
                   </p>
                   <p className="mt-1 line-clamp-1 text-xs font-medium text-[#b38200] sm:text-sm">
                     {produto.destaque}
@@ -1615,11 +1709,11 @@ export default function CatalogoOnline() {
                 <div className="mt-auto pt-3">
                   <div className="grid grid-cols-1 gap-2">
                     <button
-                      onClick={() => abrirDetalhes(produto)}
-                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-50 sm:text-sm"
-                    >
-                      Ver produto
-                    </button>
+  onClick={() => navigate(`/produto/${produto.id}`)}
+  className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-50 sm:text-sm"
+>
+  Ver produto
+</button>
 
                     {produtoTemVariacoes(produto) ? (
                       <button
@@ -1664,6 +1758,15 @@ export default function CatalogoOnline() {
             <p className="mt-2 text-sm text-zinc-500">
               Tente buscar outro termo ou selecionar uma categoria diferente.
             </p>
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={limparFiltros}
+                className="rounded-2xl bg-[#f4b400] px-5 py-3 font-semibold text-black transition hover:opacity-90"
+              >
+                Ver todos os produtos
+              </button>
+            </div>
           </div>
         )}
       </main>
@@ -1779,11 +1882,9 @@ export default function CatalogoOnline() {
                       <IconeCarrinho className="h-5 w-5" />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold leading-none">
-                        Ver carrinho
-                      </p>
+                      <p className="text-sm font-bold leading-none">Ver carrinho</p>
                       <p className="mt-1 text-xs text-black/75">
-                        {totalItensCarrinho} item(ns) • R$ {totalCarrinho.toFixed(2)}
+                        {totalItensCarrinho} item(ns) • {formatarMoeda(totalCarrinho)}
                       </p>
                     </div>
                   </div>
@@ -1822,11 +1923,9 @@ export default function CatalogoOnline() {
               </span>
 
               <span className="min-w-0 pr-1">
-                <span className="block text-sm font-bold leading-none">
-                  Ver carrinho
-                </span>
+                <span className="block text-sm font-bold leading-none">Ver carrinho</span>
                 <span className="mt-1 block text-xs text-black/75">
-                  {totalItensCarrinho} item(ns) • R$ {totalCarrinho.toFixed(2)}
+                  {totalItensCarrinho} item(ns) • {formatarMoeda(totalCarrinho)}
                 </span>
               </span>
             </button>
@@ -1848,7 +1947,7 @@ export default function CatalogoOnline() {
           className="h-5 w-5"
           aria-hidden="true"
         >
-          <path d="M12 0a12 12 0 0 0-10.3 18.2L0 24l5.9-1.6A12 12 0 1 0 12 0zm0 21.8a9.8 9.8 0 0 1-5-1.4l-.4-.2-3.5.9.9-3.4-.3-.4A9.8 9.8 0 1 1 12 21.8zm5.4-7.3c-.3-.2-1.7-.8-2-.9-.3-.1-.5-.2-.7.2-.2.3-.8.9-1 .1-.2-.2-.3-.3-.6-.5-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9-.2-.3 0-.5.1-.7.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.2-.7-1.7-1-2.3-.2-.5-.5-.4-.7-.4h-.6c-.2 0-.5.1-.7.4-.2.3-1 1-.9 2.5.1 1.5 1 2.9 1.1 3.1.2.2 2.1 3.3 5.1 4.5.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4 0-.1-.2-.2-.5-.3z"/>
+          <path d="M12 0a12 12 0 0 0-10.3 18.2L0 24l5.9-1.6A12 12 0 1 0 12 0zm0 21.8a9.8 9.8 0 0 1-5-1.4l-.4-.2-3.5.9.9-3.4-.3-.4A9.8 9.8 0 1 1 12 21.8zm5.4-7.3c-.3-.2-1.7-.8-2-.9-.3-.1-.5-.2-.7.2-.2.3-.8.9-1 .1-.2-.2-.3-.3-.6-.5-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9-.2-.3 0-.5.1-.7.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.2-.7-1.7-1-2.3-.2-.5-.5-.4-.7-.4h-.6c-.2 0-.5.1-.7.4-.2.3-1 1-.9 2.5.1 1.5 1 2.9 1.1 3.1.2.2 2.1 3.3 5.1 4.5.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4 0-.1-.2-.2-.5-.3z" />
         </svg>
         WhatsApp
       </a>
@@ -1892,9 +1991,7 @@ export default function CatalogoOnline() {
                           type="button"
                           onClick={() =>
                             setImagemAtiva((atual) =>
-                              atual === 0
-                                ? produtoSelecionado.imagens.length - 1
-                                : atual - 1
+                              atual === 0 ? produtoSelecionado.imagens.length - 1 : atual - 1
                             )
                           }
                           className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-white"
@@ -1948,12 +2045,10 @@ export default function CatalogoOnline() {
                 <div className="max-h-[90vh] overflow-y-auto p-6 md:p-8">
                   <div>
                     <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
-                      {produtoSelecionado.categoria || "Produto"}
+                      {produtoSelecionado.categoriaLabel || produtoSelecionado.categoria || "Produto"}
                     </span>
 
-                    <h3 className="mt-4 text-3xl font-bold">
-                      {produtoSelecionado.nome}
-                    </h3>
+                    <h3 className="mt-4 text-3xl font-bold">{produtoSelecionado.nome}</h3>
 
                     {produtoSelecionado.subcategoria && (
                       <p className="mt-2 text-sm font-medium uppercase tracking-wide text-zinc-500">
@@ -1962,7 +2057,7 @@ export default function CatalogoOnline() {
                     )}
 
                     <p className="mt-2 text-lg font-semibold text-[#b38200]">
-                      R$ {produtoSelecionado.preco.toFixed(2)}
+                      {formatarMoeda(produtoSelecionado.preco)}
                     </p>
 
                     <p className="mt-5 whitespace-pre-line leading-7 text-zinc-600">
@@ -1979,8 +2074,7 @@ export default function CatalogoOnline() {
 
                             <div className="flex flex-wrap gap-2">
                               {variacao.opcoes.map((opcao) => {
-                                const ativa =
-                                  selecoesVariacao?.[variacao.nome] === opcao;
+                                const ativa = selecoesVariacao?.[variacao.nome] === opcao;
 
                                 return (
                                   <button
@@ -2085,334 +2179,6 @@ export default function CatalogoOnline() {
                 </div>
               </motion.div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {carrinhoAberto && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setCarrinhoAberto(false)}
-          >
-            <motion.div
-              className="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_25px_80px_rgba(0,0,0,0.18)] md:my-8 md:max-h-[85vh]"
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.98 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-5">
-                <div>
-                  <h3 className="text-2xl font-bold text-zinc-900">Seu carrinho</h3>
-                  <p className="text-sm text-zinc-500">
-                    Revise os itens antes de finalizar
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setCarrinhoAberto(false)}
-                  className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
-                >
-                  Fechar
-                </button>
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                {carrinho.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <p className="text-lg font-semibold text-zinc-700">
-                      Seu carrinho está vazio
-                    </p>
-                    <p className="mt-2 text-sm text-zinc-500">
-                      Adicione produtos para finalizar no WhatsApp.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-4">
-                      {carrinho.map((item) => (
-                        <div
-                          key={item.carrinhoKey}
-                          className="flex gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
-                        >
-                          <ImagemProduto
-                            src={item.imagens?.[0]}
-                            alt={item.nome}
-                            className="h-20 w-20 rounded-xl object-cover"
-                          />
-
-                          <div className="min-w-0 flex-1">
-                            <h4 className="truncate text-sm font-bold text-zinc-900 sm:text-base">
-                              {item.nome}
-                            </h4>
-
-                            {item.resumoVariacoes?.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {item.resumoVariacoes.map((variacao) => (
-                                  <span
-                                    key={`${item.carrinhoKey}-${variacao.nome}`}
-                                    className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700"
-                                  >
-                                    {variacao.nome}: {variacao.valor}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-
-                            <p className="mt-2 text-xs text-zinc-500">
-                              R$ {item.preco.toFixed(2)} por unidade
-                            </p>
-
-                            <p className="mt-1 text-sm font-semibold text-[#8b6900]">
-                              Subtotal: R$ {(item.preco * item.quantidade).toFixed(2)}
-                            </p>
-
-                            <div className="mt-3">
-                              <ControleQuantidade
-                                quantidade={item.quantidade}
-                                onDiminuir={() => diminuirQuantidade(item)}
-                                onAumentar={() => aumentarQuantidade(item)}
-                                compacto
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-5 space-y-4 border-t border-zinc-200 pt-5">
-                      <div className="space-y-2 rounded-2xl bg-zinc-50 p-4">
-                        <div className="flex items-center justify-between text-sm text-zinc-600">
-                          <span>{totalItensCarrinho} item(ns)</span>
-                          <span>Subtotal: R$ {totalCarrinho.toFixed(2)}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm text-zinc-600">
-                          <span>Frete</span>
-                          <span>
-                            {freteSelecionado
-                              ? `R$ ${freteSelecionado.preco.toFixed(2)}`
-                              : "Não selecionado"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-lg font-bold text-zinc-900">
-                          <span>Total final</span>
-                          <span>R$ {totalComFrete.toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                        <p className="text-sm font-semibold text-zinc-900">Calcular frete</p>
-
-                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                          <input
-                            type="text"
-                            value={cepDestino}
-                            onChange={(e) => setCepDestino(formatarCep(e.target.value))}
-                            placeholder="Digite seu CEP"
-                            inputMode="numeric"
-                            maxLength={9}
-                            className="flex-1 rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#f4b400]"
-                          />
-
-                          <button
-                            type="button"
-                            onClick={calcularFrete}
-                            disabled={carregandoFrete || carrinho.length === 0}
-                            className="rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                          >
-                            {carregandoFrete ? "Calculando..." : "Calcular frete"}
-                          </button>
-                        </div>
-
-                        {erroFrete && (
-                          <p className="mt-3 text-sm text-red-600">{erroFrete}</p>
-                        )}
-
-                        {fretes.length > 0 && (
-                          <div className="mt-4">
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                              <p className="text-sm font-semibold text-zinc-900">
-                                Escolha o frete
-                              </p>
-                              <p className="text-xs text-zinc-500">
-                                Role para ver todas as opções
-                              </p>
-                            </div>
-
-                            <div className="max-h-72 space-y-2 overflow-y-auto pr-1 overscroll-contain">
-                              {fretes.map((opcao, index) => {
-                                const nome =
-                                  opcao.name ||
-                                  opcao.service_description ||
-                                  opcao.service ||
-                                  opcao.company?.name ||
-                                  `Opção ${index + 1}`;
-
-                                const preco = obterPrecoFrete(opcao);
-
-                                const prazoBruto =
-                                  opcao.delivery_time ??
-                                  opcao.delivery_range?.max ??
-                                  opcao.delivery_range?.days ??
-                                  opcao.delivery_days ??
-                                  opcao.days ??
-                                  opcao.prazo ??
-                                  "-";
-
-                                const prazo =
-                                  typeof prazoBruto === "number"
-                                    ? `${prazoBruto} dia(s)`
-                                    : String(prazoBruto);
-
-                                const chave = `${nome}-${index}`;
-                                const recomendado = index === 0;
-
-                                return (
-                                  <button
-                                    key={chave}
-                                    type="button"
-                                    onClick={() =>
-                                      setFreteSelecionado({
-                                        chave,
-                                        nome,
-                                        preco,
-                                        prazo,
-                                      })
-                                    }
-                                    className={`w-full rounded-2xl border p-4 text-left transition ${
-                                      freteSelecionado?.chave === chave
-                                        ? "border-[#f4b400] bg-[#fff8df]"
-                                        : "border-zinc-200 bg-white hover:border-zinc-300"
-                                    }`}
-                                  >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <p className="font-semibold text-zinc-900">{nome}</p>
-
-                                          {recomendado && (
-                                            <span className="rounded-full bg-[#f4b400] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-black">
-                                              Recomendado
-                                            </span>
-                                          )}
-                                        </div>
-
-                                        <p className="mt-1 text-sm text-zinc-600">
-                                          Prazo: {prazo}
-                                        </p>
-                                      </div>
-
-                                      <p className="shrink-0 text-sm font-bold text-zinc-900">
-                                        R$ {preco.toFixed(2)}
-                                      </p>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5">
-                  <h3 className="text-lg font-bold text-zinc-900">
-                    Dados do comprador
-                  </h3>
-
-                  <p className="mt-1 text-sm text-zinc-600">
-                    Preencha para concluir seu pedido
-                  </p>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <input
-                      type="text"
-                      placeholder="Nome completo"
-                      value={dadosCliente.nome}
-                      onChange={(e) =>
-                        atualizarDadosCliente("nome", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                    />
-
-                    <input
-                      type="email"
-                      placeholder="E-mail"
-                      value={dadosCliente.email}
-                      onChange={(e) =>
-                        atualizarDadosCliente("email", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                    />
-
-                    <input
-                      type="text"
-                      placeholder="Telefone / WhatsApp"
-                      value={dadosCliente.telefone}
-                      onChange={(e) =>
-                        atualizarDadosCliente("telefone", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                    />
-
-                    <input
-                      type="text"
-                      placeholder="CPF (opcional)"
-                      value={dadosCliente.cpf}
-                      onChange={(e) =>
-                        atualizarDadosCliente("cpf", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4">
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCarrinho([]);
-                      setCepDestino("");
-                      setFretes([]);
-                      setFreteSelecionado(null);
-                      setErroFrete("");
-                    }}
-                    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
-                  >
-                    Limpar carrinho
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={finalizarPedidoWhatsApp}
-                    disabled={carrinho.length === 0}
-                    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Pedir ajuda no WhatsApp
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={finalizarPedidoMercadoPago}
-                    disabled={carrinho.length === 0 || !freteSelecionado || carregandoPagamento}
-                    className="flex-1 rounded-2xl bg-[#009ee3] px-5 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {carregandoPagamento ? "Iniciando pagamento..." : "Pagar com Mercado Pago"}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
