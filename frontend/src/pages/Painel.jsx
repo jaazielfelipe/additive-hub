@@ -272,6 +272,20 @@ function construirMensagemRetiradaPronto(pedido) {
   ].join("\n");
 }
 
+function construirMensagemContatoDireto(pedido) {
+  const cliente = pedido?.dadosCliente || {};
+  const nome = cliente.nome ? cliente.nome.split(" ")[0] : "cliente";
+  const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
+
+  return [
+    `Olá, ${nome}! Tudo bem?`,
+    "",
+    `Estou entrando em contato sobre o seu pedido *#${codigoPedido}*.`,
+    "",
+    "Assim que puder, me responda por aqui :)",
+  ].join("\n");
+}
+
 function gerarLinkWhatsApp(pedido) {
   const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
 
@@ -322,6 +336,15 @@ function gerarLinkWhatsAppRetiradaPronto(pedido) {
   return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
 }
 
+function gerarLinkWhatsAppContatoDireto(pedido) {
+  const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
+
+  if (!telefone) return "";
+
+  const mensagem = construirMensagemContatoDireto(pedido);
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+}
+
 function PedidoCard({
   pedido,
   atualizando,
@@ -353,6 +376,7 @@ function PedidoCard({
   const cliente = pedido.dadosCliente || {};
   const entrega = pedido.enderecoEntrega || {};
   const linkWhatsAppEmbalando = gerarLinkWhatsAppEmbalando(pedido);
+  const linkWhatsAppContatoDireto = gerarLinkWhatsAppContatoDireto(pedido);
 
   const pagamentoLiberado = pagamentoAprovado(pedido);
   const pagamentoBloqueado = !pagamentoLiberado;
@@ -675,36 +699,41 @@ function PedidoCard({
             )}
 
             {itens.map((item, index) => (
-  <div
-    key={`${item?.id || item?.nome || "item"}-${index}`}
-    className="rounded-xl border border-zinc-200 bg-white px-3 py-3"
-  >
-    <p className="font-medium text-zinc-900 line-clamp-2">
-      {item?.nome || "Produto"}
-    </p>
+              <div
+                key={`${item?.id || item?.nome || "item"}-${index}`}
+                className="rounded-xl border border-zinc-200 bg-white px-3 py-3"
+              >
+                <p className="font-medium text-zinc-900 line-clamp-2">
+                  {item?.nome || "Produto"}
+                </p>
 
-    <p className="mt-1 text-sm text-zinc-600">
-      Qtd: {item?.quantidade || 0}
-    </p>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Qtd: {item?.quantidade || 0}
+                </p>
 
-    <p className="text-sm text-zinc-600">
-      Unit.: {formatarMoeda(item?.preco || 0)}
-    </p>
+                <p className="text-sm text-zinc-600">
+                  Unit.: {formatarMoeda(item?.preco || 0)}
+                </p>
 
-    {Array.isArray(item?.resumoVariacoes) && item.resumoVariacoes.length > 0 && (
-      <div className="mt-2 rounded-lg bg-zinc-50 px-2 py-2 text-sm text-zinc-600">
-        {item.resumoVariacoes.map((variacao, i) => (
-          <p key={`${item?.id || item?.nome || "item"}-${variacao?.nome || i}`}>
-            <span className="font-medium text-zinc-800">
-              {variacao?.nome || "Opção"}:
-            </span>{" "}
-            {variacao?.valor || "-"}
-          </p>
-        ))}
-      </div>
-    )}
-  </div>
-))}
+                {Array.isArray(item?.resumoVariacoes) &&
+                  item.resumoVariacoes.length > 0 && (
+                    <div className="mt-2 rounded-lg bg-zinc-50 px-2 py-2 text-sm text-zinc-600">
+                      {item.resumoVariacoes.map((variacao, i) => (
+                        <p
+                          key={`${item?.id || item?.nome || "item"}-${
+                            variacao?.nome || i
+                          }`}
+                        >
+                          <span className="font-medium text-zinc-800">
+                            {variacao?.nome || "Opção"}:
+                          </span>{" "}
+                          {variacao?.valor || "-"}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -723,7 +752,24 @@ function PedidoCard({
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">{renderBotaoPrincipal()}</div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {renderBotaoPrincipal()}
+
+        {linkWhatsAppContatoDireto ? (
+          <a
+            href={linkWhatsAppContatoDireto}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800"
+          >
+            Falar com comprador
+          </a>
+        ) : (
+          <span className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-bold text-zinc-500">
+            Comprador sem telefone válido
+          </span>
+        )}
+      </div>
     </article>
   );
 }
