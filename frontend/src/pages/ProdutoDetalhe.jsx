@@ -235,6 +235,92 @@ function formatarMoeda(valor) {
   });
 }
 
+function normalizarTexto(valor) {
+  return String(valor || "").trim();
+}
+
+function produtoTemVariacoes(produto) {
+  return Array.isArray(produto?.variacoes) && produto.variacoes.length > 0;
+}
+
+function criarSelecoesIniciais(produto) {
+  if (!produtoTemVariacoes(produto)) return {};
+
+  return produto.variacoes.reduce((acc, variacao) => {
+    acc[variacao.nome] = "";
+    return acc;
+  }, {});
+}
+
+function variacoesPreenchidas(produto, selecoes) {
+  if (!produtoTemVariacoes(produto)) return true;
+
+  return produto.variacoes.every((variacao) =>
+    normalizarTexto(selecoes?.[variacao.nome])
+  );
+}
+
+function montarResumoVariacoes(produto, selecoes) {
+  if (!produtoTemVariacoes(produto)) return [];
+
+  return produto.variacoes
+    .map((variacao) => ({
+      nome: variacao.nome,
+      valor: normalizarTexto(selecoes?.[variacao.nome]),
+    }))
+    .filter((item) => item.valor);
+}
+
+function gerarChaveCarrinho(produto, selecoes = {}) {
+  const base = String(produto?.id ?? "");
+
+  if (!produtoTemVariacoes(produto)) return base;
+
+  const sufixo = produto.variacoes
+    .map(
+      (variacao) =>
+        `${variacao.nome}:${normalizarTexto(selecoes?.[variacao.nome])}`
+    )
+    .join("|");
+
+  return `${base}__${sufixo}`;
+}
+
+function ControleQuantidade({
+  quantidade,
+  onDiminuir,
+  onAumentar,
+  compacto = false,
+}) {
+  return (
+    <div
+      className={`inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 bg-white px-1.5 py-1 ${
+        compacto ? "" : "shadow-sm"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onDiminuir}
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300 bg-white text-base font-bold text-zinc-800 transition hover:bg-zinc-50"
+      >
+        −
+      </button>
+
+      <span className="min-w-[1.75rem] text-center text-sm font-semibold text-zinc-900">
+        {quantidade}
+      </span>
+
+      <button
+        type="button"
+        onClick={onAumentar}
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300 bg-white text-base font-bold text-zinc-800 transition hover:bg-zinc-50"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
 export default function ProdutoDetalhe() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -242,6 +328,21 @@ export default function ProdutoDetalhe() {
   const [produtos, setProdutos] = useState([]);
   const [imagemAtiva, setImagemAtiva] = useState(0);
   const [carregando, setCarregando] = useState(true);
+  const [selecoesVariacao, setSelecoesVariacao] = useState({});
+
+  const [carrinho, setCarrinho] = useState(() => {
+    try {
+      const carrinhoSalvo = localStorage.getItem("carrinhoAdditiveHub");
+      return carrinhoSalvo ? JSON.parse(carrinhoSalvo) : [];
+    } catch (error) {
+      console.error("Erro ao carregar carrinho:", error);
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("carrinhoAdditiveHub", JSON.stringify(carrinho));
+  }, [carrinho]);
 
   useEffect(() => {
     async function carregarCSV() {
@@ -303,7 +404,81 @@ export default function ProdutoDetalhe() {
 
   useEffect(() => {
     setImagemAtiva(0);
-  }, [id]);
+    setSelecoesVariacao(criarSelecoesIniciais(produto));
+  }, [id, produto]);
+
+  function selecionarVariacao(nome, valor) {
+    setSelecoesVariacao((prev) => ({
+      ...prev,
+      [nome]: valor,
+    }));
+  }
+
+  function quantidadeNoCarrinho(produtoId) {
+    return carrinho
+      .filter((item) => String(item.id) === String(produtoId))
+      .reduce((total, item) => total + item.quantidade, 0);
+  }
+
+  function quantidadeDaCombinacaoNoCarrinho(produtoAtual, selecoes = {}) {
+    const chave = gerarChaveCarrinho(produtoAtual, selecoes);
+    return carrinho.find((item) => item.carrinhoKey === chave)?.quantidade || 0;
+  }
+
+  function adicionarAoCarrinho(produtoAtual, selecoes = {}) {
+    if (!produtoAtual) return;
+
+    if (produtoTemVariacoes(produtoAtual) && !variacoesPreenchidas(produtoAtual, selecoes)) {
+      alert("Selecione todas as opções antes de adicionar ao carrinho.");
+      return;
+    }
+
+    const resumoVariacoes = montarResumoVariacoes(produtoAtual, selecoes);
+    const carrinhoKey = gerarChaveCarrinho(produtoAtual, selecoes);
+
+    setCarrinho((anterior) => {
+      const existente = anterior.find((item) => item.carrinhoKey === carrinhoKey);
+
+      if (existente) {
+        return anterior.map((item) =>
+          item.carrinhoKey === carrinhoKey
+            ? { ...item, quantidade: item.quantidade + 1 }
+            : item
+        );
+      }
+
+      return [
+        ...anterior,
+        {
+          ...produtoAtual,
+          quantidade: 1,
+          carrinhoKey,
+          selecoesVariacao: selecoes,
+          resumoVariacoes,
+        },
+      ];
+    });
+  }
+
+  function diminuirQuantidade(itemCarrinho) {
+    if (!itemCarrinho) return;
+
+    setCarrinho((anterior) =>
+      anterior
+        .map((item) =>
+          item.carrinhoKey === itemCarrinho.carrinhoKey
+            ? { ...item, quantidade: item.quantidade - 1 }
+            : item
+        )
+        .filter((item) => item.quantidade > 0)
+    );
+  }
+
+  const quantidadeCombinacaoAtual = produto
+    ? quantidadeDaCombinacaoNoCarrinho(produto, selecoesVariacao)
+    : 0;
+
+  const podeAdicionar = produto ? variacoesPreenchidas(produto, selecoesVariacao) : false;
 
   if (carregando) {
     return (
@@ -467,27 +642,89 @@ export default function ProdutoDetalhe() {
                       <p className="mb-2 text-sm font-medium text-zinc-800">
                         {variacao.nome}
                       </p>
+
                       <div className="flex flex-wrap gap-2">
-                        {variacao.opcoes.map((opcao) => (
-                          <span
-                            key={`${variacao.nome}-${opcao}`}
-                            className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700"
-                          >
-                            {opcao}
-                          </span>
-                        ))}
+                        {variacao.opcoes.map((opcao) => {
+                          const ativa = selecoesVariacao?.[variacao.nome] === opcao;
+
+                          return (
+                            <button
+                              key={`${variacao.nome}-${opcao}`}
+                              type="button"
+                              onClick={() => selecionarVariacao(variacao.nome, opcao)}
+                              className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
+                                ativa
+                                  ? "border-[#f4b400] bg-[#fff8df] text-[#8b6900]"
+                                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                              }`}
+                            >
+                              {opcao}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {!podeAdicionar && (
+                  <p className="mt-4 text-sm font-medium text-amber-700">
+                    Selecione todas as opções para adicionar ao carrinho.
+                  </p>
+                )}
               </div>
             )}
 
             <div className="mt-6 flex flex-wrap gap-3">
+              {produtoTemVariacoes(produto) ? (
+                quantidadeCombinacaoAtual > 0 ? (
+                  <ControleQuantidade
+                    quantidade={quantidadeCombinacaoAtual}
+                    onDiminuir={() =>
+                      diminuirQuantidade({
+                        carrinhoKey: gerarChaveCarrinho(produto, selecoesVariacao),
+                      })
+                    }
+                    onAumentar={() => adicionarAoCarrinho(produto, selecoesVariacao)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => adicionarAoCarrinho(produto, selecoesVariacao)}
+                    disabled={!podeAdicionar}
+                    className={`rounded-2xl px-6 py-3 font-semibold transition ${
+                      podeAdicionar
+                        ? "bg-[#f4b400] text-black hover:opacity-90"
+                        : "cursor-not-allowed bg-zinc-200 text-zinc-500"
+                    }`}
+                  >
+                    Adicionar ao carrinho
+                  </button>
+                )
+              ) : quantidadeNoCarrinho(produto.id) > 0 ? (
+                <ControleQuantidade
+                  quantidade={quantidadeNoCarrinho(produto.id)}
+                  onDiminuir={() =>
+                    diminuirQuantidade(
+                      carrinho.find((item) => String(item.id) === String(produto.id))
+                    )
+                  }
+                  onAumentar={() => adicionarAoCarrinho(produto)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => adicionarAoCarrinho(produto)}
+                  className="rounded-2xl bg-[#f4b400] px-6 py-3 font-semibold text-black transition hover:opacity-90"
+                >
+                  Adicionar ao carrinho
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => navigate("/carrinho")}
-                className="rounded-2xl bg-[#f4b400] px-6 py-3 font-semibold text-black transition hover:opacity-90"
+                className="rounded-2xl border border-zinc-300 bg-white px-6 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
               >
                 Ir para o carrinho
               </button>

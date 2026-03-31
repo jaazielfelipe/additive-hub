@@ -54,7 +54,7 @@ const produtosPadrao = [
     categoria: "Chaveiro",
     subcategoria: "Slim Personalizado",
     preco: 8,
-    destaque: "Personalizável com nome e cor",
+    destaque: "",
     descricao:
       "Ideal para brindes, lembranças e revenda. Produzido em impressão 3D com acabamento personalizado.",
     imagens: [
@@ -69,7 +69,7 @@ const produtosPadrao = [
     categoria: "Decoração",
     subcategoria: "Miniaturas",
     preco: 25,
-    destaque: "Impressão detalhada em 3D",
+    destaque: "destaque",
     descricao:
       "Peça decorativa com design exclusivo para presentear, colecionar ou compor ambientes criativos.",
     imagens: [
@@ -84,7 +84,7 @@ const produtosPadrao = [
     categoria: "Utilidades",
     subcategoria: "Suportes",
     preco: 18,
-    destaque: "Prático e resistente",
+    destaque: "novo",
     descricao:
       "Perfeito para mesa de trabalho, estudo ou uso diário. Design funcional com ótima estabilidade.",
     imagens: [
@@ -99,7 +99,7 @@ const produtosPadrao = [
     categoria: "Decoração",
     subcategoria: "Itens para ambiente",
     preco: 30,
-    destaque: "Design moderno e exclusivo",
+    destaque: "",
     descricao:
       "Item decorativo produzido em impressão 3D para compor ambientes com personalidade e criatividade.",
     imagens: [
@@ -114,7 +114,7 @@ const produtosPadrao = [
     categoria: "Utilidades",
     subcategoria: "Organizadores",
     preco: 22,
-    destaque: "Organização com estilo",
+    destaque: "promocao",
     descricao:
       "Ideal para organizar itens de escritório, bancada ou setup com um visual moderno e funcional.",
     imagens: [
@@ -129,7 +129,7 @@ const produtosPadrao = [
     categoria: "Personalizados",
     subcategoria: "Projetos sob medida",
     preco: 45,
-    destaque: "Feito conforme sua ideia",
+    destaque: "",
     descricao:
       "Desenvolvemos peças personalizadas em impressão 3D para presentes, utilidades, decoração e projetos especiais.",
     imagens: ["/imagens/placeholder.png"],
@@ -322,7 +322,7 @@ function parseCSV(texto) {
       subcategoria2,
       subcategoria2Label: tituloItem(subcategoria2),
       preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
-      destaque: item.destaque || "Produto em impressão 3D",
+      destaque: slugCategoria(item.destaque || ""),
       descricao:
         item.descricao ||
         item["descrição"] ||
@@ -467,6 +467,29 @@ function formatarMoeda(valor) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function getBadgeDestaque(destaque) {
+  const valor = slugCategoria(destaque);
+
+  if (!valor) return null;
+
+  const mapa = {
+    destaque: {
+      label: "Destaque",
+      className: "border-white/70 bg-white/90 text-[#8b6900]",
+    },
+    novo: {
+      label: "Novo",
+      className: "border-blue-200/80 bg-blue-50/95 text-blue-700",
+    },
+    promocao: {
+      label: "Promoção",
+      className: "border-rose-200/80 bg-rose-50/95 text-rose-700",
+    },
+  };
+
+  return mapa[valor] || null;
 }
 
 export default function CatalogoOnline() {
@@ -726,7 +749,6 @@ export default function CatalogoOnline() {
         (produto.categoriaLabel || produto.categoria || "").toLowerCase().includes(termo) ||
         (produto.subcategoriaLabel || produto.subcategoria || "").toLowerCase().includes(termo) ||
         (produto.subcategoria2Label || produto.subcategoria2 || "").toLowerCase().includes(termo) ||
-        produto.destaque.toLowerCase().includes(termo) ||
         produto.descricao.toLowerCase().includes(termo) ||
         (produto.variacoes || []).some(
           (variacao) =>
@@ -750,6 +772,10 @@ export default function CatalogoOnline() {
         return filtrados;
     }
   }, [produtos, categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, ordenacao]);
+
+  const produtosEmDestaque = useMemo(() => {
+    return produtos.filter((produto) => produto.destaque === "destaque").slice(0, 8);
+  }, [produtos]);
 
   const totalItensCarrinho = useMemo(() => {
     return carrinho.reduce((total, item) => total + item.quantidade, 0);
@@ -1718,122 +1744,208 @@ export default function CatalogoOnline() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {produtosFiltrados.map((produto) => (
-            <motion.article
-              key={produto.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.15 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              whileHover={{ y: -4 }}
-              className="group flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-zinc-200 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.10)]"
-            >
-              <div className="relative overflow-hidden bg-zinc-100">
-                <ImagemProduto
-                  src={produto.imagens?.[0]}
-                  alt={produto.nome}
-                  className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-
-                <div className="absolute inset-x-0 top-0 flex items-start p-2">
-                  <span className="max-w-[60%] truncate rounded-full bg-white/92 px-2.5 py-1 text-[10px] font-semibold text-zinc-800 shadow-sm backdrop-blur sm:text-xs">
-                    {produto.categoriaLabel || tituloCategoria(produto.categoria)}
-                  </span>
-                </div>
-
-                {produto.imagens?.length > 1 && (
-                  <span className="absolute bottom-2 left-2 rounded-full bg-black/75 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur sm:text-xs">
-                    +{produto.imagens.length} fotos
-                  </span>
-                )}
-
-                <div className="absolute bottom-2 right-2 rounded-full border border-white/70 bg-white/90 px-2 py-1 text-[10px] font-bold text-[#8b6900] shadow-sm backdrop-blur">
-                  Destaque
-                </div>
+        {!estaEmPaginaFiltrada && produtosEmDestaque.length > 0 && (
+          <section className="mb-10">
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
+                  Seleção especial
+                </p>
+                <h3 className="mt-1 text-3xl font-bold">Produtos em destaque</h3>
+                <p className="mt-2 text-sm text-zinc-500">
+                  Itens que você escolheu para ganhar mais visibilidade.
+                </p>
               </div>
+            </div>
 
-              <div className="flex flex-1 flex-col p-3 sm:p-4">
-                <div className="min-h-[3.3rem]">
-                  <h4 className="line-clamp-2 text-sm font-bold leading-5 text-zinc-900 sm:text-[15px]">
-                    {produto.nome}
-                  </h4>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {produtosEmDestaque.map((produto) => (
+                <motion.article
+                  key={`destaque-${produto.id}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.15 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                  whileHover={{ y: -4 }}
+                  className="group flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-[#f4b400]/30 bg-gradient-to-b from-white to-[#fffaf0] shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.10)]"
+                >
+                  <div className="relative overflow-hidden bg-zinc-100">
+                    <ImagemProduto
+                      src={produto.imagens?.[0]}
+                      alt={produto.nome}
+                      className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105"
+                    />
 
-                  {produto.subcategoria && (
-                    <p className="mt-1 line-clamp-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500 sm:text-[11px]">
-                      {produto.subcategoria}
+                    <div className="absolute inset-x-0 top-0 flex items-start justify-between p-2">
+                      <span className="max-w-[60%] truncate rounded-full bg-white/92 px-2.5 py-1 text-[10px] font-semibold text-zinc-800 shadow-sm backdrop-blur sm:text-xs">
+                        {produto.categoriaLabel || tituloCategoria(produto.categoria)}
+                      </span>
+
+                      <span className="rounded-full bg-[#f4b400] px-2.5 py-1 text-[10px] font-extrabold text-black shadow-sm sm:text-xs">
+                        ⭐ Destaque
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-1 flex-col p-3 sm:p-4">
+                    <div className="min-h-[3.3rem]">
+                      <h4 className="line-clamp-2 text-sm font-bold leading-5 text-zinc-900 sm:text-[15px]">
+                        {produto.nome}
+                      </h4>
+
+                      {produto.subcategoria && (
+                        <p className="mt-1 line-clamp-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500 sm:text-[11px]">
+                          {produto.subcategoria}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-3">
+                      <p className="text-xl font-black leading-none tracking-tight text-zinc-900 sm:text-2xl">
+                        {formatarMoeda(produto.preco)}
+                      </p>
+                    </div>
+
+                    <p className="mt-2 line-clamp-2 whitespace-pre-line text-xs leading-5 text-zinc-600 sm:text-sm">
+                      {produto.descricao?.replace(/Tamanho aproximado:[^\n]*/i, "").trim()}
                     </p>
+
+                    <div className="mt-auto pt-3">
+                      <button
+                        onClick={() => navigate(`/produto/${produto.id}`)}
+                        className="w-full rounded-xl bg-[#f4b400] px-3 py-2.5 text-xs font-extrabold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 sm:text-sm"
+                      >
+                        Ver produto
+                      </button>
+                    </div>
+                  </div>
+                </motion.article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {produtosFiltrados.map((produto) => {
+            const badge = getBadgeDestaque(produto.destaque);
+
+            return (
+              <motion.article
+                key={produto.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.15 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                whileHover={{ y: -4 }}
+                className="group flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-zinc-200 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.10)]"
+              >
+                <div className="relative overflow-hidden bg-zinc-100">
+                  <ImagemProduto
+                    src={produto.imagens?.[0]}
+                    alt={produto.nome}
+                    className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105"
+                  />
+
+                  <div className="absolute inset-x-0 top-0 flex items-start p-2">
+                    <span className="max-w-[60%] truncate rounded-full bg-white/92 px-2.5 py-1 text-[10px] font-semibold text-zinc-800 shadow-sm backdrop-blur sm:text-xs">
+                      {produto.categoriaLabel || tituloCategoria(produto.categoria)}
+                    </span>
+                  </div>
+
+                  {produto.imagens?.length > 1 && (
+                    <span className="absolute bottom-2 left-2 rounded-full bg-black/75 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur sm:text-xs">
+                      +{produto.imagens.length} fotos
+                    </span>
+                  )}
+
+                  {badge && (
+                    <div
+                      className={`absolute bottom-2 right-2 rounded-full border px-2 py-1 text-[10px] font-bold shadow-sm backdrop-blur ${badge.className}`}
+                    >
+                      {badge.label}
+                    </div>
                   )}
                 </div>
 
-                <div className="mt-3">
-                  <p className="text-xl font-black leading-none tracking-tight text-zinc-900 sm:text-2xl">
-                    {formatarMoeda(produto.preco)}
-                  </p>
-                  <p className="mt-1 line-clamp-1 text-xs font-medium text-[#b38200] sm:text-sm">
-                    {produto.destaque}
-                  </p>
-                </div>
+                <div className="flex flex-1 flex-col p-3 sm:p-4">
+                  <div className="min-h-[3.3rem]">
+                    <h4 className="line-clamp-2 text-sm font-bold leading-5 text-zinc-900 sm:text-[15px]">
+                      {produto.nome}
+                    </h4>
 
-                <p className="mt-2 line-clamp-2 whitespace-pre-line text-xs leading-5 text-zinc-600 sm:text-sm">
-                  {produto.descricao}
-                </p>
-
-                {produtoTemVariacoes(produto) && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {produto.variacoes.map((variacao) => (
-                      <span
-                        key={`${produto.id}-${variacao.nome}`}
-                        className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-[10px] font-medium text-zinc-600"
-                      >
-                        {variacao.nome}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="mt-auto pt-3">
-                  <div className="grid grid-cols-1 gap-2">
-                    <button
-                      onClick={() => navigate(`/produto/${produto.id}`)}
-                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-50 sm:text-sm"
-                    >
-                      Ver produto
-                    </button>
-
-                    {produtoTemVariacoes(produto) ? (
-                      <button
-                        onClick={() => abrirDetalhes(produto)}
-                        className="w-full rounded-xl bg-[#f4b400] px-3 py-2.5 text-xs font-extrabold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 sm:text-sm"
-                      >
-                        Escolher opções
-                      </button>
-                    ) : quantidadeNoCarrinho(produto.id) > 0 ? (
-                      <div className="flex justify-center rounded-xl border border-zinc-200 bg-zinc-50 py-1.5">
-                        <ControleQuantidade
-                          quantidade={quantidadeNoCarrinho(produto.id)}
-                          onDiminuir={() =>
-                            diminuirQuantidade(
-                              carrinho.find((item) => String(item.id) === String(produto.id))
-                            )
-                          }
-                          onAumentar={(e) => adicionarAoCarrinho(produto, e)}
-                          compacto
-                        />
-                      </div>
-                    ) : (
-                      <button
-                        onClick={(e) => adicionarAoCarrinho(produto, e)}
-                        className="w-full rounded-xl bg-[#f4b400] px-3 py-2.5 text-xs font-extrabold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 sm:text-sm"
-                      >
-                        Adicionar ao carrinho
-                      </button>
+                    {produto.subcategoria && (
+                      <p className="mt-1 line-clamp-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500 sm:text-[11px]">
+                        {produto.subcategoria}
+                      </p>
                     )}
                   </div>
+
+                  <div className="mt-3">
+                    <p className="text-xl font-black leading-none tracking-tight text-zinc-900 sm:text-2xl">
+                      {formatarMoeda(produto.preco)}
+                    </p>
+                  </div>
+
+                  <p className="mt-2 line-clamp-2 whitespace-pre-line text-xs leading-5 text-zinc-600 sm:text-sm">
+                    {produto.descricao?.replace(/Tamanho aproximado:[^\n]*/i, "").trim()}
+                  </p>
+
+                  {produtoTemVariacoes(produto) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {produto.variacoes.map((variacao) => (
+                        <span
+                          key={`${produto.id}-${variacao.nome}`}
+                          className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-[10px] font-medium text-zinc-600"
+                        >
+                          {variacao.nome}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-auto pt-3">
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        onClick={() => navigate(`/produto/${produto.id}`)}
+                        className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-50 sm:text-sm"
+                      >
+                        Ver produto
+                      </button>
+
+                      {produtoTemVariacoes(produto) ? (
+                        <button
+                          onClick={() => abrirDetalhes(produto)}
+                          className="w-full rounded-xl bg-[#f4b400] px-3 py-2.5 text-xs font-extrabold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 sm:text-sm"
+                        >
+                          Escolher opções
+                        </button>
+                      ) : quantidadeNoCarrinho(produto.id) > 0 ? (
+                        <div className="flex justify-center rounded-xl border border-zinc-200 bg-zinc-50 py-1.5">
+                          <ControleQuantidade
+                            quantidade={quantidadeNoCarrinho(produto.id)}
+                            onDiminuir={() =>
+                              diminuirQuantidade(
+                                carrinho.find((item) => String(item.id) === String(produto.id))
+                              )
+                            }
+                            onAumentar={(e) => adicionarAoCarrinho(produto, e)}
+                            compacto
+                          />
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => adicionarAoCarrinho(produto, e)}
+                          className="w-full rounded-xl bg-[#f4b400] px-3 py-2.5 text-xs font-extrabold text-black shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 sm:text-sm"
+                        >
+                          Adicionar ao carrinho
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </motion.article>
-          ))}
+              </motion.article>
+            );
+          })}
         </div>
 
         {produtosFiltrados.length === 0 && (
@@ -2194,7 +2306,9 @@ export default function CatalogoOnline() {
                     <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
                       <p className="text-sm text-zinc-500">Destaque</p>
                       <p className="mt-1 font-medium text-zinc-900">
-                        {produtoSelecionado.destaque}
+                        {produtoSelecionado.destaque
+                          ? getBadgeDestaque(produtoSelecionado.destaque)?.label || produtoSelecionado.destaque
+                          : "Produto padrão"}
                       </p>
                     </div>
                   </div>
