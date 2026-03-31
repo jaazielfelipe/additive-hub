@@ -1552,6 +1552,34 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.get("/ping", async (req, res) => {
+  try {
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      return res.status(500).json({
+        ok: false,
+        message: "MongoDB não está conectado",
+        readyState: mongoose.connection?.readyState ?? null,
+      });
+    }
+
+    await mongoose.connection.db.admin().ping();
+
+    return res.status(200).json({
+      ok: true,
+      message: "Servidor e MongoDB ativos",
+      mongoReadyState: mongoose.connection.readyState,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Erro no /ping:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Erro ao pingar MongoDB",
+      error: error.message,
+    });
+  }
+});
+
 conectarMongo()
   .then(() => {
     app.listen(PORT, () => {
