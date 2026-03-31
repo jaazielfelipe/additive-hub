@@ -219,7 +219,7 @@ function obterCodigoCupomDoBody(body = {}) {
   return "";
 }
 
-function validarCupom({ codigo, subtotal, frete }) {
+function validarCupom({ cupom, codigo, subtotal, frete }) {
   const codigoNormalizado = String(codigo || "").trim().toUpperCase();
   const subtotalNumero = Number(subtotal || 0);
   const freteNumero = Number(frete || 0);
@@ -228,51 +228,51 @@ function validarCupom({ codigo, subtotal, frete }) {
     throw new Error("Digite um cupom.");
   }
 
-  const cupom = CUPONS[codigoNormalizado];
+  const cupomEncontrado = cupom || CUPONS[codigoNormalizado];
 
-  if (!cupom) {
+  if (!cupomEncontrado) {
     throw new Error("Cupom inválido.");
   }
 
-  if (!cupom.ativo) {
+  if (!cupomEncontrado.ativo) {
     throw new Error("Cupom inativo.");
   }
 
   const agora = new Date();
 
-  if (cupom.dataInicio) {
-    const inicio = criarDataInicio(cupom.dataInicio);
+  if (cupomEncontrado.dataInicio) {
+    const inicio = criarDataInicio(cupomEncontrado.dataInicio);
     if (agora < inicio) {
       throw new Error("Este cupom ainda não está disponível.");
     }
   }
 
-  if (cupom.dataFim) {
-    const fim = criarDataFim(cupom.dataFim);
+  if (cupomEncontrado.dataFim) {
+    const fim = criarDataFim(cupomEncontrado.dataFim);
     if (agora > fim) {
       throw new Error("Cupom expirado.");
     }
   }
 
-  if (subtotalNumero < Number(cupom.valorMinimoPedido || 0)) {
+  if (subtotalNumero < Number(cupomEncontrado.valorMinimoPedido || 0)) {
     throw new Error(
       `Cupom disponível apenas para pedidos acima de R$ ${Number(
-        cupom.valorMinimoPedido || 0
+        cupomEncontrado.valorMinimoPedido || 0
       ).toFixed(2)}.`
     );
   }
 
   let desconto = 0;
 
-  if (cupom.tipo === "percentual") {
-    desconto = subtotalNumero * (Number(cupom.valor || 0) / 100);
+  if (cupomEncontrado.tipo === "percentual") {
+    desconto = subtotalNumero * (Number(cupomEncontrado.valor || 0) / 100);
   }
 
-  if (cupom.tipo === "fixo") {
-    desconto = Number(cupom.valor || 0);
+  if (cupomEncontrado.tipo === "fixo") {
+    desconto = Number(cupomEncontrado.valor || 0);
   }
 
-  if (cupom.tipo === "frete") {
+  if (cupomEncontrado.tipo === "frete") {
     desconto = freteNumero;
   }
 
@@ -284,16 +284,17 @@ function validarCupom({ codigo, subtotal, frete }) {
   );
 
   return {
-    codigo: cupom.codigo,
-    tipo: cupom.tipo,
-    valor: cupom.valor,
+    codigo: cupomEncontrado.codigo,
+    tipo: cupomEncontrado.tipo,
+    valor: cupomEncontrado.valor,
     desconto,
     subtotal: arredondar(subtotalNumero),
     frete: arredondar(freteNumero),
     totalComDesconto,
-    dataInicio: cupom.dataInicio || null,
-    dataFim: cupom.dataFim || null,
-    valorMinimoPedido: Number(cupom.valorMinimoPedido || 0),
+    dataInicio: cupomEncontrado.dataInicio || null,
+    dataFim: cupomEncontrado.dataFim || null,
+    valorMinimoPedido: Number(cupomEncontrado.valorMinimoPedido || 0),
+    primeiraCompra: Boolean(cupomEncontrado.primeiraCompra),
   };
 }
 
