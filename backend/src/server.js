@@ -640,15 +640,18 @@ app.get("/", (req, res) => {
 
 app.post("/api/admin/login", async (req, res) => {
   try {
-    const { email, senha } = req.body;
+    const { login, senha } = req.body;
 
-    if (!email || !senha) {
+    if (!login || !senha) {
       return res.status(400).json({
-        error: "E-mail e senha são obrigatórios.",
+        error: "Usuário/e-mail e senha são obrigatórios.",
       });
     }
 
-    if (email !== ADMIN_EMAIL) {
+    const loginNormalizado = String(login).trim().toLowerCase();
+    const adminEmailNormalizado = String(ADMIN_EMAIL).trim().toLowerCase();
+
+    if (loginNormalizado !== adminEmailNormalizado) {
       return res.status(401).json({
         error: "Credenciais inválidas.",
       });
