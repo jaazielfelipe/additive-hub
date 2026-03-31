@@ -675,21 +675,36 @@ function PedidoCard({
             )}
 
             {itens.map((item, index) => (
-              <div
-                key={`${item?.id || item?.nome || "item"}-${index}`}
-                className="rounded-xl border border-zinc-200 bg-white px-3 py-3"
-              >
-                <p className="font-medium text-zinc-900 line-clamp-2">
-                  {item?.nome || "Produto"}
-                </p>
-                <p className="mt-1 text-sm text-zinc-600">
-                  Qtd: {item?.quantidade || 0}
-                </p>
-                <p className="text-sm text-zinc-600">
-                  Unit.: {formatarMoeda(item?.preco || 0)}
-                </p>
-              </div>
-            ))}
+  <div
+    key={`${item?.id || item?.nome || "item"}-${index}`}
+    className="rounded-xl border border-zinc-200 bg-white px-3 py-3"
+  >
+    <p className="font-medium text-zinc-900 line-clamp-2">
+      {item?.nome || "Produto"}
+    </p>
+
+    <p className="mt-1 text-sm text-zinc-600">
+      Qtd: {item?.quantidade || 0}
+    </p>
+
+    <p className="text-sm text-zinc-600">
+      Unit.: {formatarMoeda(item?.preco || 0)}
+    </p>
+
+    {Array.isArray(item?.resumoVariacoes) && item.resumoVariacoes.length > 0 && (
+      <div className="mt-2 rounded-lg bg-zinc-50 px-2 py-2 text-sm text-zinc-600">
+        {item.resumoVariacoes.map((variacao, i) => (
+          <p key={`${item?.id || item?.nome || "item"}-${variacao?.nome || i}`}>
+            <span className="font-medium text-zinc-800">
+              {variacao?.nome || "Opção"}:
+            </span>{" "}
+            {variacao?.valor || "-"}
+          </p>
+        ))}
+      </div>
+    )}
+  </div>
+))}
           </div>
         </div>
 

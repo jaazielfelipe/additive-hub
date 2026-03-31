@@ -15,6 +15,30 @@ const pedidoSchema = new mongoose.Schema(
         altura: Number,
         largura: Number,
         comprimento: Number,
+
+        carrinhoKey: String,
+
+        selecoesVariacao: {
+          type: mongoose.Schema.Types.Mixed,
+          default: {},
+        },
+
+        resumoVariacoes: [
+          {
+            nome: String,
+            valor: String,
+          },
+        ],
+
+        categoria: String,
+        categoriaLabel: String,
+        subcategoria: String,
+        subcategoriaLabel: String,
+        subcategoria2: String,
+        subcategoria2Label: String,
+        imagens: [String],
+        descricao: String,
+        destaque: String,
       },
     ],
 
@@ -45,6 +69,17 @@ const pedidoSchema = new mongoose.Schema(
     totalItensCarrinho: Number,
     subtotalProdutos: Number,
     totalComFrete: Number,
+    descontoCupom: Number,
+
+    cupomAplicado: {
+      codigo: String,
+      tipo: String,
+      valor: Number,
+      dataInicio: String,
+      dataFim: String,
+      valorMinimoPedido: Number,
+      primeiraCompra: Boolean,
+    },
 
     dadosCliente: {
       nome: String,
