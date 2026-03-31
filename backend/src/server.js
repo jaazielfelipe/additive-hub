@@ -50,12 +50,12 @@ const NOTIFICATION_URL =
   process.env.NOTIFICATION_URL ||
   "https://additive-hub.onrender.com/api/webhook";
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@site.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_SENHA_HASH = process.env.ADMIN_SENHA_HASH;
 
-// senha padrão: 123456
-const ADMIN_SENHA_HASH =
-  process.env.ADMIN_SENHA_HASH ||
-  "$2b$10$FZpZqA7fNOz3Alngpik6LOPMt5kjrNn9XFT9qevj4I571PbQLGCNu";
+if (!ADMIN_EMAIL || !ADMIN_SENHA_HASH) {
+  throw new Error("Credenciais admin não configuradas.");
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || "troque-essa-chave-forte";
 
