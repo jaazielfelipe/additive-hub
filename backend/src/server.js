@@ -853,24 +853,56 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
     let totalFinalPedido = totalBruto;
 
     if (codigoCupom) {
-      const resultadoCupom = validarCupom({
-        codigo: codigoCupom,
-        subtotal: subtotalCalculado,
-        frete: freteCalculado,
+  const codigoNormalizado = String(codigoCupom || "").trim().toUpperCase();
+  const cupomConfig = CUPONS[codigoNormalizado];
+
+  if (!cupomConfig) {
+    return res.status(400).json({
+      error: "Cupom inválido.",
+    });
+  }
+
+  const cpfLimpo = sanitizarString(dadosCliente?.cpf).replace(/\D/g, "");
+
+  if (cupomConfig.primeiraCompra) {
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
+      return res.status(400).json({
+        error: "CPF válido é obrigatório para usar este cupom.",
       });
-
-      cupomAplicado = {
-        codigo: resultadoCupom.codigo,
-        tipo: resultadoCupom.tipo,
-        valor: resultadoCupom.valor,
-        dataInicio: resultadoCupom.dataInicio,
-        dataFim: resultadoCupom.dataFim,
-        valorMinimoPedido: resultadoCupom.valorMinimoPedido,
-      };
-
-      descontoCupom = Number(resultadoCupom.desconto || 0);
-      totalFinalPedido = Number(resultadoCupom.totalComDesconto || totalBruto);
     }
+
+    const pedidoAprovadoExistente = await Pedido.findOne({
+      "dadosCliente.cpf": cpfLimpo,
+      status: "approved",
+    });
+
+    if (pedidoAprovadoExistente) {
+      return res.status(400).json({
+        error: "Este cupom é válido apenas para a primeira compra.",
+      });
+    }
+  }
+
+  const resultadoCupom = validarCupom({
+    cupom: cupomConfig,
+    codigo: codigoNormalizado,
+    subtotal: subtotalCalculado,
+    frete: freteCalculado,
+  });
+
+  cupomAplicado = {
+    codigo: resultadoCupom.codigo,
+    tipo: resultadoCupom.tipo,
+    valor: resultadoCupom.valor,
+    dataInicio: resultadoCupom.dataInicio,
+    dataFim: resultadoCupom.dataFim,
+    valorMinimoPedido: resultadoCupom.valorMinimoPedido,
+    primeiraCompra: Boolean(resultadoCupom.primeiraCompra),
+  };
+
+  descontoCupom = Number(resultadoCupom.desconto || 0);
+  totalFinalPedido = Number(resultadoCupom.totalComDesconto || totalBruto);
+}
 
     const pedidoId = pedidoLocalId || `pedido_${Date.now()}`;
 

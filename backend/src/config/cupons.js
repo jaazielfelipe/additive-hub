@@ -17,6 +17,7 @@ const CUPONS = {
     dataInicio: "2026-01-01",
     dataFim: "2026-12-31",
     valorMinimoPedido: 50,
+    primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
   },
 
 
@@ -28,6 +29,7 @@ const CUPONS = {
     dataInicio: "2026-01-01",
     dataFim: "2026-12-31",
     valorMinimoPedido: 200,
+    primeiraCompra: false,
   },
 };
 
