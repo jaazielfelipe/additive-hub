@@ -224,6 +224,10 @@ function parseCSV(texto) {
         "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
       imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
       variacoes,
+      peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
+      altura: Number(String(item.altura || "0").replace(",", ".")) || 0,
+      largura: Number(String(item.largura || "0").replace(",", ".")) || 0,
+      comprimento: Number(String(item.comprimento || "0").replace(",", ".")) || 0,
     };
   });
 }
@@ -333,7 +337,17 @@ export default function ProdutoDetalhe() {
   const [carrinho, setCarrinho] = useState(() => {
     try {
       const carrinhoSalvo = localStorage.getItem("carrinhoAdditiveHub");
-      return carrinhoSalvo ? JSON.parse(carrinhoSalvo) : [];
+      const lista = carrinhoSalvo ? JSON.parse(carrinhoSalvo) : [];
+
+      return Array.isArray(lista)
+        ? lista.map((item) => ({
+            ...item,
+            peso: Number(item.peso || 0),
+            altura: Number(item.altura || 0),
+            largura: Number(item.largura || 0),
+            comprimento: Number(item.comprimento || 0),
+          }))
+        : [];
     } catch (error) {
       console.error("Erro ao carregar carrinho:", error);
       return [];
@@ -455,6 +469,10 @@ export default function ProdutoDetalhe() {
           carrinhoKey,
           selecoesVariacao: selecoes,
           resumoVariacoes,
+          peso: Number(produtoAtual.peso || 0),
+          altura: Number(produtoAtual.altura || 0),
+          largura: Number(produtoAtual.largura || 0),
+          comprimento: Number(produtoAtual.comprimento || 0),
         },
       ];
     });
