@@ -27,11 +27,14 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
+
+      - name: Give execute permission to Vite
+        run: chmod +x frontend/node_modules/.bin/vite
 
       - name: Build
         working-directory: frontend
-        run: npm run build
+        run: npx vite build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
