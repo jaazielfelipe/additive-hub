@@ -455,6 +455,14 @@ const MODELOS_EMBALAGEM = [
     height: 13,
     pesoMaximo: 5,
   },
+  {
+    id: "caixa4",
+    nome: "Caixa GG",
+    length: 40,
+    width: 20,
+    height: 20,
+    pesoMaximo: 5,
+  },
 ];
 
 /* =========================

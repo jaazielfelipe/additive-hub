@@ -345,6 +345,172 @@ function gerarLinkWhatsAppContatoDireto(pedido) {
   return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
 }
 
+function obterPacotePedido(pedido = {}) {
+  return (
+    pedido?.superfretePackage ||
+    pedido?.freteSelecionado?.package ||
+    pedido?.freteSelecionado?.pacoteAdditiveHub ||
+    null
+  );
+}
+
+function obterNomeEmbalagem(pedido = {}, pacote = null) {
+  const pacoteBase = pacote || obterPacotePedido(pedido);
+
+  return (
+    pacoteBase?.embalagemUtilizada?.nome ||
+    pacoteBase?.name ||
+    pedido?.freteSelecionado?.name ||
+    pedido?.freteSelecionado?.nome ||
+    "Embalagem"
+  );
+}
+
+function isPacoteOtimizado(pedido = {}, pacote = null) {
+  const pacoteBase = pacote || obterPacotePedido(pedido);
+  const nomeEmbalagem = String(obterNomeEmbalagem(pedido, pacoteBase) || "")
+    .toLowerCase()
+    .trim();
+
+  return (
+    Boolean(pacoteBase?.embalagemUtilizada) ||
+    nomeEmbalagem.includes("pacote consolidado") ||
+    nomeEmbalagem.includes("pacote único") ||
+    nomeEmbalagem.includes("pacote unico") ||
+    nomeEmbalagem.includes("otimizado")
+  );
+}
+
+function calcularVolumeItem(item = {}) {
+  const altura = Number(item?.altura || 0);
+  const largura = Number(item?.largura || 0);
+  const comprimento = Number(item?.comprimento || 0);
+  const quantidade = Math.max(1, Number(item?.quantidade || 1));
+
+  if (altura <= 0 || largura <= 0 || comprimento <= 0) return 0;
+
+  return altura * largura * comprimento * quantidade;
+}
+
+function calcularVolumeOcupadoPedido(pedido = {}) {
+  const itens = Array.isArray(pedido?.carrinho) ? pedido.carrinho : [];
+
+  return itens.reduce((total, item) => total + calcularVolumeItem(item), 0);
+}
+
+function calcularVolumePacote(pacote = {}) {
+  const altura = Number(pacote?.height || 0);
+  const largura = Number(pacote?.width || 0);
+  const comprimento = Number(pacote?.length || 0);
+
+  if (altura <= 0 || largura <= 0 || comprimento <= 0) return 0;
+
+  return altura * largura * comprimento;
+}
+
+function calcularOcupacaoPacote(pedido = {}, pacote = null) {
+  const pacoteBase = pacote || obterPacotePedido(pedido);
+
+  if (!pacoteBase) return null;
+
+  const volumePacote = calcularVolumePacote(pacoteBase);
+  const volumeItens = calcularVolumeOcupadoPedido(pedido);
+
+  if (volumePacote <= 0 || volumeItens <= 0) return null;
+
+  const percentual = (volumeItens / volumePacote) * 100;
+  return Math.max(0, Math.min(100, percentual));
+}
+
+function formatarNumeroDimensao(valor) {
+  const numero = Number(valor || 0);
+
+  if (!Number.isFinite(numero) || numero <= 0) return "-";
+
+  return Number.isInteger(numero)
+    ? String(numero)
+    : numero.toFixed(1).replace(".", ",");
+}
+
+function BadgeEmbalagem({ pedido }) {
+  const pacote = obterPacotePedido(pedido);
+
+  if (!pacote || isRetiradaPedido(pedido)) return null;
+
+  const nomeEmbalagem = obterNomeEmbalagem(pedido, pacote);
+  const otimizado = isPacoteOtimizado(pedido, pacote);
+  const ocupacao = calcularOcupacaoPacote(pedido, pacote);
+  const dimensoes = `${formatarNumeroDimensao(pacote.length)}×${formatarNumeroDimensao(
+    pacote.width
+  )}×${formatarNumeroDimensao(pacote.height)} cm`;
+
+  return (
+    <div
+      className={`mt-3 rounded-2xl border p-3 ${
+        otimizado
+          ? "border-[#f4b400] bg-[#fff8db]"
+          : "border-zinc-200 bg-zinc-50"
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${
+            otimizado
+              ? "border-[#f4b400] bg-[#ffe58f] text-[#7a5600]"
+              : "border-zinc-300 bg-white text-zinc-700"
+          }`}
+        >
+          <span aria-hidden="true">🟨</span>
+          {nomeEmbalagem}
+        </span>
+
+        {otimizado && (
+          <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+            Pacote otimizado
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 space-y-1 text-sm text-zinc-700">
+        <p>
+          <span className="font-semibold text-zinc-900">Caixa:</span> {dimensoes}
+        </p>
+
+        {pacote?.weight ? (
+          <p>
+            <span className="font-semibold text-zinc-900">Peso:</span>{" "}
+            {String(Number(pacote.weight).toFixed(3)).replace(".", ",")} kg
+          </p>
+        ) : null}
+
+        {ocupacao != null && (
+          <div className="pt-1">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <span className="font-semibold text-zinc-900">Ocupação</span>
+              <span className="text-xs font-bold text-zinc-700">
+                {ocupacao.toFixed(1).replace(".", ",")}%
+              </span>
+            </div>
+
+            <div className="h-2.5 overflow-hidden rounded-full bg-white ring-1 ring-black/5">
+              <div
+                className={`h-full rounded-full ${
+                  ocupacao >= 80
+                    ? "bg-emerald-500"
+                    : ocupacao >= 55
+                    ? "bg-amber-400"
+                    : "bg-zinc-400"
+                }`}
+                style={{ width: `${ocupacao}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PedidoCard({
   pedido,
   atualizando,
@@ -618,7 +784,8 @@ function PedidoCard({
 
       {pagamentoPendenteOuBloqueado(pedido) && (
         <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          Este pedido está bloqueado para preparo e logística até a aprovação do pagamento.
+          Este pedido está bloqueado para preparo e logística até a aprovação do
+          pagamento.
         </div>
       )}
 
@@ -654,19 +821,24 @@ function PedidoCard({
 
         <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
           <p className="font-semibold text-zinc-900">Frete</p>
+
           <div className="mt-2 space-y-1">
             <p className="truncate">
               {pedido?.freteSelecionado?.nome || "Sem frete"}
             </p>
+
             {pedido?.freteSelecionado?.prazo ? (
               <p>Prazo: {pedido.freteSelecionado.prazo}</p>
             ) : null}
+
             {pedido?.freteSelecionado?.preco !== undefined ? (
               <p>Valor: {formatarMoeda(pedido.freteSelecionado.preco)}</p>
             ) : (
               <p>Valor: -</p>
             )}
           </div>
+
+          <BadgeEmbalagem pedido={pedido} />
         </div>
 
         <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
@@ -703,7 +875,7 @@ function PedidoCard({
                 key={`${item?.id || item?.nome || "item"}-${index}`}
                 className="rounded-xl border border-zinc-200 bg-white px-3 py-3"
               >
-                <p className="font-medium text-zinc-900 line-clamp-2">
+                <p className="line-clamp-2 font-medium text-zinc-900">
                   {item?.nome || "Produto"}
                 </p>
 
@@ -914,7 +1086,9 @@ export default function Painel() {
       );
 
       if (!abaWhatsApp) {
-        alert("Pedido confirmado, mas o navegador bloqueou a abertura do WhatsApp.");
+        alert(
+          "Pedido confirmado, mas o navegador bloqueou a abertura do WhatsApp."
+        );
       }
     } catch (error) {
       console.error("Erro ao confirmar pedido:", error);
@@ -988,7 +1162,9 @@ export default function Painel() {
       );
 
       if (!abaWhatsApp) {
-        alert("Status atualizado, mas o navegador bloqueou a abertura do WhatsApp.");
+        alert(
+          "Status atualizado, mas o navegador bloqueou a abertura do WhatsApp."
+        );
       }
     } catch (error) {
       console.error("Erro ao atualizar retirada:", error);
@@ -1361,7 +1537,8 @@ export default function Painel() {
             </p>
             <h1 className="mt-2 text-3xl font-bold">Controle de pedidos</h1>
             <p className="mt-2 text-zinc-600">
-              Visualize pedidos, confirme no WhatsApp e avance o fluxo sem precisar de várias guias.
+              Visualize pedidos, confirme no WhatsApp e avance o fluxo sem
+              precisar de várias guias.
             </p>
           </div>
 
