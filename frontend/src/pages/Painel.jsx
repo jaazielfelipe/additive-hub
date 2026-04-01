@@ -189,11 +189,11 @@ function construirMensagemConfirmacao(pedido) {
     : "- Itens do pedido";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso`,
+    `Olá, ${nome}!`,
+    "",    
+    "Seu pedido *#${codigoPedido}* foi recebido com sucesso e já estamos preparando tudo para a confecção",
     "",
-    "Já estamos preparando tudo para a confecção.",
-    "",
-    "O prazo para envio é de *3 dias úteis*.",
+    "O prazo para envio é de *5 dias úteis*.",
     "",
     "*Resumo do pedido:*",
     resumoItens,
