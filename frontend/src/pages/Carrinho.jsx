@@ -115,13 +115,20 @@ export default function Carrinho() {
 
   const totalComFrete = subtotalProdutos + Number(freteSelecionado?.preco || 0);
 
-  const extrairOpcoesFrete = (payload) => {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.data)) return payload.data;
-    if (Array.isArray(payload?.shipping_services)) return payload.shipping_services;
-    if (Array.isArray(payload?.services)) return payload.services;
-    return [];
-  };
+ const extrairOpcoesFrete = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.shipping_services)) return payload.shipping_services;
+  if (Array.isArray(payload?.services)) return payload.services;
+
+  const valores = Object.keys(payload || {})
+    .filter((chave) => /^\d+$/.test(chave))
+    .map((chave) => payload[chave]);
+
+  if (valores.length > 0) return valores;
+
+  return [];
+};
 
   const obterPrecoFrete = (opcao) =>
     Number(opcao?.price ?? opcao?.custom_price ?? opcao?.total_price ?? 0);
