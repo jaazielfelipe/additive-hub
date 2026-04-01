@@ -1,12 +1,13 @@
 import { useState } from "react";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState(""); // 👈 agora é login (email OU usuário)
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
 
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  const apiBaseUrl =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
   const fazerLogin = async (e) => {
     e.preventDefault();
@@ -20,7 +21,8 @@ export default function Login() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, senha }),
+        // 👇 envia login genérico
+        body: JSON.stringify({ login, senha }),
       });
 
       const data = await response.json();
@@ -52,18 +54,20 @@ export default function Login() {
 
         <h1 className="mt-3 text-3xl font-bold">Login do painel</h1>
         <p className="mt-2 text-zinc-600">
-          Entre com seu e-mail e senha para acessar o painel.
+          Entre com seu e-mail ou usuário para acessar o painel.
         </p>
 
         <form onSubmit={fazerLogin} className="mt-6 space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">E-mail</label>
+            <label className="mb-1 block text-sm font-medium">
+              E-mail ou Usuário
+            </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
               className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-              placeholder="admin@site.com"
+              placeholder="admin@site.com ou usuario"
               required
             />
           </div>

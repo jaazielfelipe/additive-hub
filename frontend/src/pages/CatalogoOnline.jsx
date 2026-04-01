@@ -24,6 +24,7 @@ function tituloCategoria(valor) {
     "casa-organizacao": "Casa & Organização",
     chaveiros: "Chaveiros",
     decoracao: "Decoração",
+    "its-organic": "It's Organic",
   };
 
   if (mapa[chave]) return mapa[chave];
@@ -38,13 +39,15 @@ function tituloItem(valor) {
 
   const mapa = {
     "jogos-hobby": "Jogos & Hobby",
+    imas: "Ímãs",
+    rosqueaveis: "Rosqueáveis",
+    rosqueavel: "Rosqueável",
+    bic: "BIC",
   };
 
   if (mapa[chave]) return mapa[chave];
 
-  return String(valor || "")
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (letra) => letra.toUpperCase());
+  return String(valor || "").replace(/-/g, " ");
 }
 
 const produtosPadrao = [
@@ -818,62 +821,66 @@ export default function CatalogoOnline() {
     setMostrarBarraCarrinhoMobile(totalItensCarrinho > 0);
   }, [totalItensCarrinho]);
 
-  const breadcrumb = useMemo(() => {
-    const itens = [{ label: "Início", tipo: "inicio" }];
+const breadcrumb = useMemo(() => {
+  const itens = [{ label: "Início", tipo: "inicio" }];
 
-    if (categoriaAtiva !== "Todos") {
-      itens.push({
-        label: tituloCategoria(categoriaAtiva),
-        tipo: "categoria",
-      });
-    }
+  if (categoriaAtiva !== "Todos") {
+    itens.push({
+      label: tituloCategoria(categoriaAtiva),
+      tipo: "categoria",
+    });
+  }
 
-    if (subcategoriaAtiva !== "Todos") {
-      itens.push({
-        label: tituloItem(subcategoriaAtiva)
-          .replace(/-/g, " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase()),
-        tipo: "subcategoria",
-      });
-    }
+  if (subcategoriaAtiva !== "Todos") {
+    itens.push({
+      label: tituloItem(subcategoriaAtiva).replace(/-/g, " "),
+      tipo: "subcategoria",
+    });
+  }
 
-    if (subcategoria2Ativa !== "Todos") {
-      itens.push({
-        label: tituloItem(subcategoria2Ativa)
-          .replace(/-/g, " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase()),
-        tipo: "subcategoria2",
-      });
-    }
+  if (subcategoria2Ativa !== "Todos") {
+    itens.push({
+      label: tituloItem(subcategoria2Ativa).replace(/-/g, " "),
+      tipo: "subcategoria2",
+    });
+  }
 
-    return itens;
-  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
+  return itens;
+}, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
 
   const temBuscaAtiva = busca.trim() !== "";
 
-  const tituloSecao = useMemo(() => {
-    if (temBuscaAtiva) {
-      return `Resultados para "${busca.trim()}"`;
-    }
+const tituloTopo = useMemo(() => {
+  if (temBuscaAtiva) {
+    return `Resultados para "${busca.trim()}"`;
+  }
 
-    if (subcategoria2Ativa !== "Todos") {
-      return tituloItem(subcategoria2Ativa)
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, (l) => l.toUpperCase());
-    }
+  if (categoriaAtiva !== "Todos") {
+    return tituloCategoria(categoriaAtiva);
+  }
 
-    if (subcategoriaAtiva !== "Todos") {
-      return tituloItem(subcategoriaAtiva)
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, (l) => l.toUpperCase());
-    }
+  return "Todos os produtos";
+}, [categoriaAtiva, busca, temBuscaAtiva]);
 
-    if (categoriaAtiva !== "Todos") {
-      return `Produtos de ${tituloCategoria(categoriaAtiva)}`;
-    }
+const tituloCatalogo = useMemo(() => {
+  if (temBuscaAtiva) {
+    return `Resultados para "${busca.trim()}"`;
+  }
 
-    return "Todos os produtos";
-  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, temBuscaAtiva]);
+  if (subcategoria2Ativa !== "Todos") {
+    return tituloItem(subcategoria2Ativa).replace(/-/g, " ");
+  }
+
+  if (subcategoriaAtiva !== "Todos") {
+    return tituloItem(subcategoriaAtiva).replace(/-/g, " ");
+  }
+
+  if (categoriaAtiva !== "Todos") {
+    return tituloCategoria(categoriaAtiva);
+  }
+
+  return "Todos os produtos";
+}, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, temBuscaAtiva]);
 
   const estaEmPaginaFiltrada = useMemo(() => {
     return (
@@ -883,51 +890,59 @@ export default function CatalogoOnline() {
     );
   }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
 
-  const descricaoSecao = useMemo(() => {
-    if (temBuscaAtiva) {
-      return "Veja os produtos encontrados para a sua pesquisa.";
-    }
+const descricaoSecao = useMemo(() => {
+  if (temBuscaAtiva) {
+    return "Veja os produtos encontrados para a sua pesquisa.";
+  }
 
-    if (subcategoria2Ativa !== "Todos") {
-      return `Explore nossa seleção de ${tituloItem(subcategoria2Ativa)
-        .replace(/-/g, " ")
-        .toLowerCase()} produzidos em impressão 3D, com foco em qualidade, acabamento e funcionalidade.`;
-    }
+  if (subcategoria2Ativa !== "Todos") {
+    return `Explore nossa seleção da coleção ${tituloCategoria(
+      categoriaAtiva
+    )}, com foco em ${tituloItem(subcategoria2Ativa).replace(
+      /-/g,
+      " "
+    )} e peças produzidas em impressão 3D com qualidade, acabamento e funcionalidade.`;
+  }
 
-    if (subcategoriaAtiva !== "Todos") {
-      return `Confira os produtos da linha ${tituloItem(subcategoriaAtiva)
-        .replace(/-/g, " ")} feitos em impressão 3D, ideais para decoração, organização ou uso no dia a dia.`;
-    }
+  if (subcategoriaAtiva !== "Todos") {
+    return `Confira os produtos da coleção ${tituloCategoria(
+      categoriaAtiva
+    )}, com peças da linha ${tituloItem(subcategoriaAtiva).replace(
+      /-/g,
+      " "
+    )} produzidas em impressão 3D para unir design, funcionalidade e personalidade.`;
+  }
 
-    if (categoriaAtiva !== "Todos") {
-      return `Veja os produtos da categoria ${tituloCategoria(
-        categoriaAtiva
-      )}, com peças desenvolvidas para unir design, praticidade e personalização.`;
-    }
+  if (categoriaAtiva !== "Todos") {
+    return `Veja os produtos da coleção ${tituloCategoria(
+      categoriaAtiva
+    )}, com peças desenvolvidas para unir design, praticidade e personalização.`;
+  }
 
-    return "Explore todo o catálogo de produtos em impressão 3D.";
-  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, temBuscaAtiva]);
+  return "Explore todo o catálogo de produtos em impressão 3D.";
+}, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, temBuscaAtiva]);
 
   useEffect(() => {
-    const partes = ["Additive Hub"];
+  const partes = ["Additive Hub"];
 
-    if (categoriaAtiva !== "Todos") partes.unshift(tituloCategoria(categoriaAtiva));
-    if (subcategoriaAtiva !== "Todos") {
-      partes.unshift(
-        tituloItem(subcategoriaAtiva).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-      );
-    }
-    if (subcategoria2Ativa !== "Todos") {
-      partes.unshift(
-        tituloItem(subcategoria2Ativa).replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-      );
-    }
-    if (temBuscaAtiva) {
-      partes.unshift(`Busca: ${busca.trim()}`);
-    }
+  if (categoriaAtiva !== "Todos") {
+    partes.unshift(tituloCategoria(categoriaAtiva));
+  }
 
-    document.title = partes.join(" | ");
-  }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, temBuscaAtiva]);
+  if (subcategoriaAtiva !== "Todos") {
+    partes.unshift(tituloItem(subcategoriaAtiva).replace(/-/g, " "));
+  }
+
+  if (subcategoria2Ativa !== "Todos") {
+    partes.unshift(tituloItem(subcategoria2Ativa).replace(/-/g, " "));
+  }
+
+  if (temBuscaAtiva) {
+    partes.unshift(`Busca: ${busca.trim()}`);
+  }
+
+  document.title = partes.join(" | ");
+}, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, temBuscaAtiva]);
 
   const slideSelecionado = slidesDestaque[slideAtual];
 
@@ -1567,8 +1582,8 @@ export default function CatalogoOnline() {
               </p>
 
               <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-                {tituloSecao}
-              </h1>
+  {tituloTopo}
+</h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 md:text-base">
                 {descricaoSecao}
@@ -1882,7 +1897,7 @@ export default function CatalogoOnline() {
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
               Catálogo
             </p>
-            <h3 className="mt-1 text-3xl font-bold">{tituloSecao}</h3>
+            <h3 className="mt-1 text-3xl font-bold">{tituloCatalogo}</h3>
             <p className="mt-2 text-sm text-zinc-500">
               {produtosFiltrados.length} item(ns) encontrado(s)
             </p>
