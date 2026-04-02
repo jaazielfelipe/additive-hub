@@ -100,6 +100,19 @@ function sanitizarTextoVariacao(valor) {
   return String(valor || "").trim();
 }
 
+function sanitizarSessionId(valor) {
+  return String(valor || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 120);
+}
+
+function pedidoAindaRecuperavel(pedido = {}) {
+  const status = String(pedido?.status || "").toLowerCase().trim();
+
+  return ["pending", "in_process"].includes(status);
+}
+
 function normalizarResumoVariacoes(resumoVariacoes = [], selecoesVariacao = {}) {
   if (Array.isArray(resumoVariacoes) && resumoVariacoes.length > 0) {
     return resumoVariacoes
@@ -1106,8 +1119,10 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       enderecoEntrega,
       pedidoLocalId,
       criadoEm,
+      sessionId,
     } = req.body || {};
 
+    const sessionIdLimpo = sanitizarSessionId(sessionId);
     const carrinhoNormalizado = normalizarCarrinhoPedido(carrinho);
 
     if (!Array.isArray(carrinhoNormalizado) || carrinhoNormalizado.length === 0) {
@@ -1176,7 +1191,25 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       totalFinalPedido = Number(resultadoCupom.totalComDesconto || totalBruto);
     }
 
-    const pedidoId = pedidoLocalId || `pedido_${Date.now()}`;
+    const tipoEntrega =
+      freteSelecionado?.nome === "Retirar comigo" ? "retirada" : "entrega";
+
+    let pedidoExistente = null;
+
+    if (sessionIdLimpo) {
+      pedidoExistente = await Pedido.findOne({
+        sessionId: sessionIdLimpo,
+        status: { $in: ["pending", "in_process"] },
+      }).sort({ criadoEm: -1 });
+    }
+
+    if (!pedidoExistente && pedidoLocalId) {
+      pedidoExistente = await Pedido.findOne({
+        $or: [{ id: String(pedidoLocalId) }, { pedidoLocalId: String(pedidoLocalId) }],
+      });
+    }
+
+    const pedidoId = pedidoExistente?.id || pedidoLocalId || `pedido_${Date.now()}`;
 
     const itensBase = criarItensBasePedido(
       carrinhoNormalizado,
@@ -1184,12 +1217,10 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
     );
     const items = aplicarDescontoNosItens(itensBase, descontoCupom);
 
-    const tipoEntrega =
-      freteSelecionado?.nome === "Retirar comigo" ? "retirada" : "entrega";
-
     const pedidoSalvo = {
       id: pedidoId,
       pedidoLocalId: pedidoId,
+      sessionId: sessionIdLimpo,
       carrinho: carrinhoNormalizado,
       freteSelecionado: freteSelecionado || null,
       tipoEntrega,
@@ -1217,7 +1248,7 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
         complemento: sanitizarString(enderecoEntrega?.complemento),
       },
 
-      status: "pending",
+      status: pedidoAindaRecuperavel(pedidoExistente) ? pedidoExistente.status : "pending",
       statusInterno:
         tipoEntrega === "retirada" ? "retirada_recebido" : "chegou",
       payment_id: null,
@@ -1238,13 +1269,9 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       superfreteCartId: null,
       superfreteCheckoutId: null,
 
-      criadoEm: criadoEm || new Date(),
-      atualizadoEm: null,
+      criadoEm: pedidoExistente?.criadoEm || criadoEm || new Date(),
+      atualizadoEm: new Date(),
     };
-
-    const pedidoExistente = await Pedido.findOne({
-      $or: [{ id: String(pedidoId) }, { pedidoLocalId: String(pedidoId) }],
-    });
 
     if (pedidoExistente) {
       await Pedido.updateOne(
@@ -1269,6 +1296,9 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       external_reference: pedidoId,
     };
 
+    console.log("SESSION ID:", sessionIdLimpo);
+    console.log("PEDIDO EXISTENTE REAPROVEITADO:", !!pedidoExistente);
+    console.log("PEDIDO ID FINAL:", pedidoId);
     console.log("CUPOM APLICADO:", cupomAplicado);
     console.log("DESCONTO CUPOM:", descontoCupom);
     console.log("TOTAL BRUTO:", totalBruto);
@@ -1283,6 +1313,8 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       preferenceId: mpResponse.id,
       initPoint: mpResponse.init_point,
       pedidoId,
+      reutilizado: !!pedidoExistente,
+      sessionId: sessionIdLimpo,
       subtotalProdutos: subtotalCalculado,
       descontoCupom: arredondar(descontoCupom),
       totalComFrete: arredondar(totalFinalPedido),
@@ -1466,6 +1498,62 @@ app.get("/api/pedidos", autenticarAdmin, async (req, res) => {
 
     return res.status(500).json({
       error: "Erro ao listar pedidos.",
+      message: error.message,
+    });
+  }
+});
+
+app.get("/api/pedidos/abandonados", autenticarAdmin, async (req, res) => {
+  try {
+    const minutos = Math.max(1, Number(req.query.minutos || 30));
+    const limite = new Date(Date.now() - minutos * 60 * 1000);
+
+    const pedidos = await Pedido.find({
+      status: "pending",
+      criadoEm: { $lte: limite },
+      $or: [
+        { "dadosCliente.nome": { $exists: true, $ne: "" } },
+        { "dadosCliente.email": { $exists: true, $ne: "" } },
+        { "dadosCliente.telefone": { $exists: true, $ne: "" } },
+        { "dadosCliente.cpf": { $exists: true, $ne: "" } },
+      ],
+    }).sort({ criadoEm: -1 });
+
+    return res.json({
+      pedidos: pedidos.map(normalizarPedidoResposta),
+      total: pedidos.length,
+      minutos,
+    });
+  } catch (error) {
+    console.error("Erro ao buscar carrinhos abandonados:", error);
+
+    return res.status(500).json({
+      error: "Erro ao buscar carrinhos abandonados.",
+      message: error.message,
+    });
+  }
+});
+
+app.get("/api/pedidos/publico/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const pedido = await Pedido.findOne({
+      $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
+    });
+
+    if (!pedido) {
+      return res.status(404).json({
+        error: "Pedido não encontrado.",
+      });
+    }
+
+    return res.json(normalizarPedidoResposta(pedido));
+  } catch (error) {
+    console.error("Erro ao buscar pedido público:", error);
+
+    return res.status(500).json({
+      error: "Erro ao buscar pedido.",
       message: error.message,
     });
   }

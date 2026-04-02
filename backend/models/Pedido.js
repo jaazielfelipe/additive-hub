@@ -4,6 +4,7 @@ const pedidoSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true, index: true },
     pedidoLocalId: { type: String, index: true },
+    sessionId: { type: String, index: true, default: "" },
 
     carrinho: [
       {
