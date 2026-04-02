@@ -14,6 +14,7 @@ import Carrinho from "./pages/Carrinho";
 import Painel from "./pages/Painel";
 import Login from "./pages/Login";
 import RotaProtegida from "./components/RotaProtegida";
+import OrdemProducao from "./pages/OrdemProducao";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -31,6 +32,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/pagamento/sucesso" element={<PaginaSucesso />} />
         <Route path="/pagamento/falha" element={<PaginaFalha />} />
         <Route path="/pagamento/pendente" element={<PaginaPendente />} />
+
+        <Route
+             path="/ordem-producao"
+           element={
+            <RotaProtegida>
+                <OrdemProducao />
+                </RotaProtegida>
+              }
+            />
 
         <Route path="/login" element={<Login />} />
         <Route

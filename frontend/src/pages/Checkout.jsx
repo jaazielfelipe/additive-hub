@@ -99,6 +99,57 @@ function validarNomeCompleto(nome) {
   return partes.every((parte) => parte.length >= 2);
 }
 
+function normalizarTextoVariacao(valor) {
+  if (valor === null || valor === undefined) return "";
+  return String(valor).trim();
+}
+
+function obterResumoVariacoesItem(item) {
+  if (Array.isArray(item?.resumoVariacoes) && item.resumoVariacoes.length > 0) {
+    return item.resumoVariacoes
+      .map((variacao, index) => ({
+        id: `${item?.carrinhoKey || item?.id || "item"}-${variacao?.nome || "variacao"}-${index}`,
+        nome: normalizarTextoVariacao(variacao?.nome),
+        valor: normalizarTextoVariacao(variacao?.valor),
+      }))
+      .filter((variacao) => variacao.nome && variacao.valor);
+  }
+
+  if (
+    item?.selecoesVariacao &&
+    typeof item.selecoesVariacao === "object" &&
+    !Array.isArray(item.selecoesVariacao)
+  ) {
+    return Object.entries(item.selecoesVariacao)
+      .map(([nome, valor], index) => ({
+        id: `${item?.carrinhoKey || item?.id || "item"}-${nome}-${index}`,
+        nome: normalizarTextoVariacao(nome),
+        valor: normalizarTextoVariacao(valor),
+      }))
+      .filter((variacao) => variacao.nome && variacao.valor);
+  }
+
+  return [];
+}
+
+function normalizarCarrinhoParaPedido(carrinho) {
+  return (Array.isArray(carrinho) ? carrinho : []).map((item) => {
+    const resumoVariacoes = obterResumoVariacoesItem(item);
+
+    return {
+      ...item,
+      carrinhoKey: item?.carrinhoKey || "",
+      selecoesVariacao:
+        item?.selecoesVariacao &&
+        typeof item.selecoesVariacao === "object" &&
+        !Array.isArray(item.selecoesVariacao)
+          ? item.selecoesVariacao
+          : {},
+      resumoVariacoes,
+    };
+  });
+}
+
 export default function Checkout() {
   const [carrinho, setCarrinho] = useState([]);
 
@@ -141,7 +192,7 @@ export default function Checkout() {
   const apiPagamentoUrl =
     import.meta.env.VITE_PAGAMENTO_API_URL ||
     `${apiBaseUrl}/api/pagamentos/criar-preferencia`;
-  const apiCupomUrl = `${apiBaseUrl}/api/cupons/validar`; 
+  const apiCupomUrl = `${apiBaseUrl}/api/cupons/validar`;
 
   useEffect(() => {
     try {
@@ -154,7 +205,7 @@ export default function Checkout() {
       if (carrinhoSalvo) {
         const carrinhoParseado = JSON.parse(carrinhoSalvo);
         if (Array.isArray(carrinhoParseado)) {
-          setCarrinho(carrinhoParseado);
+          setCarrinho(normalizarCarrinhoParaPedido(carrinhoParseado));
         }
       }
 
@@ -237,25 +288,31 @@ export default function Checkout() {
     );
   }, [dadosCliente, enderecoEntrega]);
 
-  const totalItensCarrinho = useMemo(() => {
-    return carrinho.reduce((total, item) => total + Number(item.quantidade || 0), 0);
+  const carrinhoNormalizado = useMemo(() => {
+    return normalizarCarrinhoParaPedido(carrinho);
   }, [carrinho]);
 
+  const totalItensCarrinho = useMemo(() => {
+    return carrinhoNormalizado.reduce(
+      (total, item) => total + Number(item.quantidade || 0),
+      0
+    );
+  }, [carrinhoNormalizado]);
+
   const subtotalProdutos = useMemo(() => {
-  return carrinho.reduce(
-    (total, item) =>
-      total + Number(item.preco || 0) * Number(item.quantidade || 0),
-    0
-  );
-}, [carrinho]);
+    return carrinhoNormalizado.reduce(
+      (total, item) =>
+        total + Number(item.preco || 0) * Number(item.quantidade || 0),
+      0
+    );
+  }, [carrinhoNormalizado]);
 
-const valorFrete = Number(freteSelecionado?.preco || 0);
+  const valorFrete = Number(freteSelecionado?.preco || 0);
+  const descontoCupom = Number(cupomAplicado?.desconto || 0);
 
-const descontoCupom = Number(cupomAplicado?.desconto || 0);
-
-const totalComFrete = useMemo(() => {
-  return Math.max(subtotalProdutos + valorFrete - descontoCupom, 0);
-}, [subtotalProdutos, valorFrete, descontoCupom]);
+  const totalComFrete = useMemo(() => {
+    return Math.max(subtotalProdutos + valorFrete - descontoCupom, 0);
+  }, [subtotalProdutos, valorFrete, descontoCupom]);
 
   const obterErroCampo = (campo, valor) => {
     const valorTexto = String(valor || "").trim();
@@ -323,11 +380,16 @@ const totalComFrete = useMemo(() => {
   const podePagar = useMemo(() => {
     return (
       formularioValido &&
-      carrinho.length > 0 &&
+      carrinhoNormalizado.length > 0 &&
       !!freteSelecionado &&
       !carregandoPagamento
     );
-  }, [formularioValido, carrinho.length, freteSelecionado, carregandoPagamento]);
+  }, [
+    formularioValido,
+    carrinhoNormalizado.length,
+    freteSelecionado,
+    carregandoPagamento,
+  ]);
 
   const atualizarDadosCliente = (campo, valor) => {
     let valorFormatado = valor;
@@ -384,61 +446,61 @@ const totalComFrete = useMemo(() => {
   };
 
   const aplicarCupom = async () => {
-  const codigo = String(cupom || "").trim().toUpperCase();
+    const codigo = String(cupom || "").trim().toUpperCase();
 
-  if (!codigo) {
-    setErroCupom("Digite um cupom.");
-    setCupomAplicado(null);
-    return;
-  }
-
-  if (!freteSelecionado) {
-    setErroCupom("Selecione o frete antes de aplicar o cupom.");
-    setCupomAplicado(null);
-    return;
-  }
-
-  try {
-    setCarregandoCupom(true);
-    setErroCupom("");
-
-    const response = await fetch(apiCupomUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        codigo,
-        subtotal: subtotalProdutos,
-        frete: Number(freteSelecionado?.preco || 0),
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.message || "Não foi possível validar o cupom.");
+    if (!codigo) {
+      setErroCupom("Digite um cupom.");
+      setCupomAplicado(null);
+      return;
     }
 
-    setCupom(codigo);
-    setCupomAplicado(data);
-    setErroCupom("");
-  } catch (error) {
-    setCupomAplicado(null);
-    setErroCupom(error.message || "Erro ao validar cupom.");
-  } finally {
-    setCarregandoCupom(false);
-  }
-};
+    if (!freteSelecionado) {
+      setErroCupom("Selecione o frete antes de aplicar o cupom.");
+      setCupomAplicado(null);
+      return;
+    }
 
-const removerCupom = () => {
-  setCupom("");
-  setCupomAplicado(null);
-  setErroCupom("");
-};
+    try {
+      setCarregandoCupom(true);
+      setErroCupom("");
+
+      const response = await fetch(apiCupomUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          codigo,
+          subtotal: subtotalProdutos,
+          frete: Number(freteSelecionado?.preco || 0),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Não foi possível validar o cupom.");
+      }
+
+      setCupom(codigo);
+      setCupomAplicado(data);
+      setErroCupom("");
+    } catch (error) {
+      setCupomAplicado(null);
+      setErroCupom(error.message || "Erro ao validar cupom.");
+    } finally {
+      setCarregandoCupom(false);
+    }
+  };
+
+  const removerCupom = () => {
+    setCupom("");
+    setCupomAplicado(null);
+    setErroCupom("");
+  };
 
   const finalizarPedidoMercadoPago = async () => {
-    if (carrinho.length === 0) {
+    if (carrinhoNormalizado.length === 0) {
       alert("Seu carrinho está vazio.");
       return;
     }
@@ -463,33 +525,31 @@ const removerCupom = () => {
       const pedidoLocalId = `ADD-${Date.now()}`;
 
       const resumoPedido = {
-  pedidoLocalId,
-  criadoEm: new Date().toISOString(),
-  dadosCliente: {
-    ...dadosCliente,
-    nome: dadosCliente.nome.trim().replace(/\s+/g, " "),
-    email: dadosCliente.email.trim(),
-    telefone: dadosCliente.telefone.replace(/\D/g, ""),
-    cpf: dadosCliente.cpf.replace(/\D/g, ""),
-  },
-  enderecoEntrega: {
-    ...enderecoEntrega,
-    cep: String(cepDestino || "").replace(/\D/g, ""),
-    numero: String(enderecoEntrega.numero || "").trim(),
-    complemento: String(enderecoEntrega.complemento || "").trim(),
-  },
-  carrinho,
-  cepDestino: String(cepDestino || "").replace(/\D/g, ""),
-  freteSelecionado,
-  fretes,
-  totalItensCarrinho,
-  subtotalProdutos,
-  descontoCupom,
-  cupomCodigo: cupomAplicado?.codigo || "",
-  totalComFrete,
-
-  
-};
+        pedidoLocalId,
+        criadoEm: new Date().toISOString(),
+        dadosCliente: {
+          ...dadosCliente,
+          nome: dadosCliente.nome.trim().replace(/\s+/g, " "),
+          email: dadosCliente.email.trim(),
+          telefone: dadosCliente.telefone.replace(/\D/g, ""),
+          cpf: dadosCliente.cpf.replace(/\D/g, ""),
+        },
+        enderecoEntrega: {
+          ...enderecoEntrega,
+          cep: String(cepDestino || "").replace(/\D/g, ""),
+          numero: String(enderecoEntrega.numero || "").trim(),
+          complemento: String(enderecoEntrega.complemento || "").trim(),
+        },
+        carrinho: carrinhoNormalizado,
+        cepDestino: String(cepDestino || "").replace(/\D/g, ""),
+        freteSelecionado,
+        fretes,
+        totalItensCarrinho,
+        subtotalProdutos,
+        descontoCupom,
+        cupomCodigo: cupomAplicado?.codigo || "",
+        totalComFrete,
+      };
 
       localStorage.setItem("ultimoPedidoAdditiveHub", JSON.stringify(resumoPedido));
 
@@ -710,51 +770,105 @@ const removerCupom = () => {
 
           <aside className="h-fit rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
             <h2 className="text-xl font-bold">Resumo do pedido</h2>
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-  <p className="text-sm font-semibold text-zinc-900">Cupom de desconto</p>
 
-  <div className="mt-3 flex gap-2">
-    <input
-      type="text"
-      placeholder="Digite seu cupom"
-      value={cupom}
-      onChange={(e) => {
-        setCupom(e.target.value.toUpperCase());
-        if (erroCupom) setErroCupom("");
-      }}
-      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-    />
+            {carrinhoNormalizado.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {carrinhoNormalizado.map((item) => {
+                  const resumoVariacoes = obterResumoVariacoesItem(item);
 
-    {!cupomAplicado ? (
-      <button
-        type="button"
-        onClick={aplicarCupom}
-        disabled={carregandoCupom}
-        className="rounded-xl border border-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {carregandoCupom ? "Aplicando..." : "Aplicar"}
-      </button>
-    ) : (
-      <button
-        type="button"
-        onClick={removerCupom}
-        className="rounded-xl border border-red-300 px-4 py-3 text-sm font-semibold text-red-600"
-      >
-        Remover
-      </button>
-    )}
-  </div>
+                  return (
+                    <div
+                      key={item.carrinhoKey || item.id}
+                      className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-zinc-900">
+                            {item.nome}
+                          </p>
+                          <p className="mt-1 text-sm text-zinc-600">
+                            Quantidade: {item.quantidade}
+                          </p>
+                          <p className="text-sm text-zinc-600">
+                            {formatarMoeda(item.preco)} cada
+                          </p>
 
-  {erroCupom && (
-    <p className="mt-2 text-sm text-red-600">{erroCupom}</p>
-  )}
+                          {resumoVariacoes.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                              {resumoVariacoes.map((v) => (
+                                <div
+                                  key={v.id}
+                                  className="flex flex-wrap items-center gap-2 text-sm"
+                                >
+                                  <span className="rounded-full bg-zinc-200 px-2.5 py-1 font-semibold text-zinc-700">
+                                    {v.nome}
+                                  </span>
+                                  <span className="text-zinc-700">{v.valor}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
 
-  {cupomAplicado && (
-    <p className="mt-2 text-sm text-green-700">
-      Cupom <strong>{cupomAplicado.codigo}</strong> aplicado com sucesso.
-    </p>
-  )}
-</div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-bold text-zinc-900">
+                            {formatarMoeda(
+                              Number(item.preco || 0) * Number(item.quantidade || 0)
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-sm font-semibold text-zinc-900">Cupom de desconto</p>
+
+              <div className="mt-3 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Digite seu cupom"
+                  value={cupom}
+                  onChange={(e) => {
+                    setCupom(e.target.value.toUpperCase());
+                    if (erroCupom) setErroCupom("");
+                  }}
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                />
+
+                {!cupomAplicado ? (
+                  <button
+                    type="button"
+                    onClick={aplicarCupom}
+                    disabled={carregandoCupom}
+                    className="rounded-xl border border-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {carregandoCupom ? "Aplicando..." : "Aplicar"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={removerCupom}
+                    className="rounded-xl border border-red-300 px-4 py-3 text-sm font-semibold text-red-600"
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
+
+              {erroCupom && (
+                <p className="mt-2 text-sm text-red-600">{erroCupom}</p>
+              )}
+
+              {cupomAplicado && (
+                <p className="mt-2 text-sm text-green-700">
+                  Cupom <strong>{cupomAplicado.codigo}</strong> aplicado com sucesso.
+                </p>
+              )}
+            </div>
 
             <div className="mt-5 space-y-3 text-sm text-zinc-700">
               <div className="flex items-center justify-between gap-3">
@@ -775,13 +889,13 @@ const removerCupom = () => {
               </div>
 
               {descontoCupom > 0 && (
-  <div className="flex items-center justify-between gap-3">
-    <span>Desconto</span>
-    <span className="font-semibold text-green-700">
-      - {formatarMoeda(descontoCupom)}
-    </span>
-  </div>
-)}
+                <div className="flex items-center justify-between gap-3">
+                  <span>Desconto</span>
+                  <span className="font-semibold text-green-700">
+                    - {formatarMoeda(descontoCupom)}
+                  </span>
+                </div>
+              )}
 
               <div className="border-t border-zinc-200 pt-3">
                 <div className="flex items-center justify-between gap-3">

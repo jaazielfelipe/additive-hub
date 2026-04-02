@@ -13,6 +13,39 @@ function formatarCep(valor) {
   return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
 }
 
+function normalizarTextoVariacao(valor) {
+  if (valor === null || valor === undefined) return "";
+  return String(valor).trim();
+}
+
+function obterResumoVariacoesItem(item) {
+  if (Array.isArray(item?.resumoVariacoes) && item.resumoVariacoes.length > 0) {
+    return item.resumoVariacoes
+      .map((variacao, index) => ({
+        id: `${item?.carrinhoKey || item?.id || "item"}-${variacao?.nome || "variacao"}-${index}`,
+        nome: normalizarTextoVariacao(variacao?.nome),
+        valor: normalizarTextoVariacao(variacao?.valor),
+      }))
+      .filter((variacao) => variacao.nome && variacao.valor);
+  }
+
+  if (
+    item?.selecoesVariacao &&
+    typeof item.selecoesVariacao === "object" &&
+    !Array.isArray(item.selecoesVariacao)
+  ) {
+    return Object.entries(item.selecoesVariacao)
+      .map(([nome, valor], index) => ({
+        id: `${item?.carrinhoKey || item?.id || "item"}-${nome}-${index}`,
+        nome: normalizarTextoVariacao(nome),
+        valor: normalizarTextoVariacao(valor),
+      }))
+      .filter((variacao) => variacao.nome && variacao.valor);
+  }
+
+  return [];
+}
+
 export default function Carrinho() {
   const [carrinho, setCarrinho] = useState([]);
   const [cepDestino, setCepDestino] = useState("");
@@ -115,20 +148,20 @@ export default function Carrinho() {
 
   const totalComFrete = subtotalProdutos + Number(freteSelecionado?.preco || 0);
 
- const extrairOpcoesFrete = (payload) => {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.shipping_services)) return payload.shipping_services;
-  if (Array.isArray(payload?.services)) return payload.services;
+  const extrairOpcoesFrete = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.shipping_services)) return payload.shipping_services;
+    if (Array.isArray(payload?.services)) return payload.services;
 
-  const valores = Object.keys(payload || {})
-    .filter((chave) => /^\d+$/.test(chave))
-    .map((chave) => payload[chave]);
+    const valores = Object.keys(payload || {})
+      .filter((chave) => /^\d+$/.test(chave))
+      .map((chave) => payload[chave]);
 
-  if (valores.length > 0) return valores;
+    if (valores.length > 0) return valores;
 
-  return [];
-};
+    return [];
+  };
 
   const obterPrecoFrete = (opcao) =>
     Number(opcao?.price ?? opcao?.custom_price ?? opcao?.total_price ?? 0);
@@ -393,53 +426,63 @@ export default function Carrinho() {
                 </div>
               ) : (
                 <div className="mt-5 space-y-4">
-                  {carrinho.map((item) => (
-                    <div
-                      key={item.carrinhoKey || item.id}
-                      className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
-                    >
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <p className="text-base font-bold text-zinc-900">{item.nome}</p>
-                          <p className="mt-1 text-sm text-zinc-600">
-                            {formatarMoeda(item.preco)} cada
-                          </p>
+                  {carrinho.map((item) => {
+                    const resumoVariacoes = obterResumoVariacoesItem(item);
 
-                          {item?.resumoVariacoes?.length > 0 && (
-                            <div className="mt-2 text-sm text-zinc-600">
-                              {item.resumoVariacoes.map((v) => (
-                                <p key={`${item.id}-${v.nome}`}>
-                                  {v.nome}: {v.valor}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                    return (
+                      <div
+                        key={item.carrinhoKey || item.id}
+                        className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+                      >
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-base font-bold text-zinc-900">{item.nome}</p>
+                            <p className="mt-1 text-sm text-zinc-600">
+                              {formatarMoeda(item.preco)} cada
+                            </p>
 
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => diminuirQuantidade(item)}
-                            className="h-9 w-9 rounded-xl border border-zinc-300 bg-white text-lg font-bold"
-                          >
-                            −
-                          </button>
+                            {resumoVariacoes.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                {resumoVariacoes.map((v) => (
+                                  <div
+                                    key={v.id}
+                                    className="flex flex-wrap items-center gap-2 text-sm"
+                                  >
+                                    <span className="rounded-full bg-zinc-200 px-2.5 py-1 font-semibold text-zinc-700">
+                                      {v.nome}
+                                    </span>
+                                    <span className="text-zinc-700">{v.valor}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
 
-                          <span className="min-w-[24px] text-center font-semibold">
-                            {item.quantidade}
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => diminuirQuantidade(item)}
+                              className="h-9 w-9 rounded-xl border border-zinc-300 bg-white text-lg font-bold"
+                            >
+                              −
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => aumentarQuantidade(item)}
-                            className="h-9 w-9 rounded-xl border border-zinc-300 bg-white text-lg font-bold"
-                          >
-                            +
-                          </button>
+                            <span className="min-w-[24px] text-center font-semibold">
+                              {item.quantidade}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => aumentarQuantidade(item)}
+                              className="h-9 w-9 rounded-xl border border-zinc-300 bg-white text-lg font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -483,7 +526,6 @@ export default function Carrinho() {
                   }`}
                 >
                   <p className="font-semibold text-zinc-900">Retirar</p>
-                  
                 </button>
               </div>
 

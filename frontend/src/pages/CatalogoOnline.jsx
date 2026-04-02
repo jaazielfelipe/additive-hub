@@ -306,10 +306,39 @@ function parseCSV(texto) {
       };
     };
 
-    const variacoes = [
-      montarVariacao(item.nome_variacao_1, item.variacoes_1),
-      montarVariacao(item.nome_variacao_2, item.variacoes_2),
-    ].filter(Boolean);
+    const montarVariacaoAvancada = (nome, valores) => {
+  const nomeLimpo = limparCampo(nome);
+  const valorLimpo = limparCampo(valores);
+
+  if (!nomeLimpo) return null;
+
+  // 👇 NOVO: detectar campo de texto
+  if (valorLimpo.toUpperCase() === "TEXTO") {
+    return {
+      nome: nomeLimpo,
+      tipo: "texto",
+    };
+  }
+
+  const opcoes = valorLimpo
+    .split("|")
+    .map((opcao) => limparCampo(opcao))
+    .filter(Boolean);
+
+  if (opcoes.length === 0) return null;
+
+  return {
+    nome: nomeLimpo,
+    tipo: "opcoes",
+    opcoes,
+  };
+};
+
+const variacoes = [
+  montarVariacaoAvancada(item.nome_variacao_1, item.variacoes_1),
+  montarVariacaoAvancada(item.nome_variacao_2, item.variacoes_2),
+  montarVariacaoAvancada(item.nome_variacao_3, item.variacoes_3), // 👈 NOVO
+].filter(Boolean);
 
     const categoriaNormalizada = slugCategoria(item.categoria || "outros");
     const subcategoria = item.subcategoria || "";
@@ -430,7 +459,12 @@ function criarSelecoesIniciais(produto) {
   if (!produtoTemVariacoes(produto)) return {};
 
   return produto.variacoes.reduce((acc, variacao) => {
-    acc[variacao.nome] = "";
+    if (variacao.tipo === "texto") {
+      acc[variacao.nome] = "";
+    } else {
+      acc[variacao.nome] = "";
+    }
+
     return acc;
   }, {});
 }
@@ -438,20 +472,30 @@ function criarSelecoesIniciais(produto) {
 function variacoesPreenchidas(produto, selecoes) {
   if (!produtoTemVariacoes(produto)) return true;
 
-  return produto.variacoes.every((variacao) =>
-    normalizarTexto(selecoes?.[variacao.nome])
-  );
+  return produto.variacoes.every((variacao) => {
+    const valorSelecionado = normalizarTexto(selecoes?.[variacao.nome]);
+
+    if (variacao.tipo === "texto") {
+      return valorSelecionado.length > 0;
+    }
+
+    return valorSelecionado.length > 0;
+  });
 }
 
 function montarResumoVariacoes(produto, selecoes) {
   if (!produtoTemVariacoes(produto)) return [];
 
   return produto.variacoes
-    .map((variacao) => ({
-      nome: variacao.nome,
-      valor: normalizarTexto(selecoes?.[variacao.nome]),
-    }))
-    .filter((item) => item.valor);
+    .map((variacao) => {
+      const valor = normalizarTexto(selecoes?.[variacao.nome]);
+
+      return {
+        nome: variacao.nome,
+        valor,
+      };
+    })
+    .filter((item) => item.valor && item.valor.length > 0);
 }
 
 function gerarChaveCarrinho(produto, selecoes = {}) {
@@ -995,14 +1039,24 @@ const descricaoSecao = useMemo(() => {
     }, 900);
   };
 
-  const adicionarAoCarrinho = (produto, event, selecoes = {}) => {
+ const adicionarAoCarrinho = (produto, event, selecoes = {}) => {
   if (!produto) return;
 
   const abriuPeloModal = produtoSelecionado?.id === produto.id;
 
-  if (produtoTemVariacoes(produto) && !variacoesPreenchidas(produto, selecoes)) {
+  const selecoesNormalizadas = Object.fromEntries(
+    Object.entries(selecoes || {}).map(([chave, valor]) => [
+      chave,
+      normalizarTexto(valor),
+    ])
+  );
+
+  if (
+    produtoTemVariacoes(produto) &&
+    !variacoesPreenchidas(produto, selecoesNormalizadas)
+  ) {
     if (abriuPeloModal) {
-      alert("Selecione todas as variações antes de adicionar ao carrinho.");
+      alert("Preencha todas as opções antes de adicionar ao carrinho.");
     } else {
       abrirDetalhes(produto);
     }
@@ -1011,8 +1065,8 @@ const descricaoSecao = useMemo(() => {
 
   animarProdutoParaCarrinho(event);
 
-  const resumoVariacoes = montarResumoVariacoes(produto, selecoes);
-  const carrinhoKey = gerarChaveCarrinho(produto, selecoes);
+  const resumoVariacoes = montarResumoVariacoes(produto, selecoesNormalizadas);
+  const carrinhoKey = gerarChaveCarrinho(produto, selecoesNormalizadas);
 
   setCarrinho((anterior) => {
     const existente = anterior.find((item) => item.carrinhoKey === carrinhoKey);
@@ -1031,7 +1085,7 @@ const descricaoSecao = useMemo(() => {
         ...produto,
         quantidade: 1,
         carrinhoKey,
-        selecoesVariacao: selecoes,
+        selecoesVariacao: selecoesNormalizadas,
         resumoVariacoes,
       },
     ];
@@ -2374,45 +2428,57 @@ const descricaoSecao = useMemo(() => {
                     </p>
 
                     {produtoTemVariacoes(produtoSelecionado) && (
-                      <div className="mt-6 space-y-4">
-                        {produtoSelecionado.variacoes.map((variacao) => (
-                          <div key={`${produtoSelecionado.id}-${variacao.nome}`}>
-                            <p className="mb-2 text-sm font-semibold text-zinc-800">
-                              {variacao.nome}
-                            </p>
+  <div className="mt-6 space-y-4">
+    {produtoSelecionado.variacoes.map((variacao) => (
+      <div key={`${produtoSelecionado.id}-${variacao.nome}`}>
+        <p className="mb-2 text-sm font-semibold text-zinc-800">
+          {variacao.nome}
+        </p>
 
-                            <div className="flex flex-wrap gap-2">
-                              {variacao.opcoes.map((opcao) => {
-                                const ativa = selecoesVariacao?.[variacao.nome] === opcao;
+        {variacao.tipo === "texto" ? (
+          <input
+            type="text"
+            value={selecoesVariacao?.[variacao.nome] || ""}
+            onChange={(e) =>
+              atualizarSelecaoVariacao(variacao.nome, e.target.value)
+            }
+            placeholder={`Digite ${variacao.nome.toLowerCase()}...`}
+            className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-[#f4b400] focus:bg-[#fffdf5]"
+          />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {(variacao.opcoes || []).map((opcao) => {
+              const ativa = selecoesVariacao?.[variacao.nome] === opcao;
 
-                                return (
-                                  <button
-                                    key={`${variacao.nome}-${opcao}`}
-                                    type="button"
-                                    onClick={() =>
-                                      atualizarSelecaoVariacao(variacao.nome, opcao)
-                                    }
-                                    className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
-                                      ativa
-                                        ? "border-[#f4b400] bg-[#fff8df] text-[#8b6900]"
-                                        : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                                    }`}
-                                  >
-                                    {opcao}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
+              return (
+                <button
+                  key={`${variacao.nome}-${opcao}`}
+                  type="button"
+                  onClick={() =>
+                    atualizarSelecaoVariacao(variacao.nome, opcao)
+                  }
+                  className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
+                    ativa
+                      ? "border-[#f4b400] bg-[#fff8df] text-[#8b6900]"
+                      : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                  }`}
+                >
+                  {opcao}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    ))}
 
-                        {!variacoesPreenchidas(produtoSelecionado, selecoesVariacao) && (
-                          <p className="text-sm font-medium text-amber-700">
-                            Selecione todas as opções para adicionar ao carrinho.
-                          </p>
-                        )}
-                      </div>
-                    )}
+    {!variacoesPreenchidas(produtoSelecionado, selecoesVariacao) && (
+      <p className="text-sm font-medium text-amber-700">
+        Preencha todas as opções para adicionar ao carrinho.
+      </p>
+    )}
+  </div>
+)}
 
                     <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
                       <p className="text-sm text-zinc-500">Destaque</p>

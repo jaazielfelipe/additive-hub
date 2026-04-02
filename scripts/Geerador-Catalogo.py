@@ -87,6 +87,8 @@ class GeradorCatalogoApp:
         self.var_variacoes_1 = tk.StringVar()
         self.var_nome_variacao_2 = tk.StringVar()
         self.var_variacoes_2 = tk.StringVar()
+        self.var_nome_variacao_3 = tk.StringVar()
+        self.var_variacoes_3 = tk.StringVar()
         self.var_peso = tk.StringVar()
         self.var_altura = tk.StringVar()
         self.var_largura = tk.StringVar()
@@ -431,6 +433,17 @@ class GeradorCatalogoApp:
         )
         ttk.Label(linha8, text="Variações 2", width=14).pack(side="left")
         ttk.Entry(linha8, textvariable=self.var_variacoes_2).pack(
+            side="left", fill="x", expand=True
+        )
+
+        linha8b = ttk.Frame(form)
+        linha8b.pack(fill="x", pady=4)
+        ttk.Label(linha8b, text="Nome variação 3", width=20).pack(side="left")
+        ttk.Entry(linha8b, textvariable=self.var_nome_variacao_3).pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
+        ttk.Label(linha8b, text="Variações 3", width=14).pack(side="left")
+        ttk.Entry(linha8b, textvariable=self.var_variacoes_3).pack(
             side="left", fill="x", expand=True
         )
 
@@ -782,6 +795,8 @@ class GeradorCatalogoApp:
                 self.var_variacoes_1.get().strip(),
                 self.var_nome_variacao_2.get().strip(),
                 self.var_variacoes_2.get().strip(),
+                self.var_nome_variacao_3.get().strip(),
+                self.var_variacoes_3.get().strip(),
                 self.var_caminho_origem.get().strip(),
                 self.var_pasta_produto.get().strip(),
             ]
@@ -838,6 +853,8 @@ class GeradorCatalogoApp:
                 "variacoes_1",
                 "nome_variacao_2",
                 "variacoes_2",
+                "nome_variacao_3",
+                "variacoes_3",
                 "caminho_origem",
                 "pasta_produto",
             ]
@@ -860,6 +877,8 @@ class GeradorCatalogoApp:
                 self.var_variacoes_1.get().strip(),
                 self.var_nome_variacao_2.get().strip(),
                 self.var_variacoes_2.get().strip(),
+                self.var_nome_variacao_3.get().strip(),
+                self.var_variacoes_3.get().strip(),
                 self.var_caminho_origem.get().strip(),
                 self.var_pasta_produto.get().strip(),
             ]
@@ -952,6 +971,8 @@ class GeradorCatalogoApp:
             self.var_variacoes_1.set(produto.get("variacoes_1", "").strip())
             self.var_nome_variacao_2.set(produto.get("nome_variacao_2", "").strip())
             self.var_variacoes_2.set(produto.get("variacoes_2", "").strip())
+            self.var_nome_variacao_3.set(produto.get("nome_variacao_3", "").strip())
+            self.var_variacoes_3.set(produto.get("variacoes_3", "").strip())
 
             descricao_valor = produto.get("descricao", "").strip()
             imagens_valor = produto.get("imagens", "").strip()
@@ -1102,6 +1123,8 @@ class GeradorCatalogoApp:
                 "variacoes_1",
                 "nome_variacao_2",
                 "variacoes_2",
+                "nome_variacao_3",
+                "variacoes_3",
                 "caminho_origem",
                 "pasta_produto",
             }
@@ -1139,6 +1162,8 @@ class GeradorCatalogoApp:
                 variacoes_1 = row.get("variacoes_1", "").strip()
                 nome_variacao_2 = row.get("nome_variacao_2", "").strip()
                 variacoes_2 = row.get("variacoes_2", "").strip()
+                nome_variacao_3 = row.get("nome_variacao_3", "").strip()
+                variacoes_3 = row.get("variacoes_3", "").strip()
                 caminho_origem = row.get("caminho_origem", "").strip()
                 pasta_produto = row.get("pasta_produto", "").strip()
 
@@ -1220,6 +1245,8 @@ class GeradorCatalogoApp:
                     variacoes_1,
                     nome_variacao_2,
                     variacoes_2,
+                    nome_variacao_3,
+                    variacoes_3,
                     caminho_origem,
                     pasta_produto,
                 ])
@@ -1259,6 +1286,8 @@ class GeradorCatalogoApp:
                     "variacoes_1",
                     "nome_variacao_2",
                     "variacoes_2",
+                    "nome_variacao_3",
+                    "variacoes_3",
                     "caminho_origem",
                     "pasta_produto",
                 ])
@@ -1334,6 +1363,8 @@ class GeradorCatalogoApp:
         self.var_variacoes_1.set("")
         self.var_nome_variacao_2.set("")
         self.var_variacoes_2.set("")
+        self.var_nome_variacao_3.set("")
+        self.var_variacoes_3.set("")
         self.var_peso.set("")
         self.var_altura.set("")
         self.var_largura.set("")

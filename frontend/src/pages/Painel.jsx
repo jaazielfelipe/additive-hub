@@ -1543,22 +1543,29 @@ export default function Painel() {
           </div>
 
           <div className="flex w-full flex-col gap-3 md:max-w-md md:flex-row">
-            <input
-              type="text"
-              placeholder="Buscar por cliente, pedido, produto, cidade..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
-            />
+  <input
+    type="text"
+    placeholder="Buscar por cliente, pedido, produto, cidade..."
+    value={busca}
+    onChange={(e) => setBusca(e.target.value)}
+    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+  />
 
-            <button
-              type="button"
-              onClick={sair}
-              className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800"
-            >
-              Sair
-            </button>
-          </div>
+  <a
+    href="/#/ordem-producao"
+    className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3 text-center text-sm font-bold text-amber-900"
+  >
+    Ordem de produção
+  </a>
+
+  <button
+    type="button"
+    onClick={sair}
+    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800"
+  >
+    Sair
+  </button>
+</div>
         </div>
 
         <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">

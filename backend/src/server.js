@@ -96,6 +96,127 @@ function sanitizarString(valor) {
   return String(valor || "").trim();
 }
 
+function sanitizarTextoVariacao(valor) {
+  return String(valor || "").trim();
+}
+
+function normalizarResumoVariacoes(resumoVariacoes = [], selecoesVariacao = {}) {
+  if (Array.isArray(resumoVariacoes) && resumoVariacoes.length > 0) {
+    return resumoVariacoes
+      .map((item) => ({
+        nome: sanitizarTextoVariacao(item?.nome),
+        valor: sanitizarTextoVariacao(item?.valor),
+      }))
+      .filter((item) => item.nome && item.valor);
+  }
+
+  if (
+    selecoesVariacao &&
+    typeof selecoesVariacao === "object" &&
+    !Array.isArray(selecoesVariacao)
+  ) {
+    return Object.entries(selecoesVariacao)
+      .map(([nome, valor]) => ({
+        nome: sanitizarTextoVariacao(nome),
+        valor: sanitizarTextoVariacao(valor),
+      }))
+      .filter((item) => item.nome && item.valor);
+  }
+
+  return [];
+}
+
+function normalizarSelecoesVariacao(selecoesVariacao = {}, resumoVariacoes = []) {
+  if (
+    selecoesVariacao &&
+    typeof selecoesVariacao === "object" &&
+    !Array.isArray(selecoesVariacao)
+  ) {
+    const objetoLimpo = {};
+
+    for (const [chave, valor] of Object.entries(selecoesVariacao)) {
+      const chaveLimpa = sanitizarTextoVariacao(chave);
+      const valorLimpo = sanitizarTextoVariacao(valor);
+
+      if (chaveLimpa && valorLimpo) {
+        objetoLimpo[chaveLimpa] = valorLimpo;
+      }
+    }
+
+    if (Object.keys(objetoLimpo).length > 0) {
+      return objetoLimpo;
+    }
+  }
+
+  if (Array.isArray(resumoVariacoes) && resumoVariacoes.length > 0) {
+    const objeto = {};
+
+    for (const item of resumoVariacoes) {
+      const nome = sanitizarTextoVariacao(item?.nome);
+      const valor = sanitizarTextoVariacao(item?.valor);
+
+      if (nome && valor) {
+        objeto[nome] = valor;
+      }
+    }
+
+    return objeto;
+  }
+
+  return {};
+}
+
+function normalizarItemCarrinho(item = {}, index = 0) {
+  const selecoesVariacao = normalizarSelecoesVariacao(
+    item?.selecoesVariacao,
+    item?.resumoVariacoes
+  );
+
+  const resumoVariacoes = normalizarResumoVariacoes(
+    item?.resumoVariacoes,
+    selecoesVariacao
+  );
+
+  return {
+    ...item,
+
+    id: item?.id ?? null,
+    nome: sanitizarString(item?.nome),
+    quantidade: Math.max(1, Number(item?.quantidade || 1)),
+    preco: Number(item?.preco || 0),
+    peso: Number(item?.peso || 0),
+    altura: Number(item?.altura || 0),
+    largura: Number(item?.largura || 0),
+    comprimento: Number(item?.comprimento || 0),
+
+    carrinhoKey:
+      sanitizarString(item?.carrinhoKey) ||
+      `${item?.id || item?.nome || "item"}-${index}`,
+
+    selecoesVariacao,
+    resumoVariacoes,
+
+    categoria: sanitizarString(item?.categoria),
+    categoriaLabel: sanitizarString(item?.categoriaLabel),
+    subcategoria: sanitizarString(item?.subcategoria),
+    subcategoriaLabel: sanitizarString(item?.subcategoriaLabel),
+    subcategoria2: sanitizarString(item?.subcategoria2),
+    subcategoria2Label: sanitizarString(item?.subcategoria2Label),
+
+    imagens: Array.isArray(item?.imagens)
+      ? item.imagens.map((img) => sanitizarString(img)).filter(Boolean)
+      : [],
+
+    descricao: sanitizarString(item?.descricao),
+    destaque: sanitizarString(item?.destaque),
+  };
+}
+
+function normalizarCarrinhoPedido(carrinho = []) {
+  if (!Array.isArray(carrinho)) return [];
+  return carrinho.map((item, index) => normalizarItemCarrinho(item, index));
+}
+
 function isRetiradaPedido(pedido = {}) {
   return (
     pedido?.tipoEntrega === "retirada" ||
@@ -970,7 +1091,7 @@ app.post("/api/cupons/validar", (req, res) => {
 app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
   console.log(
     "FRETE COMPLETO:",
-    JSON.stringify(req.body.freteSelecionado, null, 2)
+    JSON.stringify(req.body?.freteSelecionado, null, 2)
   );
   console.log("ENTROU EM /api/pagamentos/criar-preferencia");
   console.log("BODY:", req.body);
@@ -987,11 +1108,13 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       criadoEm,
     } = req.body || {};
 
-    if (!Array.isArray(carrinho) || carrinho.length === 0) {
+    const carrinhoNormalizado = normalizarCarrinhoPedido(carrinho);
+
+    if (!Array.isArray(carrinhoNormalizado) || carrinhoNormalizado.length === 0) {
       return res.status(400).json({ error: "Carrinho vazio." });
     }
 
-    const subtotalCalculado = calcularSubtotalCarrinho(carrinho);
+    const subtotalCalculado = calcularSubtotalCarrinho(carrinhoNormalizado);
     const freteCalculado = Number(freteSelecionado?.preco || 0);
     const totalBruto = arredondar(subtotalCalculado + freteCalculado);
 
@@ -1055,7 +1178,10 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
 
     const pedidoId = pedidoLocalId || `pedido_${Date.now()}`;
 
-    const itensBase = criarItensBasePedido(carrinho, freteSelecionado);
+    const itensBase = criarItensBasePedido(
+      carrinhoNormalizado,
+      freteSelecionado
+    );
     const items = aplicarDescontoNosItens(itensBase, descontoCupom);
 
     const tipoEntrega =
@@ -1064,7 +1190,7 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
     const pedidoSalvo = {
       id: pedidoId,
       pedidoLocalId: pedidoId,
-      carrinho,
+      carrinho: carrinhoNormalizado,
       freteSelecionado: freteSelecionado || null,
       tipoEntrega,
       cepDestino: cepDestino || null,
@@ -1092,7 +1218,8 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
       },
 
       status: "pending",
-      statusInterno: tipoEntrega === "retirada" ? "retirada_recebido" : "chegou",
+      statusInterno:
+        tipoEntrega === "retirada" ? "retirada_recebido" : "chegou",
       payment_id: null,
       status_detail: null,
       metodo_pagamento: null,
@@ -1172,6 +1299,134 @@ app.post("/api/pagamentos/criar-preferencia", async (req, res) => {
     });
   }
 });
+
+if (!Array.isArray(carrinhoNormalizado) || carrinhoNormalizado.length === 0) {
+  return res.status(400).json({ error: "Carrinho vazio." });
+}
+
+const subtotalCalculado = calcularSubtotalCarrinho(carrinhoNormalizado);
+const freteCalculado = Number(freteSelecionado?.preco || 0);
+const totalBruto = arredondar(subtotalCalculado + freteCalculado);
+
+const codigoCupom = obterCodigoCupomDoBody(req.body);
+
+let cupomAplicado = null;
+let descontoCupom = 0;
+let totalFinalPedido = totalBruto;
+
+if (codigoCupom) {
+  const codigoNormalizado = String(codigoCupom || "").trim().toUpperCase();
+  const cupomConfig = CUPONS[codigoNormalizado];
+
+  if (!cupomConfig) {
+    return res.status(400).json({
+      error: "Cupom inválido.",
+    });
+  }
+
+  const cpfLimpo = sanitizarString(dadosCliente?.cpf).replace(/\D/g, "");
+
+  if (cupomConfig.primeiraCompra) {
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
+      return res.status(400).json({
+        error: "CPF válido é obrigatório para usar este cupom.",
+      });
+    }
+
+    const pedidoAprovadoExistente = await Pedido.findOne({
+      "dadosCliente.cpf": cpfLimpo,
+      status: "approved",
+    });
+
+    if (pedidoAprovadoExistente) {
+      return res.status(400).json({
+        error: "Este cupom é válido apenas para a primeira compra.",
+      });
+    }
+  }
+
+  const resultadoCupom = validarCupom({
+    cupom: cupomConfig,
+    codigo: codigoNormalizado,
+    subtotal: subtotalCalculado,
+    frete: freteCalculado,
+  });
+
+  cupomAplicado = {
+    codigo: resultadoCupom.codigo,
+    tipo: resultadoCupom.tipo,
+    valor: resultadoCupom.valor,
+    dataInicio: resultadoCupom.dataInicio,
+    dataFim: resultadoCupom.dataFim,
+    valorMinimoPedido: resultadoCupom.valorMinimoPedido,
+    primeiraCompra: Boolean(resultadoCupom.primeiraCompra),
+  };
+
+  descontoCupom = Number(resultadoCupom.desconto || 0);
+  totalFinalPedido = Number(resultadoCupom.totalComDesconto || totalBruto);
+}
+
+const pedidoId = pedidoLocalId || `pedido_${Date.now()}`;
+
+const itensBase = criarItensBasePedido(carrinhoNormalizado, freteSelecionado);
+const items = aplicarDescontoNosItens(itensBase, descontoCupom);
+
+const tipoEntrega =
+  freteSelecionado?.nome === "Retirar comigo" ? "retirada" : "entrega";
+
+const pedidoSalvo = {
+  id: pedidoId,
+  pedidoLocalId: pedidoId,
+  carrinho: carrinhoNormalizado,
+  freteSelecionado: freteSelecionado || null,
+  tipoEntrega,
+  cepDestino: cepDestino || null,
+  totalItensCarrinho: totalItensCarrinho || 0,
+  subtotalProdutos: subtotalCalculado,
+  descontoCupom: arredondar(descontoCupom),
+  cupomAplicado,
+  totalComFrete: arredondar(totalFinalPedido),
+
+  dadosCliente: {
+    nome: sanitizarString(dadosCliente?.nome),
+    email: sanitizarString(dadosCliente?.email).toLowerCase(),
+    telefone: sanitizarString(dadosCliente?.telefone),
+    cpf: sanitizarString(dadosCliente?.cpf).replace(/\D/g, ""),
+  },
+
+  enderecoEntrega: {
+    cep: sanitizarString(enderecoEntrega?.cep || cepDestino),
+    rua: sanitizarString(enderecoEntrega?.rua),
+    bairro: sanitizarString(enderecoEntrega?.bairro),
+    cidade: sanitizarString(enderecoEntrega?.cidade),
+    estado: sanitizarString(enderecoEntrega?.estado),
+    numero: sanitizarString(enderecoEntrega?.numero),
+    complemento: sanitizarString(enderecoEntrega?.complemento),
+  },
+
+  status: "pending",
+  statusInterno: tipoEntrega === "retirada" ? "retirada_recebido" : "chegou",
+  payment_id: null,
+  status_detail: null,
+  metodo_pagamento: null,
+
+  etiquetaGerada: false,
+  etiquetaEmitida: false,
+  statusEtiqueta: null,
+  urlEtiqueta: "",
+  codigoRastreio: "",
+
+  superfreteService: Number(freteSelecionado?.service || 0),
+  superfretePackage:
+    freteSelecionado?.package ||
+    freteSelecionado?.pacoteAdditiveHub ||
+    null,
+  superfreteCartId: null,
+  superfreteCheckoutId: null,
+
+  criadoEm: criadoEm || new Date(),
+  atualizadoEm: null,
+};
 
 /* =========================
    WEBHOOK MERCADO PAGO
@@ -1485,7 +1740,7 @@ app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) =>
         complement: pedido?.enderecoEntrega?.complemento || "",
       },
       service: Number(pedido.freteSelecionado.service),
-      products: (pedido.carrinho || []).map((item, idx) => ({
+      products: normalizarCarrinhoPedido(pedido.carrinho || []).map((item, idx) => ({
         id: String(item.id || idx + 1),
         name: item.nome || "Produto",
         quantity: Number(item.quantidade || 1),
@@ -1756,4 +2011,4 @@ conectarMongo()
   .catch((error) => {
     console.error("Erro ao conectar no MongoDB:", error);
     process.exit(1);
-  });
+  })
