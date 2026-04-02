@@ -564,6 +564,14 @@ const MODELOS_EMBALAGEM = [
     width: 11,
     height: 3,
     pesoMaximo: 0.5,
+
+    // pacote flexível
+    flexivel: true,
+    lengthMax: 16,
+    widthMax: 11,
+    heightMin: 1,
+    heightMax: 6,
+    volumeMax: 16 * 11 * 3, // 528 cm³
   },
   {
     id: "caixa1",
@@ -671,7 +679,143 @@ function gerarCaixasDoCarrinho(carrinho = []) {
   };
 }
 
+function tentarNoPacoteFlexivel(caixas, pesoTotal, embalagem) {
+  if (pesoTotal > embalagem.pesoMaximo) {
+    console.log("❌ EXCEDE PESO DO PACOTE:", {
+      embalagem: embalagem.nome,
+      pesoTotal,
+      pesoMaximo: embalagem.pesoMaximo,
+    });
+    return null;
+  }
+
+  let volumeTotalItens = 0;
+  let comprimentoMax = 0;
+  let larguraMax = 0;
+  let alturaSomada = 0;
+
+  for (const caixa of caixas) {
+    const orientacoes = [
+      [caixa.length, caixa.width, caixa.height],
+      [caixa.length, caixa.height, caixa.width],
+      [caixa.width, caixa.length, caixa.height],
+      [caixa.width, caixa.height, caixa.length],
+      [caixa.height, caixa.length, caixa.width],
+      [caixa.height, caixa.width, caixa.length],
+    ];
+
+    const cabe = orientacoes.find(([l, w, h]) => {
+      return l <= embalagem.lengthMax && w <= embalagem.widthMax;
+    });
+
+    if (!cabe) {
+      console.log("❌ ITEM NÃO COUBE NO PACOTE FLEXÍVEL:", {
+        embalagem: embalagem.nome,
+        caixa,
+        limites: {
+          lengthMax: embalagem.lengthMax,
+          widthMax: embalagem.widthMax,
+        },
+      });
+      return null;
+    }
+
+    const [l, w, h] = cabe;
+
+    comprimentoMax = Math.max(comprimentoMax, l);
+    larguraMax = Math.max(larguraMax, w);
+    alturaSomada += h;
+    volumeTotalItens += l * w * h;
+  }
+
+  if (comprimentoMax > embalagem.lengthMax) {
+    console.log("❌ COMPRIMENTO ULTRAPASSOU NO PACOTE FLEXÍVEL:", {
+      embalagem: embalagem.nome,
+      comprimentoMax,
+      comprimentoPermitido: embalagem.lengthMax,
+    });
+    return null;
+  }
+
+  if (larguraMax > embalagem.widthMax) {
+    console.log("❌ LARGURA ULTRAPASSOU NO PACOTE FLEXÍVEL:", {
+      embalagem: embalagem.nome,
+      larguraMax,
+      larguraPermitida: embalagem.widthMax,
+    });
+    return null;
+  }
+
+  if (volumeTotalItens > embalagem.volumeMax) {
+    console.log("❌ VOLUME ULTRAPASSOU NO PACOTE FLEXÍVEL:", {
+      embalagem: embalagem.nome,
+      volumeTotalItens,
+      volumeMaximo: embalagem.volumeMax,
+    });
+    return null;
+  }
+
+  const areaBase = embalagem.lengthMax * embalagem.widthMax;
+  const alturaPorVolume = areaBase > 0 ? volumeTotalItens / areaBase : 0;
+
+  const alturaFinal = Math.max(alturaPorVolume, embalagem.heightMin || 1);
+
+  if (alturaFinal > embalagem.heightMax) {
+    console.log("❌ ALTURA ULTRAPASSOU NO PACOTE FLEXÍVEL:", {
+      embalagem: embalagem.nome,
+      alturaFinal,
+      alturaMaxima: embalagem.heightMax,
+    });
+    return null;
+  }
+
+  const alturaDeclarada = Math.max(
+    embalagem.heightMin || 1,
+    Math.min(embalagem.heightMax, Math.ceil(alturaFinal))
+  );
+
+  console.log("✅ ARRANJO COUBE NO PACOTE FLEXÍVEL:", {
+    embalagem: embalagem.nome,
+    pesoTotal,
+    dimensoesDeclaradas: {
+      length: embalagem.lengthMax,
+      width: embalagem.widthMax,
+      height: alturaDeclarada,
+    },
+    ocupacaoEstimada: {
+      comprimentoMax,
+      larguraMax,
+      alturaSomada,
+      alturaPorVolume,
+      volumeTotalItens,
+      percentualOcupacao: Number(
+        ((volumeTotalItens / embalagem.volumeMax) * 100).toFixed(2)
+      ),
+    },
+  });
+
+  return {
+    embalagem,
+    dimensoes: {
+      length: embalagem.lengthMax,
+      width: embalagem.widthMax,
+      height: alturaDeclarada,
+    },
+    ocupacao: {
+      volumeTotalItens,
+      volumeMaximo: embalagem.volumeMax,
+      percentual: Number(
+        ((volumeTotalItens / embalagem.volumeMax) * 100).toFixed(2)
+      ),
+    },
+  };
+}
+
 function tentarNaEmbalagem(caixas, pesoTotal, embalagem) {
+  if (embalagem?.flexivel) {
+    return tentarNoPacoteFlexivel(caixas, pesoTotal, embalagem);
+  }
+
   if (pesoTotal > embalagem.pesoMaximo) {
     console.log("❌ EXCEDE PESO DA EMBALAGEM:", {
       embalagem: embalagem.nome,
@@ -796,10 +940,11 @@ function montarPacoteUnico(carrinho) {
         name: embalagem.nome,
         quantity: 1,
         weight: pesoTotal,
-        length: embalagem.length,
-        width: embalagem.width,
-        height: embalagem.height,
+        length: tentativa.dimensoes.length,
+        width: tentativa.dimensoes.width,
+        height: tentativa.dimensoes.height,
         embalagemUtilizada: embalagem,
+        ocupacao: tentativa.ocupacao || null,
       };
     }
   }
@@ -836,6 +981,7 @@ function montarPacoteUnico(carrinho) {
     width: fallback.width,
     height: fallback.height,
     embalagemUtilizada: null,
+    ocupacao: null,
   };
 }
 
