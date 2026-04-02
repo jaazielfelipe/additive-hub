@@ -442,20 +442,26 @@ export default function Carrinho() {
                             </p>
 
                             {resumoVariacoes.length > 0 && (
-                              <div className="mt-3 space-y-2">
-                                {resumoVariacoes.map((v) => (
-                                  <div
-                                    key={v.id}
-                                    className="flex flex-wrap items-center gap-2 text-sm"
-                                  >
-                                    <span className="rounded-full bg-zinc-200 px-2.5 py-1 font-semibold text-zinc-700">
-                                      {v.nome}
-                                    </span>
-                                    <span className="text-zinc-700">{v.valor}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+  <div className="mt-3 flex flex-wrap gap-2">
+    {resumoVariacoes.map((v) => (
+      <div
+        key={v.id}
+        className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-sm"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          {v.nome}
+        </span>
+
+        <span className="h-1 w-1 rounded-full bg-zinc-400" />
+
+        <span className="text-sm font-bold text-[#b38200]">
+          {v.valor}
+        </span>
+      </div>
+    ))}
+  </div>
+)}
+                            
                           </div>
 
                           <div className="flex items-center gap-3">
