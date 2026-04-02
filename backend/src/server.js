@@ -240,15 +240,21 @@ function isRetiradaPedido(pedido = {}) {
 function normalizarStatusInterno(statusInterno) {
   const valor = String(statusInterno || "").trim().toLowerCase();
 
-  if (valor === "chegou") return "chegou";
-  if (valor === "para_confirmar") return "para_confirmar";
-  if (valor === "a_emitir") return "a_emitir";
-  if (valor === "emitido") return "emitido";
-  if (valor === "enviado") return "enviado";
+  const statusValidos = [
+    "chegou",
+    "para_confirmar",
+    "a_emitir",
+    "emitido",
+    "enviado",
+    "retirada_recebido",
+    "retirada_preparando",
+    "retirada_pronto",
+    "retirada_concluido",
+  ];
 
-  if (valor === "retirada_recebido") return "retirada_recebido";
-  if (valor === "retirada_preparando") return "retirada_preparando";
-  if (valor === "retirada_pronto") return "retirada_pronto";
+  if (statusValidos.includes(valor)) {
+    return valor;
+  }
 
   return "chegou";
 }
