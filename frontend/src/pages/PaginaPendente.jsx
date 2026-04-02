@@ -13,36 +13,75 @@ export default function PaginaPendente() {
   const [erro, setErro] = useState("");
 
   useEffect(() => {
-  const hash = window.location.hash || "";
-  const queryString = hash.includes("?") ? hash.split("?")[1] : "";
-  const params = new URLSearchParams(queryString);
-  const pedidoId = params.get("pedido_id");
+    const hash = window.location.hash || "";
+    const queryString = hash.includes("?") ? hash.split("?")[1] : "";
+    const params = new URLSearchParams(queryString);
+    const pedidoId = params.get("pedido_id");
 
-  if (!pedidoId) {
-    setErro("Pedido não encontrado na URL.");
-    setCarregando(false);
-    return;
-  }
-
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-
-  fetch(`${apiBaseUrl}/api/pedidos/publico/${pedidoId}`)
-    .then(async (res) => {
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Erro ao buscar pedido.");
-      }
-
-      setPedido(data);
-    })
-    .catch((err) => {
-      setErro(err.message || "Erro ao carregar pedido.");
-    })
-    .finally(() => {
+    if (!pedidoId) {
+      setErro("Pedido não encontrado na URL.");
       setCarregando(false);
-    });
-}, []);
+      return;
+    }
+
+    const apiBaseUrl =
+      import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+    let ativo = true;
+
+    const consultarPedido = async (primeiraCarga = false) => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/pedidos/publico/${pedidoId}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.error || "Erro ao buscar pedido.");
+        }
+
+        if (!ativo) return;
+
+        setPedido(data);
+        setErro("");
+
+        const status = String(data?.status || "")
+          .toLowerCase()
+          .trim();
+
+        if (status === "approved") {
+          window.location.href = `/#/pagamento/sucesso?pedido_id=${pedidoId}`;
+          return;
+        }
+
+        if (status === "rejected" || status === "cancelled") {
+          window.location.href = `/#/pagamento/falha?pedido_id=${pedidoId}`;
+          return;
+        }
+
+        if (primeiraCarga) {
+          setCarregando(false);
+        }
+      } catch (err) {
+        if (!ativo) return;
+
+        setErro(err.message || "Erro ao carregar pedido.");
+
+        if (primeiraCarga) {
+          setCarregando(false);
+        }
+      }
+    };
+
+    consultarPedido(true);
+
+    const interval = setInterval(() => {
+      consultarPedido(false);
+    }, 3000);
+
+    return () => {
+      ativo = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   if (carregando) {
     return (
@@ -84,7 +123,8 @@ export default function PaginaPendente() {
   const totalProdutos =
     pedido?.subtotalProdutos ??
     pedido?.carrinho?.reduce(
-      (acc, item) => acc + Number(item.preco || 0) * Number(item.quantidade || 0),
+      (acc, item) =>
+        acc + Number(item.preco || 0) * Number(item.quantidade || 0),
       0
     ) ??
     0;
@@ -104,7 +144,7 @@ export default function PaginaPendente() {
               <h1 className="mt-2 text-3xl font-bold">Pagamento pendente</h1>
               <p className="mt-2 max-w-2xl text-zinc-600">
                 Seu pagamento ainda está em análise ou aguardando confirmação.
-                Assim que for confirmado, o status do pedido será atualizado.
+                Assim que for confirmado, você será redirecionado automaticamente.
               </p>
             </div>
 
@@ -160,7 +200,9 @@ export default function PaginaPendente() {
                   >
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <p className="text-base font-bold text-zinc-900">{item.nome}</p>
+                        <p className="text-base font-bold text-zinc-900">
+                          {item.nome}
+                        </p>
 
                         <div className="mt-2 space-y-1 text-sm text-zinc-600">
                           <p>Quantidade: {item.quantidade}</p>
@@ -200,22 +242,30 @@ export default function PaginaPendente() {
               <div className="mt-5 space-y-3 text-sm text-zinc-700">
                 <div className="flex items-center justify-between gap-3">
                   <span>Itens</span>
-                  <span className="font-semibold">{pedido?.totalItensCarrinho || 0}</span>
+                  <span className="font-semibold">
+                    {pedido?.totalItensCarrinho || 0}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
                   <span>Subtotal</span>
-                  <span className="font-semibold">{formatarMoeda(totalProdutos)}</span>
+                  <span className="font-semibold">
+                    {formatarMoeda(totalProdutos)}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
                   <span>Frete</span>
-                  <span className="font-semibold">{formatarMoeda(valorFrete)}</span>
+                  <span className="font-semibold">
+                    {formatarMoeda(valorFrete)}
+                  </span>
                 </div>
 
                 <div className="border-t border-zinc-200 pt-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-base font-bold text-zinc-900">Total do pedido</span>
+                    <span className="text-base font-bold text-zinc-900">
+                      Total do pedido
+                    </span>
                     <span className="text-lg font-black text-zinc-900">
                       {formatarMoeda(totalFinal)}
                     </span>
@@ -225,12 +275,16 @@ export default function PaginaPendente() {
 
               <div className="mt-6 space-y-3">
                 <a
-  href="/#/checkout"
-  className="block w-full rounded-2xl bg-[#009EE3] px-5 py-3 text-center font-semibold text-white"
->
-  Continuar pagamento
-</a>
+                  href="/#/checkout"
+                  className="block w-full rounded-2xl bg-[#009EE3] px-5 py-3 text-center font-semibold text-white"
+                >
+                  Continuar pagamento
+                </a>
               </div>
+
+              <p className="mt-4 text-xs text-zinc-500">
+                Esta página verifica automaticamente o status do pagamento.
+              </p>
             </div>
           </div>
         </div>
