@@ -48,7 +48,7 @@ function normalizarStatus(status, pedido = {}) {
     if (valor === "retirada_preparando") return "retirada_preparando";
     if (valor === "retirada_pronto") return "retirada_pronto";
     if (valor === "retirada_concluido") return "retirada_concluido";
-    return valor;
+    return valor || "retirada_recebido";
   }
 
   if (valor === "recebido") return "para_confirmar";
@@ -58,7 +58,7 @@ function normalizarStatus(status, pedido = {}) {
   if (valor === "emitido") return "emitido";
   if (valor === "enviado") return "enviado";
 
-  return valor;
+  return valor || "para_confirmar";
 }
 
 function tituloStatus(status) {
@@ -589,10 +589,7 @@ function PedidoCard({
   onAvisarRetiradaPronto,
   onConcluirRetirada,
 }) {
-  const statusOperacional = normalizarStatus(
-    pedido.statusInterno || pedido.status,
-    pedido
-  );
+  const statusOperacional = normalizarStatus(pedido.statusInterno, pedido);
 
   const itens = Array.isArray(pedido.carrinho) ? pedido.carrinho : [];
   const totalItens = pedido.totalItensCarrinho || 0;
@@ -1070,45 +1067,42 @@ export default function Painel() {
     return false;
   };
 
-  const carregarPedidos = async () => {
-    try {
-      setCarregando(true);
-      setErro("");
+ const carregarPedidos = async () => {
+  try {
+    setCarregando(true);
+    setErro("");
 
-      const response = await fetch(apiPedidosUrl, {
-        headers: headersAutenticados,
-      });
+    const response = await fetch(apiPedidosUrl, {
+      headers: headersAutenticados,
+    });
 
-      if (tratarRespostaNaoAutorizada(response)) {
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message || data?.error || "Não foi possível carregar os pedidos."
-        );
-      }
-
-      const lista = Array.isArray(data) ? data : data?.pedidos || [];
-
-      setPedidos(
-        lista.map((pedido) => ({
-          ...pedido,
-          statusInterno: normalizarStatus(
-            pedido.statusInterno || pedido.status,
-            pedido
-          ),
-        }))
-      );
-    } catch (error) {
-      console.error("Erro ao carregar pedidos:", error);
-      setErro(error.message || "Erro ao carregar pedidos.");
-    } finally {
-      setCarregando(false);
+    if (tratarRespostaNaoAutorizada(response)) {
+      return;
     }
-  };
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message || data?.error || "Não foi possível carregar os pedidos."
+      );
+    }
+
+    const lista = Array.isArray(data) ? data : data?.pedidos || [];
+
+    setPedidos(
+      lista.map((pedido) => ({
+        ...pedido,
+        statusInterno: normalizarStatus(pedido.statusInterno, pedido),
+      }))
+    );
+  } catch (error) {
+    console.error("Erro ao carregar pedidos:", error);
+    setErro(error.message || "Erro ao carregar pedidos.");
+  } finally {
+    setCarregando(false);
+  }
+};
 
   useEffect(() => {
     carregarPedidos();
@@ -1311,62 +1305,63 @@ export default function Painel() {
   };
 
   const concluirRetirada = async (pedido) => {
-    const pedidoId = pedido.id || pedido.pedidoLocalId;
+  const pedidoId = pedido.id || pedido.pedidoLocalId;
 
-    if (!pedidoId) {
-      alert("Esse pedido não possui ID.");
+  if (!pedidoId) {
+    alert("Esse pedido não possui ID.");
+    return;
+  }
+
+  if (!pagamentoAprovado(pedido)) {
+    alert("Não é possível concluir retirada antes da aprovação do pagamento.");
+    return;
+  }
+
+  try {
+    setAtualizandoId(pedidoId);
+
+    const response = await fetch(`${apiPedidosUrl}/${pedidoId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...headersAutenticados,
+      },
+      body: JSON.stringify({
+        status: "retirada_concluido",
+        statusInterno: "retirada_concluido",
+      }),
+    });
+
+    if (tratarRespostaNaoAutorizada(response)) {
       return;
     }
 
-    if (!pagamentoAprovado(pedido)) {
-      alert("Não é possível concluir retirada antes da aprovação do pagamento.");
-      return;
-    }
+    const data = await response.json();
 
-    try {
-      setAtualizandoId(pedidoId);
-
-      const response = await fetch(`${apiPedidosUrl}/${pedidoId}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...headersAutenticados,
-        },
-        body: JSON.stringify({
-          status: "retirada_concluido",
-        }),
-      });
-
-      if (tratarRespostaNaoAutorizada(response)) {
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message || data?.error || "Erro ao concluir retirada."
-        );
-      }
-
-      setPedidos((anterior) =>
-        anterior.map((item) =>
-          (item.id || item.pedidoLocalId) === pedidoId
-            ? {
-                ...item,
-                ...data?.pedido,
-                statusInterno: "retirada_concluido",
-              }
-            : item
-        )
+    if (!response.ok) {
+      throw new Error(
+        data?.message || data?.error || "Erro ao concluir retirada."
       );
-    } catch (error) {
-      console.error("Erro ao concluir retirada:", error);
-      alert(error.message || "Erro ao concluir retirada.");
-    } finally {
-      setAtualizandoId(null);
     }
-  };
+
+    setPedidos((anterior) =>
+      anterior.map((item) =>
+        (item.id || item.pedidoLocalId) === pedidoId
+          ? {
+              ...item,
+              ...data?.pedido,
+              statusInterno: "retirada_concluido",
+            }
+          : item
+      )
+    );
+  } catch (error) {
+    console.error("Erro ao concluir retirada:", error);
+    alert(error.message || "Erro ao concluir retirada.");
+  } finally {
+    setAtualizandoId(null);
+  }
+};
 
   const gerarEtiqueta = async (pedido) => {
     if (isRetiradaPedido(pedido)) {
