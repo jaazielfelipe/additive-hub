@@ -274,7 +274,16 @@ export default function Checkout() {
     }
   }, []);
 
+  const ehRetirada = useMemo(() => {
+    const chave = String(freteSelecionado?.chave || "").toLowerCase();
+    const nome = String(freteSelecionado?.nome || "").toLowerCase();
+
+    return chave === "retirar" || nome.includes("retirar");
+  }, [freteSelecionado]);
+
   useEffect(() => {
+    if (ehRetirada) return;
+
     const cepLimpo = String(cepDestino || "").replace(/\D/g, "");
 
     if (cepLimpo.length !== 8) return;
@@ -301,7 +310,7 @@ export default function Checkout() {
       .catch((error) => {
         console.error("Erro ao buscar CEP:", error);
       });
-  }, [cepDestino]);
+  }, [cepDestino, ehRetirada]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -375,6 +384,7 @@ export default function Checkout() {
     }
 
     if (campo === "numero") {
+      if (ehRetirada) return "";
       if (!valorTexto) return "Número da residência é obrigatório.";
       return "";
     }
@@ -390,7 +400,7 @@ export default function Checkout() {
       cpf: obterErroCampo("cpf", dadosCliente.cpf),
       numero: obterErroCampo("numero", enderecoEntrega.numero),
     };
-  }, [dadosCliente, enderecoEntrega.numero]);
+  }, [dadosCliente, enderecoEntrega.numero, ehRetirada]);
 
   const formularioValido = useMemo(() => {
     return (
@@ -398,9 +408,9 @@ export default function Checkout() {
       !errosCampos.email &&
       !errosCampos.telefone &&
       !errosCampos.cpf &&
-      !errosCampos.numero
+      (ehRetirada || !errosCampos.numero)
     );
-  }, [errosCampos]);
+  }, [errosCampos, ehRetirada]);
 
   const podePagar = useMemo(() => {
     return (
@@ -457,7 +467,7 @@ export default function Checkout() {
       email: true,
       telefone: true,
       cpf: true,
-      numero: true,
+      numero: !ehRetirada,
     });
   };
 
@@ -466,7 +476,7 @@ export default function Checkout() {
     if (errosCampos.email) return errosCampos.email;
     if (errosCampos.telefone) return errosCampos.telefone;
     if (errosCampos.cpf) return errosCampos.cpf;
-    if (errosCampos.numero) return errosCampos.numero;
+    if (!ehRetirada && errosCampos.numero) return errosCampos.numero;
     return "";
   };
 
@@ -555,6 +565,23 @@ export default function Checkout() {
 
       const pedidoLocalId = `ADD-${Date.now()}`;
 
+      const enderecoFinal = ehRetirada
+        ? {
+            cep: "",
+            rua: "",
+            bairro: "",
+            cidade: "",
+            estado: "",
+            numero: "",
+            complemento: "",
+          }
+        : {
+            ...enderecoEntrega,
+            cep: String(cepDestino || "").replace(/\D/g, ""),
+            numero: String(enderecoEntrega.numero || "").trim(),
+            complemento: String(enderecoEntrega.complemento || "").trim(),
+          };
+
       const resumoPedido = {
         sessionId: sessionIdAtual,
         pedidoLocalId,
@@ -566,14 +593,11 @@ export default function Checkout() {
           telefone: dadosCliente.telefone.replace(/\D/g, ""),
           cpf: dadosCliente.cpf.replace(/\D/g, ""),
         },
-        enderecoEntrega: {
-          ...enderecoEntrega,
-          cep: String(cepDestino || "").replace(/\D/g, ""),
-          numero: String(enderecoEntrega.numero || "").trim(),
-          complemento: String(enderecoEntrega.complemento || "").trim(),
-        },
+        enderecoEntrega: enderecoFinal,
         carrinho: carrinhoNormalizado,
-        cepDestino: String(cepDestino || "").replace(/\D/g, ""),
+        cepDestino: ehRetirada
+          ? ""
+          : String(cepDestino || "").replace(/\D/g, ""),
         freteSelecionado,
         fretes,
         totalItensCarrinho,
@@ -708,96 +732,113 @@ export default function Checkout() {
               </div>
             </section>
 
-            <section className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
-              <h2 className="text-xl font-bold">Dados de entrega</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Endereço preenchido automaticamente com base no CEP informado na
-                etapa anterior.
-              </p>
+            {!ehRetirada ? (
+              <section className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
+                <h2 className="text-xl font-bold">Dados de entrega</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Endereço preenchido automaticamente com base no CEP informado na
+                  etapa anterior.
+                </p>
 
-              <div className="mt-4 space-y-3">
-                <div>
-                  <input
-                    type="text"
-                    value={cepDestino}
-                    disabled
-                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
-                    placeholder="CEP"
-                  />
-                </div>
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={cepDestino}
+                      disabled
+                      className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                      placeholder="CEP"
+                    />
+                  </div>
 
-                <div>
-                  <input
-                    type="text"
-                    value={enderecoEntrega.rua}
-                    disabled
-                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
-                    placeholder="Rua"
-                  />
-                </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={enderecoEntrega.rua}
+                      disabled
+                      className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                      placeholder="Rua"
+                    />
+                  </div>
 
-                <div>
-                  <input
-                    type="text"
-                    value={enderecoEntrega.bairro}
-                    disabled
-                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
-                    placeholder="Bairro"
-                  />
-                </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={enderecoEntrega.bairro}
+                      disabled
+                      className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                      placeholder="Bairro"
+                    />
+                  </div>
 
-                <div>
-                  <input
-                    type="text"
-                    value={enderecoEntrega.cidade}
-                    disabled
-                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
-                    placeholder="Cidade"
-                  />
-                </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={enderecoEntrega.cidade}
+                      disabled
+                      className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                      placeholder="Cidade"
+                    />
+                  </div>
 
-                <div>
-                  <input
-                    type="text"
-                    value={enderecoEntrega.estado}
-                    disabled
-                    className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
-                    placeholder="Estado"
-                  />
-                </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={enderecoEntrega.estado}
+                      disabled
+                      className="w-full rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-600"
+                      placeholder="Estado"
+                    />
+                  </div>
 
-                <div>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Número da residência"
-                    value={enderecoEntrega.numero}
-                    onChange={(e) =>
-                      atualizarEnderecoEntrega("numero", e.target.value)
-                    }
-                    onBlur={() => marcarCampoComoTocado("numero")}
-                    className={classeInput("numero")}
-                  />
-                  {camposTocados.numero && errosCampos.numero && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {errosCampos.numero}
-                    </p>
-                  )}
-                </div>
+                  <div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Número da residência"
+                      value={enderecoEntrega.numero}
+                      onChange={(e) =>
+                        atualizarEnderecoEntrega("numero", e.target.value)
+                      }
+                      onBlur={() => marcarCampoComoTocado("numero")}
+                      className={classeInput("numero")}
+                    />
+                    {camposTocados.numero && errosCampos.numero && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errosCampos.numero}
+                      </p>
+                    )}
+                  </div>
 
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Complemento (opcional)"
-                    value={enderecoEntrega.complemento}
-                    onChange={(e) =>
-                      atualizarEnderecoEntrega("complemento", e.target.value)
-                    }
-                    className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
-                  />
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Complemento (opcional)"
+                      value={enderecoEntrega.complemento}
+                      onChange={(e) =>
+                        atualizarEnderecoEntrega("complemento", e.target.value)
+                      }
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                    />
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            ) : (
+              <section className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
+                <h2 className="text-xl font-bold">Retirada</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Você escolheu retirar o pedido, então não é necessário preencher
+                  dados de residência.
+                </p>
+
+                <div className="mt-4 rounded-2xl border border-[#f4b400] bg-[#fff6db] p-4">
+                  <p className="font-semibold text-zinc-900">Forma de entrega</p>
+                  <p className="mt-1 text-sm text-zinc-700">
+                    Retirada no local selecionada.
+                  </p>
+                </div>
+              </section>
+            )}
           </div>
 
           <aside className="h-fit rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm">
@@ -914,9 +955,11 @@ export default function Checkout() {
               </div>
 
               <div className="flex items-center justify-between gap-3">
-                <span>Frete</span>
+                <span>{ehRetirada ? "Retirada" : "Frete"}</span>
                 <span className="font-semibold">
-                  {formatarMoeda(freteSelecionado?.preco || 0)}
+                  {ehRetirada
+                    ? "Grátis"
+                    : formatarMoeda(freteSelecionado?.preco || 0)}
                 </span>
               </div>
 
@@ -953,7 +996,9 @@ export default function Checkout() {
 
             {tentouPagar && !formularioValido && (
               <p className="mt-2 text-sm text-red-600">
-                Preencha corretamente os dados do comprador e da entrega.
+                {ehRetirada
+                  ? "Preencha corretamente os dados do comprador."
+                  : "Preencha corretamente os dados do comprador e da entrega."}
               </p>
             )}
 
