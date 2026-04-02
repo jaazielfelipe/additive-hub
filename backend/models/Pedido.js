@@ -7,6 +7,8 @@ const pedidoSchema = new mongoose.Schema(
 
     carrinho: [
       {
+        _id: false,
+
         id: mongoose.Schema.Types.Mixed,
         nome: String,
         quantidade: Number,
@@ -25,6 +27,7 @@ const pedidoSchema = new mongoose.Schema(
 
         resumoVariacoes: [
           {
+            _id: false,
             nome: String,
             valor: String,
           },
@@ -101,21 +104,21 @@ const pedidoSchema = new mongoose.Schema(
     status: { type: String, default: "pending", index: true },
 
     statusInterno: {
-  type: String,
-  enum: [
-    "chegou",
-    "para_confirmar",
-    "a_emitir",
-    "emitido",
-    "enviado",
-    "retirada_recebido",
-    "retirada_preparando",
-    "retirada_pronto",
-    "retirada_concluido",
-  ],
-  default: "chegou",
-  index: true,
-},
+      type: String,
+      enum: [
+        "chegou",
+        "para_confirmar",
+        "a_emitir",
+        "emitido",
+        "enviado",
+        "retirada_recebido",
+        "retirada_preparando",
+        "retirada_pronto",
+        "retirada_concluido",
+      ],
+      default: "chegou",
+      index: true,
+    },
 
     payment_id: mongoose.Schema.Types.Mixed,
     status_detail: String,
