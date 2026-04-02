@@ -19,8 +19,7 @@ const CUPONS = {
     valorMinimoPedido: 150,
     primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
   },
-
-  const CUPONS = {
+  
   BELEZINHA: {
     codigo: "BELEZINHA",
     tipo: "percentual", // percentual | fixo | frete
@@ -28,11 +27,8 @@ const CUPONS = {
     ativo: true,
     dataInicio: "2026-01-01",
     dataFim: "2026-12-31",
-    valorMinimoPedido: 50,
+    valorMinimoPedido: 10,
     primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
-  },
-
-  
-};
-
+    } 
+  }
 export default CUPONS;
