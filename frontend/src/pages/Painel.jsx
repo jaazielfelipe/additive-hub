@@ -48,7 +48,7 @@ function normalizarStatus(status, pedido = {}) {
     if (valor === "retirada_preparando") return "retirada_preparando";
     if (valor === "retirada_pronto") return "retirada_pronto";
     if (valor === "retirada_concluido") return "retirada_concluido";
-    return "retirada_recebido";
+    return valor;
   }
 
   if (valor === "recebido") return "para_confirmar";
@@ -58,7 +58,7 @@ function normalizarStatus(status, pedido = {}) {
   if (valor === "emitido") return "emitido";
   if (valor === "enviado") return "enviado";
 
-  return "para_confirmar";
+  return valor;
 }
 
 function tituloStatus(status) {
