@@ -26,7 +26,7 @@ export default function PaginaPendente() {
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-  fetch(`${apiBaseUrl}/api/pedidos/${pedidoId}`)
+  fetch(`${apiBaseUrl}/api/pedidos/publico/${pedidoId}`)
     .then(async (res) => {
       const data = await res.json();
 
@@ -225,11 +225,11 @@ export default function PaginaPendente() {
 
               <div className="mt-6 space-y-3">
                 <a
-                  href="/#/"
-                  className="block w-full rounded-2xl bg-[#f4b400] px-5 py-3 text-center font-semibold text-black"
-                >
-                  Voltar para a loja
-                </a>
+  href="/#/checkout"
+  className="block w-full rounded-2xl bg-[#009EE3] px-5 py-3 text-center font-semibold text-white"
+>
+  Continuar pagamento
+</a>
               </div>
             </div>
           </div>

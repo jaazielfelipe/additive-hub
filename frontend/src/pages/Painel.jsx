@@ -190,8 +190,8 @@ function construirMensagemConfirmacao(pedido) {
 
   return [
     `Olá, ${nome}!`,
-    "",    
-    "Seu pedido *#${codigoPedido}* foi recebido com sucesso e já estamos preparando tudo para a confecção",
+    "",
+    `Seu pedido *#${codigoPedido}* foi recebido com sucesso e já estamos preparando tudo para a confecção.`,
     "",
     "O prazo para envio é de *5 dias úteis*.",
     "",
@@ -209,7 +209,7 @@ function construirMensagemEmbalando(pedido) {
   const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
 
   return [
-    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem`,
+    `Olá, ${nome}! Passando para avisar que o seu pedido *#${codigoPedido}* já está em fase de embalagem.`,
     "",
     "Estamos preparando tudo com carinho e cuidado para você.",
     "Assim que houver a próxima atualização, avisaremos por aqui.",
@@ -231,7 +231,7 @@ function construirMensagemRetiradaRecebido(pedido) {
     : "- Itens do pedido";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* foi recebido com sucesso.`,
     "",
     "*Resumo do pedido:*",
     resumoItens,
@@ -248,7 +248,7 @@ function construirMensagemRetiradaPreparando(pedido) {
   const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está sendo preparado`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está sendo preparado.`,
     "",
     "Estamos cuidando de tudo para deixar seu pedido pronto.",
     "",
@@ -264,7 +264,7 @@ function construirMensagemRetiradaPronto(pedido) {
   const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
 
   return [
-    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está pronto para retirada`,
+    `Olá, ${nome}! Seu pedido *#${codigoPedido}* já está pronto para retirada.`,
     "",
     "Pode me chamar por aqui para combinarmos a retirada.",
     "",
@@ -286,16 +286,31 @@ function construirMensagemContatoDireto(pedido) {
   ].join("\n");
 }
 
+function construirMensagemRecuperacaoCarrinho(pedido) {
+  const cliente = pedido?.dadosCliente || {};
+  const nome = cliente.nome ? cliente.nome.split(" ")[0] : "cliente";
+  const codigoPedido = pedido?.pedidoLocalId || pedido?.id || "sem código";
+  const total = formatarMoeda(pedido?.totalComFrete || 0);
+
+  return [
+    `Oi, ${nome}! 😊`,
+    "",
+    `Vi que você quase finalizou o pedido *#${codigoPedido}* na Additive Hub.`,
+    "",
+    `O valor total dele está em *${total}*.`,
+    "Posso te ajudar com algo para concluir?",
+    "",
+    "Se quiser, também posso verificar um cupom para você 😉",
+  ].join("\n");
+}
+
 function gerarLinkWhatsApp(pedido) {
   const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
 
   if (!telefone) return "";
 
   const mensagem = construirMensagemConfirmacao(pedido);
-
-  const mensagemSegura = encodeURIComponent(
-    mensagem.replace(/[\u2705]/g, "✔")
-  );
+  const mensagemSegura = encodeURIComponent(mensagem.replace(/[\u2705]/g, "✔"));
 
   return `https://wa.me/${telefone}?text=${mensagemSegura}`;
 }
@@ -342,6 +357,15 @@ function gerarLinkWhatsAppContatoDireto(pedido) {
   if (!telefone) return "";
 
   const mensagem = construirMensagemContatoDireto(pedido);
+  return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+}
+
+function gerarLinkWhatsAppRecuperacao(pedido) {
+  const telefone = normalizarTelefoneWhatsApp(pedido?.dadosCliente?.telefone);
+
+  if (!telefone) return "";
+
+  const mensagem = construirMensagemRecuperacaoCarrinho(pedido);
   return `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
 }
 
@@ -394,7 +418,6 @@ function calcularVolumeItem(item = {}) {
 
 function calcularVolumeOcupadoPedido(pedido = {}) {
   const itens = Array.isArray(pedido?.carrinho) ? pedido.carrinho : [];
-
   return itens.reduce((total, item) => total + calcularVolumeItem(item), 0);
 }
 
@@ -430,6 +453,47 @@ function formatarNumeroDimensao(valor) {
   return Number.isInteger(numero)
     ? String(numero)
     : numero.toFixed(1).replace(".", ",");
+}
+
+function calcularMinutosDesde(data) {
+  if (!data) return 0;
+
+  const timestamp = new Date(data).getTime();
+
+  if (!Number.isFinite(timestamp)) return 0;
+
+  const diff = Date.now() - timestamp;
+  return Math.max(0, Math.floor(diff / 60000));
+}
+
+function formatarTempoAbandono(data) {
+  const minutos = calcularMinutosDesde(data);
+
+  if (minutos < 60) return `${minutos} min`;
+  if (minutos < 1440) return `${Math.floor(minutos / 60)}h ${minutos % 60}min`;
+
+  const dias = Math.floor(minutos / 1440);
+  const horasRestantes = Math.floor((minutos % 1440) / 60);
+  return `${dias}d ${horasRestantes}h`;
+}
+
+function isCarrinhoAbandonado(pedido = {}, minutosLimite = 30) {
+  if (!pedido) return false;
+
+  const status = statusPagamentoNormalizado(pedido?.status);
+  if (status !== "pending") return false;
+
+  const cliente = pedido?.dadosCliente || {};
+  const temContato = Boolean(
+    String(cliente?.nome || "").trim() ||
+      String(cliente?.email || "").trim() ||
+      String(cliente?.telefone || "").trim() ||
+      String(cliente?.cpf || "").trim()
+  );
+
+  if (!temContato) return false;
+
+  return calcularMinutosDesde(pedido?.criadoEm) >= minutosLimite;
 }
 
 function BadgeEmbalagem({ pedido }) {
@@ -538,11 +602,13 @@ function PedidoCard({
   const desconto = Number(pedido?.descontoCupom || 0);
   const cupom = pedido?.cupomAplicado?.codigo || "";
   const isRetirada = isRetiradaPedido(pedido);
+  const abandonado = isCarrinhoAbandonado(pedido, 30);
 
   const cliente = pedido.dadosCliente || {};
   const entrega = pedido.enderecoEntrega || {};
   const linkWhatsAppEmbalando = gerarLinkWhatsAppEmbalando(pedido);
   const linkWhatsAppContatoDireto = gerarLinkWhatsAppContatoDireto(pedido);
+  const linkWhatsAppRecuperacao = gerarLinkWhatsAppRecuperacao(pedido);
 
   const pagamentoLiberado = pagamentoAprovado(pedido);
   const pagamentoBloqueado = !pagamentoLiberado;
@@ -563,6 +629,19 @@ function PedidoCard({
     !pedido?.etiquetaEmitida;
 
   function renderBotaoPrincipal() {
+    if (abandonado && linkWhatsAppRecuperacao) {
+      return (
+        <a
+          href={linkWhatsAppRecuperacao}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-800"
+        >
+          Recuperar carrinho
+        </a>
+      );
+    }
+
     if (pagamentoBloqueado) {
       return (
         <div className="flex flex-wrap items-center gap-2">
@@ -736,7 +815,11 @@ function PedidoCard({
   }
 
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <article
+      className={`rounded-2xl border bg-white p-4 shadow-sm ${
+        abandonado ? "border-red-200" : "border-zinc-200"
+      }`}
+    >
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
@@ -756,6 +839,12 @@ function PedidoCard({
         </div>
 
         <div className="flex flex-wrap gap-2 xl:justify-end">
+          {abandonado && (
+            <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+              Abandonado há {formatarTempoAbandono(pedido.criadoEm)}
+            </span>
+          )}
+
           <span
             className={`rounded-full border px-3 py-1 text-xs font-bold ${corStatus(
               statusOperacional
@@ -782,7 +871,7 @@ function PedidoCard({
         </div>
       </div>
 
-      {pagamentoPendenteOuBloqueado(pedido) && (
+      {pagamentoPendenteOuBloqueado(pedido) && !abandonado && (
         <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           Este pedido está bloqueado para preparo e logística até a aprovação do
           pagamento.
@@ -1112,7 +1201,9 @@ export default function Painel() {
     }
 
     if (!pagamentoAprovado(pedido)) {
-      alert("Não é possível avançar o pedido enquanto o pagamento não estiver aprovado.");
+      alert(
+        "Não é possível avançar o pedido enquanto o pagamento não estiver aprovado."
+      );
       return;
     }
 
@@ -1459,6 +1550,10 @@ export default function Painel() {
           pedido
         );
 
+        if (filtroStatus === "abandonados") {
+          return isCarrinhoAbandonado(pedido, 30);
+        }
+
         if (filtroStatus === "novos") {
           return status === "para_confirmar" || status === "retirada_recebido";
         }
@@ -1488,6 +1583,8 @@ export default function Painel() {
 
   const contagem = useMemo(() => {
     return {
+      abandonados: pedidos.filter((pedido) => isCarrinhoAbandonado(pedido, 30))
+        .length,
       todos: pedidos.length,
       novos: pedidos.filter((pedido) => {
         const status = normalizarStatus(
@@ -1543,32 +1640,45 @@ export default function Painel() {
           </div>
 
           <div className="flex w-full flex-col gap-3 md:max-w-md md:flex-row">
-  <input
-    type="text"
-    placeholder="Buscar por cliente, pedido, produto, cidade..."
-    value={busca}
-    onChange={(e) => setBusca(e.target.value)}
-    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
-  />
+            <input
+              type="text"
+              placeholder="Buscar por cliente, pedido, produto, cidade..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+            />
 
-  <a
-    href="/#/ordem-producao"
-    className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3 text-center text-sm font-bold text-amber-900"
-  >
-    Ordem de produção
-  </a>
+            <a
+              href="/#/ordem-producao"
+              className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3 text-center text-sm font-bold text-amber-900"
+            >
+              Ordem de produção
+            </a>
 
-  <button
-    type="button"
-    onClick={sair}
-    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800"
-  >
-    Sair
-  </button>
-</div>
+            <button
+              type="button"
+              onClick={sair}
+              className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800"
+            >
+              Sair
+            </button>
+          </div>
         </div>
 
-        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+          <button
+            type="button"
+            onClick={() => setFiltroStatus("abandonados")}
+            className={`rounded-[1.5rem] border p-5 text-left shadow-sm ${
+              filtroStatus === "abandonados"
+                ? "border-red-700 bg-red-700 text-white"
+                : "border-red-200 bg-red-50 text-red-900"
+            }`}
+          >
+            <p className="text-sm opacity-80">Abandonados</p>
+            <p className="mt-2 text-3xl font-black">{contagem.abandonados}</p>
+          </button>
+
           <button
             type="button"
             onClick={() => setFiltroStatus("todos")}

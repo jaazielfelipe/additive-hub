@@ -7,44 +7,59 @@ function formatarMoeda(valor) {
   });
 }
 
+function limparDadosPosCompra() {
+  try {
+    localStorage.removeItem("ultimoPedidoAdditiveHub");
+    localStorage.removeItem("carrinhoAdditiveHub");
+    localStorage.removeItem("dadosClienteAdditiveHub");
+    localStorage.removeItem("freteSelecionadoAdditiveHub");
+    localStorage.removeItem("fretesAdditiveHub");
+    localStorage.removeItem("cepDestinoAdditiveHub");
+    localStorage.removeItem("sessionIdAdditiveHub");
+  } catch (error) {
+    console.error("Erro ao limpar dados pós-compra:", error);
+  }
+}
+
 export default function PaginaSucesso() {
   const [pedido, setPedido] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
   useEffect(() => {
-  localStorage.removeItem("ultimoPedidoAdditiveHub");
+    limparDadosPosCompra();
 
-  const hash = window.location.hash || "";
-  const queryString = hash.includes("?") ? hash.split("?")[1] : "";
-  const params = new URLSearchParams(queryString);
-  const pedidoId = params.get("pedido_id");
+    const hash = window.location.hash || "";
+    const queryString = hash.includes("?") ? hash.split("?")[1] : "";
+    const params = new URLSearchParams(queryString);
+    const pedidoId = params.get("pedido_id");
 
-  if (!pedidoId) {
-    setErro("Pedido não encontrado na URL.");
-    setCarregando(false);
-    return;
-  }
-
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-
-  fetch(`${apiBaseUrl}/api/pedidos/${pedidoId}`)
-    .then(async (res) => {
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Erro ao buscar pedido.");
-      }
-
-      setPedido(data);
-    })
-    .catch((err) => {
-      setErro(err.message || "Erro ao carregar pedido.");
-    })
-    .finally(() => {
+    if (!pedidoId) {
+      setErro("Pedido não encontrado na URL.");
       setCarregando(false);
-    });
-}, []);
+      return;
+    }
+
+    const apiBaseUrl =
+      import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+    fetch(`${apiBaseUrl}/api/pedidos/publico/${pedidoId}`)
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.error || "Erro ao buscar pedido.");
+        }
+
+        setPedido(data);
+      })
+      .catch((err) => {
+        setErro(err.message || "Erro ao carregar pedido.");
+      })
+      .finally(() => {
+        setCarregando(false);
+      });
+  }, []);
 
   if (carregando) {
     return (
@@ -69,7 +84,9 @@ export default function PaginaSucesso() {
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
             Additive Hub
           </p>
-          <h1 className="mt-3 text-3xl font-bold">Não foi possível carregar o pedido</h1>
+          <h1 className="mt-3 text-3xl font-bold">
+            Não foi possível carregar o pedido
+          </h1>
           <p className="mt-2 text-zinc-600">Erro: {erro}</p>
 
           <a
@@ -86,13 +103,16 @@ export default function PaginaSucesso() {
   const totalProdutos =
     pedido?.subtotalProdutos ??
     pedido?.carrinho?.reduce(
-      (acc, item) => acc + Number(item.preco || 0) * Number(item.quantidade || 0),
+      (acc, item) =>
+        acc + Number(item.preco || 0) * Number(item.quantidade || 0),
       0
     ) ??
     0;
 
   const valorFrete = Number(pedido?.freteSelecionado?.preco || 0);
-  const totalFinal = pedido?.totalComFrete ?? totalProdutos + valorFrete;
+  const descontoCupom = Number(pedido?.descontoCupom || 0);
+  const totalFinal =
+    pedido?.totalComFrete ?? totalProdutos + valorFrete - descontoCupom;
 
   return (
     <div className="min-h-screen bg-[#fcfcfc] px-4 py-10 text-zinc-900">
@@ -105,7 +125,8 @@ export default function PaginaSucesso() {
               </p>
               <h1 className="mt-2 text-3xl font-bold">Pagamento aprovado</h1>
               <p className="mt-2 max-w-2xl text-zinc-600">
-                Recebemos seu pagamento com sucesso. Abaixo estão os detalhes do seu pedido.
+                Recebemos seu pagamento com sucesso. Abaixo estão os detalhes do
+                seu pedido.
               </p>
             </div>
 
@@ -120,7 +141,7 @@ export default function PaginaSucesso() {
                 Número do pedido
               </p>
               <p className="mt-2 break-all text-sm font-bold text-zinc-900">
-                {pedido?.id || "-"}
+                {pedido?.pedidoLocalId || pedido?.id || "-"}
               </p>
             </div>
 
@@ -161,7 +182,9 @@ export default function PaginaSucesso() {
                   >
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <p className="text-base font-bold text-zinc-900">{item.nome}</p>
+                        <p className="text-base font-bold text-zinc-900">
+                          {item.nome}
+                        </p>
 
                         <div className="mt-2 space-y-1 text-sm text-zinc-600">
                           <p>Quantidade: {item.quantidade}</p>
@@ -170,8 +193,8 @@ export default function PaginaSucesso() {
 
                         {item?.resumoVariacoes?.length > 0 && (
                           <div className="mt-3 space-y-1 text-sm text-zinc-600">
-                            {item.resumoVariacoes.map((v) => (
-                              <p key={`${item.id}-${v.nome}`}>
+                            {item.resumoVariacoes.map((v, index) => (
+                              <p key={`${item.id}-${v.nome}-${index}`}>
                                 {v.nome}: {v.valor}
                               </p>
                             ))}
@@ -185,7 +208,8 @@ export default function PaginaSucesso() {
                         </p>
                         <p className="mt-1 text-lg font-bold text-zinc-900">
                           {formatarMoeda(
-                            Number(item.preco || 0) * Number(item.quantidade || 1)
+                            Number(item.preco || 0) *
+                              Number(item.quantidade || 1)
                           )}
                         </p>
                       </div>
@@ -201,22 +225,39 @@ export default function PaginaSucesso() {
               <div className="mt-5 space-y-3 text-sm text-zinc-700">
                 <div className="flex items-center justify-between gap-3">
                   <span>Itens</span>
-                  <span className="font-semibold">{pedido?.totalItensCarrinho || 0}</span>
+                  <span className="font-semibold">
+                    {pedido?.totalItensCarrinho || 0}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
                   <span>Subtotal</span>
-                  <span className="font-semibold">{formatarMoeda(totalProdutos)}</span>
+                  <span className="font-semibold">
+                    {formatarMoeda(totalProdutos)}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
                   <span>Frete</span>
-                  <span className="font-semibold">{formatarMoeda(valorFrete)}</span>
+                  <span className="font-semibold">
+                    {formatarMoeda(valorFrete)}
+                  </span>
                 </div>
+
+                {descontoCupom > 0 && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Desconto</span>
+                    <span className="font-semibold text-green-700">
+                      - {formatarMoeda(descontoCupom)}
+                    </span>
+                  </div>
+                )}
 
                 <div className="border-t border-zinc-200 pt-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-base font-bold text-zinc-900">Total pago</span>
+                    <span className="text-base font-bold text-zinc-900">
+                      Total pago
+                    </span>
                     <span className="text-lg font-black text-zinc-900">
                       {formatarMoeda(totalFinal)}
                     </span>

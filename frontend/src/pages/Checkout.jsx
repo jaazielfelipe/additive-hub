@@ -150,8 +150,31 @@ function normalizarCarrinhoParaPedido(carrinho) {
   });
 }
 
+function gerarSessionId() {
+  return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function obterOuCriarSessionId() {
+  const chave = "sessionIdAdditiveHub";
+
+  try {
+    const existente = localStorage.getItem(chave);
+
+    if (existente && typeof existente === "string" && existente.trim()) {
+      return existente.trim();
+    }
+
+    const novo = gerarSessionId();
+    localStorage.setItem(chave, novo);
+    return novo;
+  } catch {
+    return gerarSessionId();
+  }
+}
+
 export default function Checkout() {
   const [carrinho, setCarrinho] = useState([]);
+  const [sessionId, setSessionId] = useState("");
 
   const [dadosCliente, setDadosCliente] = useState({
     nome: "",
@@ -196,6 +219,8 @@ export default function Checkout() {
 
   useEffect(() => {
     try {
+      setSessionId(obterOuCriarSessionId());
+
       const carrinhoSalvo = localStorage.getItem("carrinhoAdditiveHub");
       const dadosClienteSalvos = localStorage.getItem("dadosClienteAdditiveHub");
       const cepSalvo = localStorage.getItem("cepDestinoAdditiveHub");
@@ -522,9 +547,16 @@ export default function Checkout() {
     try {
       setCarregandoPagamento(true);
 
+      const sessionIdAtual = sessionId || obterOuCriarSessionId();
+
+      if (!sessionId) {
+        setSessionId(sessionIdAtual);
+      }
+
       const pedidoLocalId = `ADD-${Date.now()}`;
 
       const resumoPedido = {
+        sessionId: sessionIdAtual,
         pedidoLocalId,
         criadoEm: new Date().toISOString(),
         dadosCliente: {
