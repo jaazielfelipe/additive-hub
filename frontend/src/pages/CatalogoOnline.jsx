@@ -775,72 +775,102 @@ export default function CatalogoOnline() {
     ].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [produtos, categoriaAtiva, subcategoriaAtiva]);
 
-  const produtosFiltrados = useMemo(() => {
-    const termo = busca.toLowerCase().trim();
+ const produtosFiltrados = useMemo(() => {
+  const termo = busca.toLowerCase().trim();
 
-    const filtrados = produtos.filter((produto) => {
-      const bateCategoria =
-        categoriaAtiva === "Todos" ||
-        slugCategoria(produto.categoria) === categoriaAtiva;
+  const filtrados = produtos.filter((produto) => {
+    const bateCategoria =
+      categoriaAtiva === "Todos" ||
+      slugCategoria(produto.categoria) === categoriaAtiva;
 
-      const bateSubcategoria =
-        subcategoriaAtiva === "Todos" ||
-        slugCategoria(produto.subcategoria) === subcategoriaAtiva;
+    const bateSubcategoria =
+      subcategoriaAtiva === "Todos" ||
+      slugCategoria(produto.subcategoria) === subcategoriaAtiva;
 
-      const bateSubcategoria2 =
-        subcategoria2Ativa === "Todos" ||
-        slugCategoria(produto.subcategoria2) === subcategoria2Ativa;
+    const bateSubcategoria2 =
+      subcategoria2Ativa === "Todos" ||
+      slugCategoria(produto.subcategoria2) === subcategoria2Ativa;
 
-      const bateBusca =
-        termo === "" ||
-        produto.nome.toLowerCase().includes(termo) ||
-        (produto.categoriaLabel || produto.categoria || "").toLowerCase().includes(termo) ||
-        (produto.subcategoriaLabel || produto.subcategoria || "").toLowerCase().includes(termo) ||
-        (produto.subcategoria2Label || produto.subcategoria2 || "").toLowerCase().includes(termo) ||
-        produto.descricao.toLowerCase().includes(termo) ||
-        (produto.variacoes || []).some(
-          (variacao) =>
-            variacao.nome.toLowerCase().includes(termo) ||
-            variacao.opcoes.some((opcao) => opcao.toLowerCase().includes(termo))
+    const bateBusca =
+      termo === "" ||
+      (produto.nome || "").toLowerCase().includes(termo) ||
+      (produto.categoriaLabel || produto.categoria || "")
+        .toLowerCase()
+        .includes(termo) ||
+      (produto.subcategoriaLabel || produto.subcategoria || "")
+        .toLowerCase()
+        .includes(termo) ||
+      (produto.subcategoria2Label || produto.subcategoria2 || "")
+        .toLowerCase()
+        .includes(termo) ||
+      (produto.descricao || "").toLowerCase().includes(termo) ||
+      (produto.variacoes || []).some((variacao) => {
+        const nomeVariacao = (variacao.nome || "").toLowerCase();
+        const opcoes = Array.isArray(variacao.opcoes) ? variacao.opcoes : [];
+
+        return (
+          nomeVariacao.includes(termo) ||
+          opcoes.some((opcao) =>
+            String(opcao || "").toLowerCase().includes(termo)
+          )
         );
-
-      return bateCategoria && bateSubcategoria && bateSubcategoria2 && bateBusca;
-    });
-
-    if (termo) {
-      return [...filtrados].sort((a, b) => {
-        const score = (produto) => {
-          let pontos = 0;
-
-          if (produto.nome.toLowerCase().startsWith(termo)) pontos += 100;
-          else if (produto.nome.toLowerCase().includes(termo)) pontos += 70;
-
-          if ((produto.subcategoria || "").toLowerCase().includes(termo)) pontos += 30;
-          if ((produto.subcategoria2 || "").toLowerCase().includes(termo)) pontos += 20;
-          if ((produto.categoriaLabel || produto.categoria || "").toLowerCase().includes(termo))
-            pontos += 15;
-          if ((produto.descricao || "").toLowerCase().includes(termo)) pontos += 10;
-
-          return pontos;
-        };
-
-        return score(b) - score(a);
       });
-    }
 
-    switch (ordenacao) {
-      case "menor-preco":
-        return [...filtrados].sort((a, b) => a.preco - b.preco);
-      case "maior-preco":
-        return [...filtrados].sort((a, b) => b.preco - a.preco);
-      case "nome-az":
-        return [...filtrados].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-      case "nome-za":
-        return [...filtrados].sort((a, b) => b.nome.localeCompare(a.nome, "pt-BR"));
-      default:
-        return filtrados;
-    }
-  }, [produtos, categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa, busca, ordenacao]);
+    return bateCategoria && bateSubcategoria && bateSubcategoria2 && bateBusca;
+  });
+
+  if (termo) {
+    return [...filtrados].sort((a, b) => {
+      const score = (produto) => {
+        let pontos = 0;
+
+        if ((produto.nome || "").toLowerCase().startsWith(termo)) pontos += 100;
+        else if ((produto.nome || "").toLowerCase().includes(termo)) pontos += 70;
+
+        if ((produto.subcategoria || "").toLowerCase().includes(termo)) pontos += 30;
+        if ((produto.subcategoria2 || "").toLowerCase().includes(termo)) pontos += 20;
+
+        if (
+          (produto.categoriaLabel || produto.categoria || "")
+            .toLowerCase()
+            .includes(termo)
+        ) {
+          pontos += 15;
+        }
+
+        if ((produto.descricao || "").toLowerCase().includes(termo)) pontos += 10;
+
+        return pontos;
+      };
+
+      return score(b) - score(a);
+    });
+  }
+
+  switch (ordenacao) {
+    case "menor-preco":
+      return [...filtrados].sort((a, b) => a.preco - b.preco);
+    case "maior-preco":
+      return [...filtrados].sort((a, b) => b.preco - a.preco);
+    case "nome-az":
+      return [...filtrados].sort((a, b) =>
+        a.nome.localeCompare(b.nome, "pt-BR")
+      );
+    case "nome-za":
+      return [...filtrados].sort((a, b) =>
+        b.nome.localeCompare(a.nome, "pt-BR")
+      );
+    default:
+      return filtrados;
+  }
+}, [
+  produtos,
+  categoriaAtiva,
+  subcategoriaAtiva,
+  subcategoria2Ativa,
+  busca,
+  ordenacao,
+]);
 
   const produtosEmDestaque = useMemo(() => {
     return produtos.filter((produto) => produto.destaque === "destaque").slice(0, 8);
