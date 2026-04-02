@@ -43,6 +43,7 @@ function tituloItem(valor) {
     rosqueaveis: "Rosqueáveis",
     rosqueavel: "Rosqueável",
     bic: "BIC",
+    abstratas: "Abstratas",
   };
 
   if (mapa[chave]) return mapa[chave];
@@ -356,9 +357,7 @@ const variacoes = [
       preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
       destaque: slugCategoria(item.destaque || ""),
       descricao:
-        item.descricao ||
-        item["descrição"] ||
-        "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
+        item.descricao,
       imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
       variacoes,
       peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
