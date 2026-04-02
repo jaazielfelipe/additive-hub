@@ -35,7 +35,8 @@ function tituloCategoria(valor) {
 }
 
 function tituloItem(valor) {
-  const chave = slugCategoria(valor);
+  const textoOriginal = String(valor || "").trim();
+  const chave = slugCategoria(textoOriginal);
 
   const mapa = {
     "jogos-hobby": "Jogos & Hobby",
@@ -48,11 +49,46 @@ function tituloItem(valor) {
     capsula: "Cápsulas",
     cápsula: "Cápsulas",
     cápsulas: "Cápsulas",
+    "3d": "3D",
+    "mini-flexi": "Mini-flexi",
+    "mini flexi": "Mini-flexi",
+    "porta-cartas": "Porta-cartas",
+    "porta cartas": "Porta-cartas",
   };
 
   if (mapa[chave]) return mapa[chave];
+  if (mapa[textoOriginal.toLowerCase()]) return mapa[textoOriginal.toLowerCase()];
 
-  return String(valor || "").replace(/-/g, " ");
+  const palavrasMinusculas = [
+    "de",
+    "da",
+    "do",
+    "das",
+    "dos",
+    "para",
+    "com",
+    "e",
+    "em",
+    "por",
+  ];
+
+  return textoOriginal
+    .replace(/-/g, " ")
+    .toLowerCase()
+    .split(" ")
+    .filter(Boolean)
+    .map((palavra, index) => {
+      if (index === 0) {
+        return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+      }
+
+      if (palavrasMinusculas.includes(palavra)) {
+        return palavra;
+      }
+
+      return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+    })
+    .join(" ");
 }
 
 const produtosPadrao = [
@@ -910,14 +946,14 @@ const breadcrumb = useMemo(() => {
 
   if (subcategoriaAtiva !== "Todos") {
     itens.push({
-      label: tituloItem(subcategoriaAtiva).replace(/-/g, " "),
+      label: tituloItem(subcategoriaAtiva),
       tipo: "subcategoria",
     });
   }
 
   if (subcategoria2Ativa !== "Todos") {
     itens.push({
-      label: tituloItem(subcategoria2Ativa).replace(/-/g, " "),
+      label: tituloItem(subcategoria2Ativa),
       tipo: "subcategoria2",
     });
   }
@@ -945,11 +981,11 @@ const tituloCatalogo = useMemo(() => {
   }
 
   if (subcategoria2Ativa !== "Todos") {
-    return tituloItem(subcategoria2Ativa).replace(/-/g, " ");
+    return tituloItem(subcategoria2Ativa);
   }
 
   if (subcategoriaAtiva !== "Todos") {
-    return tituloItem(subcategoriaAtiva).replace(/-/g, " ");
+    return tituloItem(subcategoriaAtiva);
   }
 
   if (categoriaAtiva !== "Todos") {
@@ -975,18 +1011,16 @@ const descricaoSecao = useMemo(() => {
   if (subcategoria2Ativa !== "Todos") {
     return `Explore nossa seleção da coleção ${tituloCategoria(
       categoriaAtiva
-    )}, com foco em ${tituloItem(subcategoria2Ativa).replace(
-      /-/g,
-      " "
+    )}, com foco em ${tituloItem(
+      subcategoria2Ativa
     )} e peças produzidas em impressão 3D com qualidade, acabamento e funcionalidade.`;
   }
 
   if (subcategoriaAtiva !== "Todos") {
     return `Confira os produtos da coleção ${tituloCategoria(
       categoriaAtiva
-    )}, com peças da linha ${tituloItem(subcategoriaAtiva).replace(
-      /-/g,
-      " "
+    )}, com peças da linha ${tituloItem(
+      subcategoriaAtiva
     )} produzidas em impressão 3D para unir design, funcionalidade e personalidade.`;
   }
 
@@ -1007,11 +1041,11 @@ const descricaoSecao = useMemo(() => {
   }
 
   if (subcategoriaAtiva !== "Todos") {
-    partes.unshift(tituloItem(subcategoriaAtiva).replace(/-/g, " "));
+    partes.unshift(tituloItem(subcategoriaAtiva));
   }
 
   if (subcategoria2Ativa !== "Todos") {
-    partes.unshift(tituloItem(subcategoria2Ativa).replace(/-/g, " "));
+    partes.unshift(tituloItem(subcategoria2Ativa));
   }
 
   if (temBuscaAtiva) {
