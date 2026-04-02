@@ -623,6 +623,17 @@ export default function CatalogoOnline() {
   }, []);
 
   useEffect(() => {
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  if (!apiBaseUrl) return;
+
+  fetch(`${apiBaseUrl}/api/health`, {
+    method: "GET",
+    cache: "no-store",
+  }).catch(() => {});
+}, []);
+
+  useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
 
