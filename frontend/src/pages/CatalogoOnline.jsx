@@ -44,6 +44,10 @@ function tituloItem(valor) {
     rosqueavel: "Rosqueável",
     bic: "BIC",
     abstratas: "Abstratas",
+    capsulas: "Cápsulas",
+    capsula: "Cápsulas",
+    cápsula: "Cápsulas",
+    cápsulas: "Cápsulas",
   };
 
   if (mapa[chave]) return mapa[chave];
