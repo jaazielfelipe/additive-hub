@@ -183,24 +183,37 @@ function parseCSV(texto) {
       .map((img) => normalizarCaminhoImagemCSV(limparCampo(img)))
       .filter(Boolean);
 
-    const montarVariacao = (nome, valores) => {
+    const montarVariacaoAvancada = (nome, valores) => {
       const nomeLimpo = limparCampo(nome);
-      const opcoes = String(valores || "")
+      const valorLimpo = limparCampo(valores);
+
+      if (!nomeLimpo) return null;
+
+      if (valorLimpo.toUpperCase() === "TEXTO") {
+        return {
+          nome: nomeLimpo,
+          tipo: "texto",
+        };
+      }
+
+      const opcoes = valorLimpo
         .split("|")
         .map((opcao) => limparCampo(opcao))
         .filter(Boolean);
 
-      if (!nomeLimpo || opcoes.length === 0) return null;
+      if (opcoes.length === 0) return null;
 
       return {
         nome: nomeLimpo,
+        tipo: "opcoes",
         opcoes,
       };
     };
 
     const variacoes = [
-      montarVariacao(item.nome_variacao_1, item.variacoes_1),
-      montarVariacao(item.nome_variacao_2, item.variacoes_2),
+      montarVariacaoAvancada(item.nome_variacao_1, item.variacoes_1),
+      montarVariacaoAvancada(item.nome_variacao_2, item.variacoes_2),
+      montarVariacaoAvancada(item.nome_variacao_3, item.variacoes_3),
     ].filter(Boolean);
 
     const categoriaNormalizada = slugCategoria(item.categoria || "outros");
@@ -227,7 +240,8 @@ function parseCSV(texto) {
       peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
       altura: Number(String(item.altura || "0").replace(",", ".")) || 0,
       largura: Number(String(item.largura || "0").replace(",", ".")) || 0,
-      comprimento: Number(String(item.comprimento || "0").replace(",", ".")) || 0,
+      comprimento:
+        Number(String(item.comprimento || "0").replace(",", ".")) || 0,
     };
   });
 }
@@ -259,9 +273,15 @@ function criarSelecoesIniciais(produto) {
 function variacoesPreenchidas(produto, selecoes) {
   if (!produtoTemVariacoes(produto)) return true;
 
-  return produto.variacoes.every((variacao) =>
-    normalizarTexto(selecoes?.[variacao.nome])
-  );
+  return produto.variacoes.every((variacao) => {
+    const valorSelecionado = normalizarTexto(selecoes?.[variacao.nome]);
+
+    if (variacao.tipo === "texto") {
+      return valorSelecionado.length > 0;
+    }
+
+    return valorSelecionado.length > 0;
+  });
 }
 
 function montarResumoVariacoes(produto, selecoes) {
@@ -442,13 +462,26 @@ export default function ProdutoDetalhe() {
   function adicionarAoCarrinho(produtoAtual, selecoes = {}) {
     if (!produtoAtual) return;
 
-    if (produtoTemVariacoes(produtoAtual) && !variacoesPreenchidas(produtoAtual, selecoes)) {
+    const selecoesNormalizadas = Object.fromEntries(
+      Object.entries(selecoes || {}).map(([chave, valor]) => [
+        chave,
+        normalizarTexto(valor),
+      ])
+    );
+
+    if (
+      produtoTemVariacoes(produtoAtual) &&
+      !variacoesPreenchidas(produtoAtual, selecoesNormalizadas)
+    ) {
       alert("Selecione todas as opções antes de adicionar ao carrinho.");
       return;
     }
 
-    const resumoVariacoes = montarResumoVariacoes(produtoAtual, selecoes);
-    const carrinhoKey = gerarChaveCarrinho(produtoAtual, selecoes);
+    const resumoVariacoes = montarResumoVariacoes(
+      produtoAtual,
+      selecoesNormalizadas
+    );
+    const carrinhoKey = gerarChaveCarrinho(produtoAtual, selecoesNormalizadas);
 
     setCarrinho((anterior) => {
       const existente = anterior.find((item) => item.carrinhoKey === carrinhoKey);
@@ -467,7 +500,7 @@ export default function ProdutoDetalhe() {
           ...produtoAtual,
           quantidade: 1,
           carrinhoKey,
-          selecoesVariacao: selecoes,
+          selecoesVariacao: selecoesNormalizadas,
           resumoVariacoes,
           peso: Number(produtoAtual.peso || 0),
           altura: Number(produtoAtual.altura || 0),
@@ -496,7 +529,9 @@ export default function ProdutoDetalhe() {
     ? quantidadeDaCombinacaoNoCarrinho(produto, selecoesVariacao)
     : 0;
 
-  const podeAdicionar = produto ? variacoesPreenchidas(produto, selecoesVariacao) : false;
+  const podeAdicionar = produto
+    ? variacoesPreenchidas(produto, selecoesVariacao)
+    : false;
 
   if (carregando) {
     return (
@@ -661,26 +696,38 @@ export default function ProdutoDetalhe() {
                         {variacao.nome}
                       </p>
 
-                      <div className="flex flex-wrap gap-2">
-                        {variacao.opcoes.map((opcao) => {
-                          const ativa = selecoesVariacao?.[variacao.nome] === opcao;
+                      {variacao.tipo === "texto" ? (
+                        <input
+                          type="text"
+                          value={selecoesVariacao?.[variacao.nome] || ""}
+                          onChange={(e) =>
+                            selecionarVariacao(variacao.nome, e.target.value)
+                          }
+                          placeholder={`Digite ${variacao.nome.toLowerCase()}...`}
+                          className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-[#f4b400] focus:bg-[#fffdf5]"
+                        />
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {(variacao.opcoes || []).map((opcao) => {
+                            const ativa = selecoesVariacao?.[variacao.nome] === opcao;
 
-                          return (
-                            <button
-                              key={`${variacao.nome}-${opcao}`}
-                              type="button"
-                              onClick={() => selecionarVariacao(variacao.nome, opcao)}
-                              className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
-                                ativa
-                                  ? "border-[#f4b400] bg-[#fff8df] text-[#8b6900]"
-                                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                              }`}
-                            >
-                              {opcao}
-                            </button>
-                          );
-                        })}
-                      </div>
+                            return (
+                              <button
+                                key={`${variacao.nome}-${opcao}`}
+                                type="button"
+                                onClick={() => selecionarVariacao(variacao.nome, opcao)}
+                                className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
+                                  ativa
+                                    ? "border-[#f4b400] bg-[#fff8df] text-[#8b6900]"
+                                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                                }`}
+                              >
+                                {opcao}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
