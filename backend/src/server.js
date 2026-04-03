@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 import CUPONS from "./config/cupons.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -52,6 +53,22 @@ const NOTIFICATION_URL =
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_SENHA_HASH = process.env.ADMIN_SENHA_HASH;
+
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const NOTIFICACAO_EMAIL_DESTINO =
+  process.env.NOTIFICACAO_EMAIL_DESTINO || ADMIN_EMAIL;
+
+const emailTransporter =
+  GMAIL_USER && GMAIL_APP_PASSWORD
+    ? nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: GMAIL_USER,
+          pass: GMAIL_APP_PASSWORD,
+        },
+      })
+    : null;
 
 if (!ADMIN_EMAIL || !ADMIN_SENHA_HASH) {
   throw new Error("Credenciais admin não configuradas.");
@@ -556,6 +573,112 @@ function autenticarAdmin(req, res, next) {
     return res.status(401).json({
       error: "Não autorizado.",
     });
+  }
+}
+
+async function enviarEmailNovoPagamento(pedido, payment) {
+  try {
+    if (!emailTransporter) {
+      console.warn(
+        "E-mail não configurado: defina GMAIL_USER e GMAIL_APP_PASSWORD."
+      );
+      return;
+    }
+
+    const pedidoId = pedido?.id || pedido?.pedidoLocalId || "Sem ID";
+    const clienteNome = pedido?.dadosCliente?.nome || "Cliente";
+    const clienteEmail = pedido?.dadosCliente?.email || "Não informado";
+    const clienteTelefone = pedido?.dadosCliente?.telefone || "Não informado";
+    const clienteCpf = pedido?.dadosCliente?.cpf || "Não informado";
+
+    const subtotal = Number(pedido?.subtotalProdutos || 0).toFixed(2);
+    const frete = Number(pedido?.freteSelecionado?.preco || 0).toFixed(2);
+    const desconto = Number(pedido?.descontoCupom || 0).toFixed(2);
+    const total = Number(pedido?.totalComFrete || 0).toFixed(2);
+
+    const statusPagamento = payment?.status || pedido?.status || "desconhecido";
+    const metodoPagamento =
+      payment?.payment_method_id || pedido?.metodo_pagamento || "Não informado";
+    const paymentId = payment?.id || pedido?.payment_id || "Não informado";
+
+    const itensHtml = Array.isArray(pedido?.carrinho)
+      ? pedido.carrinho
+          .map((item) => {
+            const nome = item?.nome || "Produto";
+            const quantidade = Number(item?.quantidade || 1);
+            const preco = Number(item?.preco || 0).toFixed(2);
+
+            const variacoes = Array.isArray(item?.resumoVariacoes)
+              ? item.resumoVariacoes
+                  .map(
+                    (v) =>
+                      `${v?.nome || "Variação"}: ${v?.valor || "Não informado"}`
+                  )
+                  .join(" | ")
+              : "";
+
+            return `
+              <li style="margin-bottom:10px;">
+                <strong>${nome}</strong><br />
+                Quantidade: ${quantidade}<br />
+                Preço unitário: R$ ${preco}
+                ${variacoes ? `<br />Variações: ${variacoes}` : ""}
+              </li>
+            `;
+          })
+          .join("")
+      : "<li>Nenhum item encontrado.</li>";
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; color: #222; line-height: 1.5;">
+        <h2 style="margin-bottom: 8px;">✅ Novo pagamento aprovado</h2>
+        <p style="margin-top: 0;">
+          Um pagamento foi aprovado no site <strong>Additive Hub</strong>.
+        </p>
+
+        <h3>additive-hub.com/#/painel</h3>
+
+        <h3>Pedido</h3>
+        <p>
+          <strong>Pedido:</strong> ${pedidoId}<br />
+          <strong>Payment ID:</strong> ${paymentId}<br />
+          <strong>Status:</strong> ${statusPagamento}<br />
+          <strong>Método:</strong> ${metodoPagamento}
+        </p>
+
+        <h3>Cliente</h3>
+        <p>
+          <strong>Nome:</strong> ${clienteNome}<br />
+          <strong>E-mail:</strong> ${clienteEmail}<br />
+          <strong>Telefone:</strong> ${clienteTelefone}<br />
+          <strong>CPF:</strong> ${clienteCpf}
+        </p>
+
+        <h3>Valores</h3>
+        <p>
+          <strong>Subtotal:</strong> R$ ${subtotal}<br />
+          <strong>Frete:</strong> R$ ${frete}<br />
+          <strong>Desconto:</strong> R$ ${desconto}<br />
+          <strong>Total:</strong> <strong>R$ ${total}</strong>
+        </p>
+
+        <h3>Itens</h3>
+        <ul>
+          ${itensHtml}
+        </ul>
+      </div>
+    `;
+
+    await emailTransporter.sendMail({
+      from: `"Additive Hub" <${GMAIL_USER}>`,
+      to: NOTIFICACAO_EMAIL_DESTINO,
+      subject: `Novo pagamento aprovado - Pedido ${pedidoId}`,
+      html,
+    });
+
+    console.log(`E-mail de notificação enviado para ${NOTIFICACAO_EMAIL_DESTINO}`);
+  } catch (error) {
+    console.error("Erro ao enviar e-mail de notificação:", error);
   }
 }
 
@@ -1528,6 +1651,8 @@ app.post("/api/webhook", async (req, res) => {
       return res.sendStatus(200);
     }
 
+    const statusAnterior = String(pedido.status || "").toLowerCase();
+
     pedido.status = payment.status || pedido.status;
     pedido.payment_id = payment.id || null;
     pedido.status_detail = payment.status_detail || null;
@@ -1537,6 +1662,12 @@ app.post("/api/webhook", async (req, res) => {
     await pedido.save();
 
     console.log(`Pedido ${pedidoId} atualizado para status ${payment.status}`);
+
+    const statusAtual = String(payment.status || "").toLowerCase();
+
+    if (statusAtual === "approved" && statusAnterior !== "approved") {
+      await enviarEmailNovoPagamento(pedido, payment);
+    }
 
     return res.sendStatus(200);
   } catch (error) {
@@ -2123,4 +2254,4 @@ conectarMongo()
   .catch((error) => {
     console.error("Erro ao conectar no MongoDB:", error);
     process.exit(1);
-  })
+  });
