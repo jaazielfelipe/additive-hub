@@ -9,37 +9,26 @@
  */
 
 const CUPONS = {
-  PRIMEIRA5: {
-    codigo: "PRIMEIRA5",
+  PRIMEIRA10: {
+    codigo: "PRIMEIRA10",
     tipo: "percentual", // percentual | fixo | frete
-    valor: 5,
+    valor: 10,
     ativo: true,
     dataInicio: "2026-01-01",
     dataFim: "2026-12-31",
-    valorMinimoPedido: 150,
+    valorMinimoPedido: 120,
     primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
   },
   
-  BELEZINHA: {
-    codigo: "BELEZINHA",
+  BELEZINHA10: {
+    codigo: "BELEZINHA10",
     tipo: "percentual", // percentual | fixo | frete
-    valor: 5,
+    valor: 10,
     ativo: true,
     dataInicio: "2026-01-01",
     dataFim: "2026-12-31",
-    valorMinimoPedido: 10,
+    valorMinimoPedido: 1,
     primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
     },
-    
-    JAZI: {
-    codigo: "JAZI",
-    tipo: "percentual", // percentual | fixo | frete
-    valor: 99,
-    ativo: true,
-    dataInicio: "2026-01-01",
-    dataFim: "2026-12-31",
-    valorMinimoPedido: 0,
-    primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
-    } 
   }
 export default CUPONS;
