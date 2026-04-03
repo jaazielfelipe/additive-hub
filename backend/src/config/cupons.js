@@ -19,17 +19,6 @@ const CUPONS = {
     valorMinimoPedido: 50,
     primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
   },
-
-  PRIMEIRA15: {
-    codigo: "PRIMEIRA15",
-    tipo: "percentual", // percentual | fixo | frete
-    valor: 15,
-    ativo: true,
-    dataInicio: "2026-01-01",
-    dataFim: "2026-12-31",
-    valorMinimoPedido: 100,
-    primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
-  },
   
   BELEZINHA10: {
     codigo: "BELEZINHA10",
