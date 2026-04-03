@@ -9,10 +9,10 @@
  */
 
 const CUPONS = {
-  PRIMEIRA10: {
-    codigo: "PRIMEIRA10",
+  PRIMEIRA5: {
+    codigo: "PRIMEIRA5",
     tipo: "percentual", // percentual | fixo | frete
-    valor: 10,
+    valor: 5,
     ativo: true,
     dataInicio: "2026-01-01",
     dataFim: "2026-12-31",
