@@ -28,7 +28,18 @@ const CUPONS = {
     dataInicio: "2026-01-01",
     dataFim: "2026-12-31",
     valorMinimoPedido: 1,
-    primeiraCompra: true, // se true, só pode ser usado na primeira compra do cliente
+    primeiraCompra: false, // se true, só pode ser usado na primeira compra do cliente
+    },
+
+    JAZZZ100: {
+    codigo: "JAZZZ100",
+    tipo: "percentual", // percentual | fixo | frete
+    valor: 99,
+    ativo: true,
+    dataInicio: "2026-01-01",
+    dataFim: "2026-12-31",
+    valorMinimoPedido: 0,
+    primeiraCompra: false, // se true, só pode ser usado na primeira compra do cliente
     },
   }
 export default CUPONS;
