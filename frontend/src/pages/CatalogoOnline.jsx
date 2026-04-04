@@ -54,6 +54,7 @@ function tituloItem(valor) {
     "mini flexi": "Mini-flexi",
     "porta-cartas": "Porta-cartas",
     "porta cartas": "Porta-cartas",
+    "porta retrato": "Porta-retrato"
   };
 
   if (mapa[chave]) return mapa[chave];
