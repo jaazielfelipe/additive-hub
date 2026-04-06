@@ -189,7 +189,7 @@ const slidesDestaque = [
     tag: "Novidades",
     titulo: "Prepare-se para a Copa do Mundo 2026",
     subtitulo:
-      "Entre no clima da Copa do Mundo 2026 com nossa coleção especial de miniaturas, chaveiros personalizados, porta-figurinhas e réplicas da taça",
+      "Entre no clima da Copa do Mundo 2026 com nossa coleção especial de chaveiros, porta-figurinhas e réplicas da taça",
     imagem: "/imagens/banners/banner-1.png",
     produtoId: 1,
   },
