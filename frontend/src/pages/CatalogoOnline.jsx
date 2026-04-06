@@ -609,6 +609,8 @@ export default function CatalogoOnline() {
   const [carrinhoDestacado, setCarrinhoDestacado] = useState(false);
   const [mostrarBarraCarrinhoMobile, setMostrarBarraCarrinhoMobile] = useState(false);
   const [selecoesVariacao, setSelecoesVariacao] = useState({});
+  const [mostrarPopupCupom, setMostrarPopupCupom] = useState(false);
+  const [cupomCopiado, setCupomCopiado] = useState(false);
 
   const botaoCarrinhoRef = useRef(null);
   const whatsapp = "5511978635579";
@@ -725,9 +727,22 @@ export default function CatalogoOnline() {
   useEffect(() => {
     const intervalo = setInterval(() => {
       setSlideAtual((atual) => (atual + 1) % slidesDestaque.length);
-    }, 4000);
+    }, 6000);
 
     return () => clearInterval(intervalo);
+  }, []);
+
+  useEffect(() => {
+    const jaViuPopup = localStorage.getItem("popupCupomPrimeiraCompraJaViu");
+
+    if (jaViuPopup) return;
+
+    const timer = setTimeout(() => {
+      setMostrarPopupCupom(true);
+      localStorage.setItem("popupCupomPrimeiraCompraJaViu", "true");
+    }, 4000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -1284,12 +1299,109 @@ const descricaoSecao = useMemo(() => {
     ? quantidadeDaCombinacaoNoCarrinho(produtoSelecionado, selecoesVariacao)
     : 0;
 
+  const copiarCupom = async () => {
+    try {
+      await navigator.clipboard.writeText("PRIMEIRA10");
+      setCupomCopiado(true);
+
+      window.setTimeout(() => {
+        setCupomCopiado(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Erro ao copiar cupom:", error);
+    }
+  };
+
   return (
-    <div
-      className="min-h-screen overflow-x-hidden bg-[#fcfcfc] text-zinc-900"
-      lang="pt-BR"
-      translate="no"
-    >
+  <div
+    className="min-h-screen overflow-x-hidden bg-[#fcfcfc] text-zinc-900"
+    lang="pt-BR"
+    translate="no"
+  >
+    <AnimatePresence>
+      {mostrarPopupCupom && (
+        <motion.div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.96 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-[0_25px_80px_rgba(0,0,0,0.25)]"
+          >
+            <button
+              type="button"
+              onClick={() => setMostrarPopupCupom(false)}
+              className="absolute right-4 top-4 rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+            >
+              ✕
+            </button>
+
+            <div className="text-center">
+              <span className="inline-flex rounded-full border border-[#f4b400]/30 bg-[#fff8df] px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#b38200]">
+                Cupom disponível
+              </span>
+
+              <h3 className="mt-4 text-3xl font-bold text-zinc-900">
+                Ganhe 10% OFF
+              </h3>
+
+              <p className="mt-3 text-sm leading-6 text-zinc-600">
+                Aproveite seu desconto na primeira compra e economize no seu pedido.
+              </p>
+
+              <div className="mt-5 rounded-[1.5rem] border border-dashed border-[#f4b400] bg-[#fffdf5] px-4 py-5">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+                  Use o cupom
+                </p>
+
+                <p className="mt-2 text-3xl font-black tracking-[0.12em] text-[#b38200]">
+                  PRIMEIRA10
+                </p>
+
+                <p className="mt-2 text-xs text-zinc-500">
+                  Válido para compras acima de R$50
+                </p>
+              </div>
+
+              <div className="mt-6 grid gap-3">
+                <button
+                  type="button"
+                  onClick={copiarCupom}
+                  className="rounded-2xl bg-[#f4b400] px-5 py-3 font-bold text-black transition hover:opacity-90"
+                >
+                  {cupomCopiado ? "Cupom copiado!" : "Copiar cupom"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarPopupCupom(false);
+                    irParaCatalogo();
+                  }}
+                  className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+                >
+                  Ver produtos
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarPopupCupom(false)}
+                  className="text-sm font-medium text-zinc-500 transition hover:text-zinc-800"
+                >
+                  Continuar navegando
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4">
           <div className="flex flex-1 items-center gap-4 md:gap-12">

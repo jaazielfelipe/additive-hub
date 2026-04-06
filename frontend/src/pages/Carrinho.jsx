@@ -55,6 +55,7 @@ export default function Carrinho() {
   const [erroFrete, setErroFrete] = useState("");
   const [freteCalculado, setFreteCalculado] = useState(false);
   const [tipoEntrega, setTipoEntrega] = useState("frete");
+  const [cupomCarrinhoCopiado, setCupomCarrinhoCopiado] = useState(false);
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
   const apiFreteUrl =
@@ -396,9 +397,48 @@ export default function Carrinho() {
     window.location.href = "/#/checkout";
   };
 
+  const copiarCupomCarrinho = async () => {
+    try {
+      await navigator.clipboard.writeText("PRIMEIRA10");
+      setCupomCarrinhoCopiado(true);
+
+      window.setTimeout(() => {
+        setCupomCarrinhoCopiado(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Erro ao copiar cupom do carrinho:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#fcfcfc] px-4 py-8 text-zinc-900">
       <div className="mx-auto max-w-6xl">
+        <div className="mb-6 overflow-hidden rounded-[1.5rem] border border-[#f4b400]/40 bg-gradient-to-r from-[#fff8df] via-[#fffdf5] to-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#b38200]">
+                Cupom disponível
+              </p>
+
+              <h2 className="mt-1 text-lg font-bold text-zinc-900">
+                Use <span className="text-[#b38200]">PRIMEIRA10</span> e ganhe 10% OFF
+              </h2>
+
+              <p className="mt-1 text-sm text-zinc-600">
+                Válido para compras acima de R$50.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={copiarCupomCarrinho}
+              className="rounded-2xl bg-[#f4b400] px-5 py-3 font-bold text-black transition hover:opacity-90"
+            >
+              {cupomCarrinhoCopiado ? "Cupom copiado!" : "Copiar cupom"}
+            </button>
+          </div>
+        </div>
+
         <div className="mb-6">
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
             Carrinho
