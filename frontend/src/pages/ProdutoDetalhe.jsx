@@ -234,7 +234,7 @@ function parseCSV(texto) {
       descricao:
         item.descricao ||
         item["descrição"] ||
-        "Peça produzida em impressão 3D com possibilidade de personalização sob demanda.",
+        "Peça produzida em impressão 3D",
       imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
       variacoes,
       peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
