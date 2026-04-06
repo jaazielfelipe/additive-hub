@@ -183,31 +183,41 @@ const produtosPadrao = [
 ];
 
 const slidesDestaque = [
+  
   {
     id: 1,
     tag: "Novidades",
-    titulo: "Miniaturas Colecionáveis em 3D",
+    titulo: "Prepare-se para a Copa do Mundo 2026",
     subtitulo:
-      "Explore uma coleção exclusiva de miniaturas inspiradas nos maiores clássicos do terror. Cada peça é produzida em impressão 3D com alto nível de detalhe, acabamento de qualidade e design marcante, perfeita para colecionadores e fãs do gênero.",
+      "Entre no clima da Copa do Mundo 2026 com nossa coleção especial de miniaturas, chaveiros personalizados, porta-figurinhas e réplicas da taça",
     imagem: "/imagens/banners/banner-1.png",
     produtoId: 1,
   },
   {
     id: 2,
+    tag: "Novidades",
+    titulo: "Miniaturas Colecionáveis em 3D",
+    subtitulo:
+      "Explore uma coleção exclusiva de miniaturas inspiradas nos maiores clássicos do terror. Cada peça é produzida em impressão 3D com alto nível de detalhe, acabamento de qualidade e design marcante, perfeita para colecionadores e fãs do gênero.",
+    imagem: "/imagens/banners/banner-2.png",
+    produtoId: 1,
+  },
+  {
+    id: 3,
     tag: "Em breve",
     titulo: "Funko-Pop Personalizado",
     subtitulo:
       "Estamos desenvolvendo uma nova linha de miniaturas estilo Funko-Pop totalmente personalizadas com base em pessoas reais. Ideal para presentes únicos, lembranças especiais ou até para eternizar momentos. Aguarde — em breve disponível para encomenda.",
-    imagem: "/imagens/banners/banner-2.png",
+    imagem: "/imagens/banners/banner-3.png",
     produtoId: 2,
   },
   {
-    id: 3,
+    id: 4,
     tag: "Novidades",
     titulo: "Lançamentos e peças em destaque",
     subtitulo:
       "Acompanhe os modelos mais recentes e descubra novas ideias em impressão 3D para venda, presente e revenda.",
-    imagem: "/imagens/banners/banner-3.png",
+    imagem: "/imagens/banners/banner-4.png",
     produtoId: 3,
   },
 ];
