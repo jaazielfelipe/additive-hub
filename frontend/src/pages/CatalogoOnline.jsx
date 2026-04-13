@@ -825,10 +825,9 @@ export default function CatalogoOnline() {
     return [...lista, { nome: "Quem somos", chave: "quem-somos", itens: [], itensNivel2: {} }];
   }, [produtos]);
 
-  const categorias = useMemo(() => {
-    const lista = [...new Set(produtos.map((produto) => produto.categoria))];
-    return ["Todos", ...lista];
-  }, [produtos]);
+ const categorias = useMemo(() => {
+  return [...new Set(produtos.map((produto) => produto.categoria))];
+}, [produtos]);
 
   const subcategoriasVisiveis = useMemo(() => {
     if (categoriaAtiva === "Todos") return [];
@@ -862,6 +861,18 @@ export default function CatalogoOnline() {
 
  const produtosFiltrados = useMemo(() => {
   const termo = busca.toLowerCase().trim();
+
+  // Só libera a exibição dos produtos quando houver
+  // categoria, subcategoria, subcategoria2 ou busca ativa
+  const semFiltroAtivo =
+    categoriaAtiva === "Todos" &&
+    subcategoriaAtiva === "Todos" &&
+    subcategoria2Ativa === "Todos" &&
+    termo === "";
+
+  if (semFiltroAtivo) {
+    return [];
+  }
 
   const filtrados = produtos.filter((produto) => {
     const bateCategoria =
@@ -1008,6 +1019,12 @@ const breadcrumb = useMemo(() => {
 }, [categoriaAtiva, subcategoriaAtiva, subcategoria2Ativa]);
 
   const temBuscaAtiva = busca.trim() !== "";
+
+  const semFiltroAtivo =
+  categoriaAtiva === "Todos" &&
+  subcategoriaAtiva === "Todos" &&
+  subcategoria2Ativa === "Todos" &&
+  busca.trim() === "";
 
 const tituloTopo = useMemo(() => {
   if (temBuscaAtiva) {
@@ -1252,47 +1269,34 @@ const descricaoSecao = useMemo(() => {
     }, 50);
   };
 
-  const selecionarCategoria = (categoriaEscolhida) => {
-    setBusca("");
-    setMenuMobileAberto(false);
-    setCategoriaMobileAberta(null);
+  const selecionarCategoria = (categoriaEscolhida, event) => {
+  event?.currentTarget?.blur();
+  document.activeElement?.blur?.();
 
-    if (categoriaEscolhida === "Todos") {
-      navigate("/");
-    } else {
-      navigate(`/categoria/${categoriaEscolhida}`);
-    }
+  setBusca("");
+  setMenuMobileAberto(false);
+  setCategoriaMobileAberta(null);
 
-    setTimeout(() => {
-      irParaCatalogo();
-    }, 50);
-  };
+  navigate(`/categoria/${categoriaEscolhida}`);
+};
 
   const selecionarSubcategoria = (categoriaEscolhida, subEscolhida) => {
-    setBusca("");
-    setMenuMobileAberto(false);
-    setCategoriaMobileAberta(null);
+  setBusca("");
+  setMenuMobileAberto(false);
+  setCategoriaMobileAberta(null);
 
-    navigate(`/categoria/${categoriaEscolhida}/${slugCategoria(subEscolhida)}`);
-
-    setTimeout(() => {
-      irParaCatalogo();
-    }, 50);
-  };
+  navigate(`/categoria/${categoriaEscolhida}/${slugCategoria(subEscolhida)}`);
+};
 
   const selecionarSubcategoria2 = (categoriaEscolhida, subEscolhida, sub2Escolhida) => {
-    setBusca("");
-    setMenuMobileAberto(false);
-    setCategoriaMobileAberta(null);
+  setBusca("");
+  setMenuMobileAberto(false);
+  setCategoriaMobileAberta(null);
 
-    navigate(
-      `/categoria/${categoriaEscolhida}/${slugCategoria(subEscolhida)}/${slugCategoria(sub2Escolhida)}`
-    );
-
-    setTimeout(() => {
-      irParaCatalogo();
-    }, 50);
-  };
+  navigate(
+    `/categoria/${categoriaEscolhida}/${slugCategoria(subEscolhida)}/${slugCategoria(sub2Escolhida)}`
+  );
+};
 
   const proximoSlide = () => {
     setSlideAtual((atual) => (atual + 1) % slidesDestaque.length);
@@ -1834,41 +1838,94 @@ const descricaoSecao = useMemo(() => {
         </motion.section>
       ) : (
         <motion.section
-          className="mx-auto max-w-7xl px-4 pb-6 pt-8"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-        >
-          <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-sm">
-            <div className="px-6 py-7 md:px-8 md:py-8">
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
-                Coleção
-              </p>
+  className="mx-auto max-w-7xl px-4 pb-8 pt-10"
+  initial={{ opacity: 0, y: 24 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.5, ease: "easeOut" }}
+>
+  <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white via-[#fffdf6] to-[#fff4cc] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+    <div className="grid gap-8 px-6 py-4 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-10 lg:items-stretch">
+      <motion.div
+        className="flex min-h-[380px] flex-col justify-center py-2 sm:min-h-[430px] lg:min-h-[500px]"
+        initial={{ opacity: 0, x: -24 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.55, delay: 0.1, ease: "easeOut" }}
+      >
+        <span className="inline-flex w-fit rounded-full border border-[#f4b400]/30 bg-[#f4b400]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b6900]">
+          {slideSelecionado?.tag || "Novidades"}
+        </span>
 
-              <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-  {tituloTopo}
-</h1>
+        <h3 className="mt-5 max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
+          {slideSelecionado?.titulo}
+        </h3>
 
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 md:text-base">
-                {descricaoSecao}
-              </p>
-
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700">
-                  {produtosFiltrados.length} item(ns)
+        <div className="mt-5 min-h-[190px] sm:min-h-[170px] lg:min-h-[210px]">
+          <p className="max-w-2xl text-base leading-7 text-zinc-600 md:text-lg">
+            {slideSelecionado?.tag === "Em breve" ? (
+              <>
+                {slideSelecionado.subtitulo.split("Aguarde")[0]}
+                <span className="mt-3 block font-semibold text-[#b38200]">
+                  Aguarde — em breve disponível para encomenda.
                 </span>
+              </>
+            ) : (
+              slideSelecionado?.subtitulo
+            )}
+          </p>
+        </div>
 
-                <button
-                  type="button"
-                  onClick={limparFiltros}
-                  className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
-                >
-                  Ver todos os produtos
-                </button>
-              </div>
-            </div>
+        <div className="mt-6 flex items-center gap-2">
+          {slidesDestaque.map((slide, index) => (
+            <button
+              key={slide.id}
+              type="button"
+              onClick={() => setSlideAtual(index)}
+              className={`h-2.5 rounded-full transition-all ${
+                slideAtual === index ? "w-10 bg-[#f4b400]" : "w-2.5 bg-zinc-300"
+              }`}
+              aria-label={`Ir para slide ${index + 1}`}
+            />
+          ))}
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={slideAnterior}
+            className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+          >
+            ←
+          </button>
+
+          <button
+            type="button"
+            onClick={proximoSlide}
+            className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50"
+          >
+            →
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        className="self-center lg:self-stretch"
+        initial={{ opacity: 0, x: 24, scale: 0.98 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
+      >
+        <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.10)]">
+          <div className="relative h-[220px] w-full overflow-hidden bg-zinc-100 sm:h-[300px] lg:h-[500px]">
+            <ImagemProduto
+              src={slideSelecionado?.imagem}
+              alt={slideSelecionado?.titulo || "Banner em destaque"}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
-        </motion.section>
+        </div>
+      </motion.div>
+    </div>
+  </div>
+</motion.section>
       )}
 
       <main
@@ -1909,121 +1966,6 @@ const descricaoSecao = useMemo(() => {
             );
           })}
         </div>
-
-        <div className="mb-6 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-zinc-700">
-                Buscar produto
-              </label>
-              <input
-                type="text"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por nome, categoria, subcategoria, descrição ou tipo de peça"
-                className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-3 text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-[#f4b400] focus:bg-white"
-              />
-            </div>
-
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-zinc-700">Categorias</p>
-
-                <button
-                  type="button"
-                  onClick={limparFiltros}
-                  className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50"
-                >
-                  Limpar filtros
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {categorias.map((categoriaItem) => {
-                  const valorCategoria =
-                    categoriaItem === "Todos" ? "Todos" : slugCategoria(categoriaItem);
-
-                  const ativa = categoriaAtiva === valorCategoria;
-
-                  return (
-                    <button
-                      key={categoriaItem === "Todos" ? "Todos" : tituloCategoria(categoriaItem)}
-                      onClick={() => selecionarCategoria(valorCategoria)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                        ativa
-                          ? "bg-[#f4b400] text-black shadow-sm"
-                          : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                      }`}
-                    >
-                      {categoriaItem === "Todos" ? "Todos" : tituloCategoria(categoriaItem)}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {subcategoriasVisiveis.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => selecionarCategoria(categoriaAtiva)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                      subcategoriaAtiva === "Todos"
-                        ? "bg-zinc-900 text-white"
-                        : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                    }`}
-                  >
-                    Todas
-                  </button>
-
-                  {subcategoriasVisiveis.map((sub) => (
-                    <button
-                      key={sub}
-                      onClick={() => selecionarSubcategoria(categoriaAtiva, sub)}
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                        subcategoriaAtiva === slugCategoria(sub)
-                          ? "bg-zinc-900 text-white"
-                          : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                      }`}
-                    >
-                      {sub}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {subcategorias2Visiveis.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => selecionarSubcategoria(categoriaAtiva, subcategoriaAtiva)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                      subcategoria2Ativa === "Todos"
-                        ? "bg-[#f4b400] text-black"
-                        : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                    }`}
-                  >
-                    Todos os tipos
-                  </button>
-
-                  {subcategorias2Visiveis.map((sub2) => (
-                    <button
-                      key={sub2}
-                      onClick={() =>
-                        selecionarSubcategoria2(categoriaAtiva, subcategoriaAtiva, sub2)
-                      }
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                        subcategoria2Ativa === slugCategoria(sub2)
-                          ? "bg-[#f4b400] text-black"
-                          : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                      }`}
-                    >
-                      {sub2}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
                 {!estaEmPaginaFiltrada && !temBuscaAtiva && produtosEmDestaque.length > 0 && (
           <section className="mb-10">
             <div className="mb-5 flex items-end justify-between gap-4">
@@ -2155,53 +2097,166 @@ const descricaoSecao = useMemo(() => {
             </div>
           </section>
         )}
+        <div className="mb-6 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-zinc-700">
+                Buscar produto
+              </label>
+              <input
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar por nome, categoria, subcategoria, descrição ou tipo de peça"
+                className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-3 text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-[#f4b400] focus:bg-white"
+              />
+            </div>
 
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
-              Catálogo
-            </p>
-            <h3 className="mt-1 text-3xl font-bold">{tituloCatalogo}</h3>
-            <p className="mt-2 text-sm text-zinc-500">
-              {produtosFiltrados.length} item(ns) encontrado(s)
-            </p>
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-zinc-700">Categorias</p>
 
-            {temBuscaAtiva ? (
-              <p className="mt-1 text-sm text-zinc-500">
-                Resultados mais relevantes para sua pesquisa
-              </p>
-            ) : (
-              categoriaAtiva !== "Todos" && (
-                <p className="mt-1 text-sm text-zinc-500">
-                  {tituloCategoria(categoriaAtiva)}
-                  {subcategoriaAtiva !== "Todos"
-                    ? ` • ${tituloItem(subcategoriaAtiva).replace(/-/g, " ")}`
-                    : ""}
-                  {subcategoria2Ativa !== "Todos"
-                    ? ` • ${tituloItem(subcategoria2Ativa).replace(/-/g, " ")}`
-                    : ""}
-                </p>
-              )
-            )}
-          </div>
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  Limpar filtros
+                </button>
+              </div>
 
-          <div className="min-w-[220px]">
-            <label className="mb-2 block text-sm font-medium text-zinc-700">
-              Ordenar por
-            </label>
-            <select
-              value={ordenacao}
-              onChange={(e) => setOrdenacao(e.target.value)}
-              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-[#f4b400]"
-            >
-              <option value="destaque">Destaque</option>
-              <option value="menor-preco">Menor preço</option>
-              <option value="maior-preco">Maior preço</option>
-              <option value="nome-az">Nome A-Z</option>
-              <option value="nome-za">Nome Z-A</option>
-            </select>
+              <div className="flex flex-wrap gap-2">
+  {categorias.map((categoriaItem) => {
+    const valorCategoria = slugCategoria(categoriaItem);
+    const ativa = categoriaAtiva === valorCategoria;
+
+    return (
+      <button
+        key={tituloCategoria(categoriaItem)}
+        onClick={() => selecionarCategoria(valorCategoria)}
+        className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+          ativa
+            ? "bg-[#f4b400] text-black shadow-sm"
+            : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+        }`}
+      >
+        {tituloCategoria(categoriaItem)}
+      </button>
+    );
+  })}
+</div>
+
+              {subcategoriasVisiveis.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => selecionarCategoria(categoriaAtiva)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                      subcategoriaAtiva === "Todos"
+                        ? "bg-zinc-900 text-white"
+                        : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                    }`}
+                  >
+                    Todas
+                  </button>
+
+                  {subcategoriasVisiveis.map((sub) => (
+                    <button
+                      key={sub}
+                      onClick={() => selecionarSubcategoria(categoriaAtiva, sub)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        subcategoriaAtiva === slugCategoria(sub)
+                          ? "bg-zinc-900 text-white"
+                          : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {subcategorias2Visiveis.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => selecionarSubcategoria(categoriaAtiva, subcategoriaAtiva)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                      subcategoria2Ativa === "Todos"
+                        ? "bg-[#f4b400] text-black"
+                        : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                    }`}
+                  >
+                    Todos os tipos
+                  </button>
+
+                  {subcategorias2Visiveis.map((sub2) => (
+                    <button
+                      key={sub2}
+                      onClick={() =>
+                        selecionarSubcategoria2(categoriaAtiva, subcategoriaAtiva, sub2)
+                      }
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        subcategoria2Ativa === slugCategoria(sub2)
+                          ? "bg-[#f4b400] text-black"
+                          : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                      }`}
+                    >
+                      {sub2}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {!semFiltroAtivo && (
+  <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b38200]">
+        Catálogo
+      </p>
+      <h3 className="mt-1 text-3xl font-bold">{tituloCatalogo}</h3>
+      <p className="mt-2 text-sm text-zinc-500">
+        {produtosFiltrados.length} item(ns) encontrado(s)
+      </p>
+
+      {temBuscaAtiva ? (
+        <p className="mt-1 text-sm text-zinc-500">
+          Resultados mais relevantes para sua pesquisa
+        </p>
+      ) : (
+        categoriaAtiva !== "Todos" && (
+          <p className="mt-1 text-sm text-zinc-500">
+            {tituloCategoria(categoriaAtiva)}
+            {subcategoriaAtiva !== "Todos"
+              ? ` • ${tituloItem(subcategoriaAtiva).replace(/-/g, " ")}`
+              : ""}
+            {subcategoria2Ativa !== "Todos"
+              ? ` • ${tituloItem(subcategoria2Ativa).replace(/-/g, " ")}`
+              : ""}
+          </p>
+        )
+      )}
+    </div>
+
+    <div className="min-w-[220px]">
+      <label className="mb-2 block text-sm font-medium text-zinc-700">
+        Ordenar por
+      </label>
+      <select
+        value={ordenacao}
+        onChange={(e) => setOrdenacao(e.target.value)}
+        className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-[#f4b400]"
+      >
+        <option value="destaque">Destaque</option>
+        <option value="menor-preco">Menor preço</option>
+        <option value="maior-preco">Maior preço</option>
+        <option value="nome-az">Nome A-Z</option>
+        <option value="nome-za">Nome Z-A</option>
+      </select>
+    </div>
+  </div>
+)}
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {produtosFiltrados.map((produto) => {
@@ -2324,24 +2379,38 @@ const descricaoSecao = useMemo(() => {
         </div>
 
         {produtosFiltrados.length === 0 && (
-          <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-white p-12 text-center shadow-sm">
-            <p className="text-lg font-semibold text-zinc-700">
-              Nenhum produto encontrado
-            </p>
-            <p className="mt-2 text-sm text-zinc-500">
-              Tente buscar outro termo ou selecionar uma categoria diferente.
-            </p>
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={limparFiltros}
-                className="rounded-2xl bg-[#f4b400] px-5 py-3 font-semibold text-black transition hover:opacity-90"
-              >
-                Ver todos os produtos
-              </button>
-            </div>
-          </div>
-        )}
+  <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-white p-12 text-center shadow-sm">
+    {semFiltroAtivo ? (
+      <>
+        <p className="text-lg font-semibold text-zinc-700">
+          Selecione uma categoria para ver os produtos
+        </p>
+        <p className="mt-2 text-sm text-zinc-500">
+          Os produtos serão exibidos após a escolha de uma categoria ou realização de uma busca.
+        </p>
+      </>
+    ) : (
+      <>
+        <p className="text-lg font-semibold text-zinc-700">
+          Nenhum produto encontrado
+        </p>
+        <p className="mt-2 text-sm text-zinc-500">
+          Tente buscar outro termo ou selecionar uma categoria diferente.
+        </p>
+      </>
+    )}
+
+    <div className="mt-5">
+      <button
+        type="button"
+        onClick={limparFiltros}
+        className="rounded-2xl bg-[#f4b400] px-5 py-3 font-semibold text-black transition hover:opacity-90"
+      >
+        Limpar filtros
+      </button>
+    </div>
+  </div>
+)}
       </main>
 
       <section id="quem-somos" className="mx-auto max-w-7xl px-4 pb-16">
