@@ -136,6 +136,21 @@ const pedidoSchema = new mongoose.Schema(
     superfreteCartId: mongoose.Schema.Types.Mixed,
     superfreteCheckoutId: mongoose.Schema.Types.Mixed,
 
+    observacaoInterna: {
+      type: String,
+      default: "",
+    },
+
+    ajusteManual: {
+      type: Boolean,
+      default: false,
+    },
+
+    atualizadoManualmenteEm: {
+      type: Date,
+      default: null,
+    },
+
     criadoEm: { type: Date, default: Date.now },
     atualizadoEm: { type: Date, default: null },
   },

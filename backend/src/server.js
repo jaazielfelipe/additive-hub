@@ -1914,6 +1914,155 @@ app.patch("/api/pedidos/:id/status", autenticarAdmin, async (req, res) => {
 });
 
 /* =========================
+   ATUALIZAÇÃO MANUAL DE PEDIDO
+========================= */
+app.patch("/api/pedidos/:id/manual", autenticarAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      tipoEntrega,
+      freteSelecionado,
+      carrinho,
+      totalItensCarrinho,
+      subtotalProdutos,
+      descontoCupom,
+      totalComFrete,
+      statusInterno,
+      observacaoInterna,
+      ajusteManual,
+      atualizadoManualmenteEm,
+    } = req.body || {};
+
+    const pedido = await Pedido.findOne({
+      $or: [{ id: String(id) }, { pedidoLocalId: String(id) }],
+    });
+
+    if (!pedido) {
+      return res.status(404).json({
+        error: "Pedido não encontrado.",
+      });
+    }
+
+    if (tipoEntrega !== undefined) {
+      pedido.tipoEntrega = String(tipoEntrega || "").trim();
+    }
+
+    if (freteSelecionado !== undefined) {
+      pedido.freteSelecionado = {
+        ...(pedido.freteSelecionado || {}),
+        ...(freteSelecionado || {}),
+      };
+    }
+
+    if (carrinho !== undefined) {
+      const carrinhoNormalizado = normalizarCarrinhoPedido(carrinho || []);
+      pedido.carrinho = carrinhoNormalizado;
+
+      pedido.totalItensCarrinho = carrinhoNormalizado.reduce(
+        (total, item) => total + Math.max(1, Number(item?.quantidade || 1)),
+        0
+      );
+
+      pedido.subtotalProdutos = calcularSubtotalCarrinho(carrinhoNormalizado);
+
+      if (totalItensCarrinho !== undefined) {
+        pedido.totalItensCarrinho = Number(totalItensCarrinho || 0);
+      }
+    } else if (totalItensCarrinho !== undefined) {
+      pedido.totalItensCarrinho = Number(totalItensCarrinho || 0);
+    }
+
+    if (subtotalProdutos !== undefined) {
+      pedido.subtotalProdutos = arredondar(Number(subtotalProdutos || 0));
+    }
+
+    if (descontoCupom !== undefined) {
+      pedido.descontoCupom = arredondar(Number(descontoCupom || 0));
+    }
+
+    if (totalComFrete !== undefined) {
+      pedido.totalComFrete = arredondar(Number(totalComFrete || 0));
+    } else {
+      const subtotalAtual = arredondar(Number(pedido.subtotalProdutos || 0));
+      const descontoAtual = arredondar(Number(pedido.descontoCupom || 0));
+      const freteAtual = arredondar(
+        Number(pedido?.freteSelecionado?.preco || 0)
+      );
+
+      pedido.totalComFrete = arredondar(
+        subtotalAtual + freteAtual - descontoAtual
+      );
+    }
+
+    if (statusInterno !== undefined) {
+      pedido.statusInterno = normalizarStatusInterno(statusInterno);
+    }
+
+    if (observacaoInterna !== undefined) {
+      pedido.observacaoInterna = String(observacaoInterna || "").trim();
+    }
+
+    if (ajusteManual !== undefined) {
+      pedido.ajusteManual = Boolean(ajusteManual);
+    }
+
+    if (atualizadoManualmenteEm !== undefined) {
+      pedido.atualizadoManualmenteEm = atualizadoManualmenteEm
+        ? new Date(atualizadoManualmenteEm)
+        : null;
+    }
+
+    if (pedido.tipoEntrega === "retirada") {
+      pedido.freteSelecionado = {
+        ...(pedido.freteSelecionado || {}),
+        nome: pedido?.freteSelecionado?.nome || "Retirada no local",
+        preco: 0,
+      };
+
+      if (
+        ![
+          "retirada_recebido",
+          "retirada_preparando",
+          "retirada_pronto",
+          "retirada_concluido",
+        ].includes(String(pedido.statusInterno || "").toLowerCase())
+      ) {
+        pedido.statusInterno = "retirada_recebido";
+      }
+
+      pedido.etiquetaGerada = false;
+      pedido.etiquetaEmitida = false;
+      pedido.statusEtiqueta = null;
+      pedido.urlEtiqueta = "";
+      pedido.codigoRastreio = "";
+      pedido.superfreteCartId = null;
+      pedido.superfreteCheckoutId = null;
+
+      const subtotalAtual = arredondar(Number(pedido.subtotalProdutos || 0));
+      const descontoAtual = arredondar(Number(pedido.descontoCupom || 0));
+      pedido.totalComFrete = arredondar(subtotalAtual - descontoAtual);
+    }
+
+    pedido.atualizadoEm = new Date();
+
+    await pedido.save();
+
+    return res.json({
+      message: "Pedido atualizado manualmente com sucesso.",
+      pedido: normalizarPedidoResposta(pedido),
+    });
+  } catch (error) {
+    console.error("Erro ao editar pedido manualmente:", error);
+
+    return res.status(500).json({
+      error: "Erro ao editar pedido manualmente.",
+      message: error.message,
+    });
+  }
+});
+
+/* =========================
    GERAR ETIQUETA NA SUPERFRETE
 ========================= */
 app.post("/api/pedidos/:id/gerar-etiqueta", autenticarAdmin, async (req, res) => {
