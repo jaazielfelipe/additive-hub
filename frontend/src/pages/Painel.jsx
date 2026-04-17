@@ -588,6 +588,7 @@ function PedidoCard({
   onAvisarRetiradaPreparando,
   onAvisarRetiradaPronto,
   onConcluirRetirada,
+  onEditarManual,
 }) {
   const statusOperacional = normalizarStatus(pedido.statusInterno, pedido);
 
@@ -833,6 +834,11 @@ function PedidoCard({
               Atualizado em: {formatarData(pedido.atualizadoEm)}
             </p>
           ) : null}
+          {pedido?.ajusteManual && (
+            <p className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+              Ajustado manualmente
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2 xl:justify-end">
@@ -995,6 +1001,13 @@ function PedidoCard({
           </div>
         </div>
 
+        {pedido?.observacaoInterna ? (
+          <div className="md:col-span-2 xl:col-span-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="font-semibold text-zinc-900">Observação interna</p>
+            <p className="mt-2 text-sm text-zinc-700">{pedido.observacaoInterna}</p>
+          </div>
+        ) : null}
+
         {pedido?.urlEtiqueta && !isRetirada ? (
           <div className="md:col-span-2 xl:col-span-4 rounded-xl border border-zinc-100 bg-zinc-50 p-4">
             <p className="font-semibold text-zinc-900">Etiqueta</p>
@@ -1012,6 +1025,14 @@ function PedidoCard({
 
       <div className="mt-4 flex flex-wrap gap-2">
         {renderBotaoPrincipal()}
+
+        <button
+          type="button"
+          onClick={() => onEditarManual?.(pedido)}
+          className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-800"
+        >
+          Editar pedido
+        </button>
 
         {linkWhatsAppContatoDireto ? (
           <a
@@ -1042,6 +1063,18 @@ export default function Painel() {
   const [confirmandoPedidoId, setConfirmandoPedidoId] = useState(null);
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [pedidoEditando, setPedidoEditando] = useState(null);
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [formEdicao, setFormEdicao] = useState({
+    tipoEntrega: "",
+    freteNome: "",
+    fretePreco: "0",
+    subtotalProdutos: "0",
+    descontoCupom: "0",
+    totalComFrete: "0",
+    statusInterno: "",
+    observacaoInterna: "",
+  });
 
   const apiBaseUrl =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -1067,42 +1100,42 @@ export default function Painel() {
     return false;
   };
 
- const carregarPedidos = async () => {
-  try {
-    setCarregando(true);
-    setErro("");
+  const carregarPedidos = async () => {
+    try {
+      setCarregando(true);
+      setErro("");
 
-    const response = await fetch(apiPedidosUrl, {
-      headers: headersAutenticados,
-    });
+      const response = await fetch(apiPedidosUrl, {
+        headers: headersAutenticados,
+      });
 
-    if (tratarRespostaNaoAutorizada(response)) {
-      return;
-    }
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(
-        data?.message || data?.error || "Não foi possível carregar os pedidos."
+      if (!response.ok) {
+        throw new Error(
+          data?.message || data?.error || "Não foi possível carregar os pedidos."
+        );
+      }
+
+      const lista = Array.isArray(data) ? data : data?.pedidos || [];
+
+      setPedidos(
+        lista.map((pedido) => ({
+          ...pedido,
+          statusInterno: normalizarStatus(pedido.statusInterno, pedido),
+        }))
       );
+    } catch (error) {
+      console.error("Erro ao carregar pedidos:", error);
+      setErro(error.message || "Erro ao carregar pedidos.");
+    } finally {
+      setCarregando(false);
     }
-
-    const lista = Array.isArray(data) ? data : data?.pedidos || [];
-
-    setPedidos(
-      lista.map((pedido) => ({
-        ...pedido,
-        statusInterno: normalizarStatus(pedido.statusInterno, pedido),
-      }))
-    );
-  } catch (error) {
-    console.error("Erro ao carregar pedidos:", error);
-    setErro(error.message || "Erro ao carregar pedidos.");
-  } finally {
-    setCarregando(false);
-  }
-};
+  };
 
   useEffect(() => {
     carregarPedidos();
@@ -1305,63 +1338,63 @@ export default function Painel() {
   };
 
   const concluirRetirada = async (pedido) => {
-  const pedidoId = pedido.id || pedido.pedidoLocalId;
+    const pedidoId = pedido.id || pedido.pedidoLocalId;
 
-  if (!pedidoId) {
-    alert("Esse pedido não possui ID.");
-    return;
-  }
-
-  if (!pagamentoAprovado(pedido)) {
-    alert("Não é possível concluir retirada antes da aprovação do pagamento.");
-    return;
-  }
-
-  try {
-    setAtualizandoId(pedidoId);
-
-    const response = await fetch(`${apiPedidosUrl}/${pedidoId}/status`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...headersAutenticados,
-      },
-      body: JSON.stringify({
-        status: "retirada_concluido",
-        statusInterno: "retirada_concluido",
-      }),
-    });
-
-    if (tratarRespostaNaoAutorizada(response)) {
+    if (!pedidoId) {
+      alert("Esse pedido não possui ID.");
       return;
     }
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data?.message || data?.error || "Erro ao concluir retirada."
-      );
+    if (!pagamentoAprovado(pedido)) {
+      alert("Não é possível concluir retirada antes da aprovação do pagamento.");
+      return;
     }
 
-    setPedidos((anterior) =>
-      anterior.map((item) =>
-        (item.id || item.pedidoLocalId) === pedidoId
-          ? {
-              ...item,
-              ...data?.pedido,
-              statusInterno: "retirada_concluido",
-            }
-          : item
-      )
-    );
-  } catch (error) {
-    console.error("Erro ao concluir retirada:", error);
-    alert(error.message || "Erro ao concluir retirada.");
-  } finally {
-    setAtualizandoId(null);
-  }
-};
+    try {
+      setAtualizandoId(pedidoId);
+
+      const response = await fetch(`${apiPedidosUrl}/${pedidoId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...headersAutenticados,
+        },
+        body: JSON.stringify({
+          status: "retirada_concluido",
+          statusInterno: "retirada_concluido",
+        }),
+      });
+
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message || data?.error || "Erro ao concluir retirada."
+        );
+      }
+
+      setPedidos((anterior) =>
+        anterior.map((item) =>
+          (item.id || item.pedidoLocalId) === pedidoId
+            ? {
+                ...item,
+                ...data?.pedido,
+                statusInterno: "retirada_concluido",
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("Erro ao concluir retirada:", error);
+      alert(error.message || "Erro ao concluir retirada.");
+    } finally {
+      setAtualizandoId(null);
+    }
+  };
 
   const gerarEtiqueta = async (pedido) => {
     if (isRetiradaPedido(pedido)) {
@@ -1494,6 +1527,170 @@ export default function Painel() {
     }
   };
 
+  const abrirEdicaoManual = (pedido) => {
+    setPedidoEditando(pedido);
+    setFormEdicao({
+      tipoEntrega: pedido?.tipoEntrega || "",
+      freteNome: pedido?.freteSelecionado?.nome || "",
+      fretePreco: String(Number(pedido?.freteSelecionado?.preco || 0)),
+      subtotalProdutos: String(Number(pedido?.subtotalProdutos || 0)),
+      descontoCupom: String(Number(pedido?.descontoCupom || 0)),
+      totalComFrete: String(Number(pedido?.totalComFrete || 0)),
+      statusInterno: pedido?.statusInterno || "",
+      observacaoInterna: pedido?.observacaoInterna || "",
+    });
+  };
+
+  const fecharEdicaoManual = () => {
+    setPedidoEditando(null);
+    setFormEdicao({
+      tipoEntrega: "",
+      freteNome: "",
+      fretePreco: "0",
+      subtotalProdutos: "0",
+      descontoCupom: "0",
+      totalComFrete: "0",
+      statusInterno: "",
+      observacaoInterna: "",
+    });
+  };
+
+const alterarCampoEdicao = (campo, valor) => {
+  setFormEdicao((anterior) => {
+    const atualizado = {
+      ...anterior,
+      [campo]: valor,
+    };
+
+    if (campo === "tipoEntrega") {
+      if (valor === "retirada") {
+        atualizado.statusInterno = "retirada_recebido";
+        atualizado.freteNome = "Retirada no local";
+        atualizado.fretePreco = "0";
+      }
+
+      if (valor === "entrega") {
+        atualizado.statusInterno = "para_confirmar";
+
+        if (
+          !atualizado.freteNome ||
+          atualizado.freteNome === "Retirada no local"
+        ) {
+          atualizado.freteNome = "";
+        }
+      }
+    }
+
+    return atualizado;
+  });
+};
+
+  const salvarEdicaoManual = async () => {
+    if (!pedidoEditando) return;
+
+    const pedidoId = pedidoEditando.id || pedidoEditando.pedidoLocalId;
+
+    if (!pedidoId) {
+      alert("Esse pedido não possui ID para edição.");
+      return;
+    }
+
+    try {
+      setSalvandoEdicao(true);
+
+      const tipoEntregaNormalizado = String(formEdicao.tipoEntrega || "")
+        .toLowerCase()
+        .trim();
+
+      const virouRetirada =
+        tipoEntregaNormalizado.includes("retirada") ||
+        tipoEntregaNormalizado.includes("retirar") ||
+        tipoEntregaNormalizado.includes("pickup");
+
+      const subtotalProdutos = Number(formEdicao.subtotalProdutos || 0);
+      const descontoCupom = Number(formEdicao.descontoCupom || 0);
+      const fretePreco = virouRetirada ? 0 : Number(formEdicao.fretePreco || 0);
+      const totalCalculado = subtotalProdutos - descontoCupom + fretePreco;
+
+      const freteSelecionadoAtualizado = {
+        ...(pedidoEditando?.freteSelecionado || {}),
+        nome: virouRetirada
+          ? formEdicao.freteNome || "Retirada no local"
+          : formEdicao.freteNome,
+        preco: fretePreco,
+      };
+
+      const pedidoBaseAtualizado = {
+        ...pedidoEditando,
+        tipoEntrega: virouRetirada ? "retirada" : formEdicao.tipoEntrega,
+        freteSelecionado: freteSelecionadoAtualizado,
+      };
+
+      const statusInternoNormalizado = normalizarStatus(
+        formEdicao.statusInterno || (virouRetirada ? "retirada_recebido" : "para_confirmar"),
+        pedidoBaseAtualizado
+      );
+
+      const body = {
+        tipoEntrega: virouRetirada ? "retirada" : formEdicao.tipoEntrega,
+        freteSelecionado: freteSelecionadoAtualizado,
+        subtotalProdutos,
+        descontoCupom,
+        totalComFrete: Number(formEdicao.totalComFrete || totalCalculado),
+        statusInterno: statusInternoNormalizado,
+        observacaoInterna: formEdicao.observacaoInterna,
+        ajusteManual: true,
+        atualizadoManualmenteEm: new Date().toISOString(),
+      };
+
+      const response = await fetch(`${apiPedidosUrl}/${pedidoId}/manual`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...headersAutenticados,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (tratarRespostaNaoAutorizada(response)) {
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            "Não foi possível salvar a edição manual."
+        );
+      }
+
+      setPedidos((anterior) =>
+        anterior.map((item) =>
+          (item.id || item.pedidoLocalId) === pedidoId
+            ? {
+                ...item,
+                ...data?.pedido,
+                statusInterno: normalizarStatus(
+                  data?.pedido?.statusInterno,
+                  data?.pedido
+                ),
+              }
+            : item
+        )
+      );
+
+      fecharEdicaoManual();
+      alert("Pedido atualizado manualmente com sucesso.");
+    } catch (error) {
+      console.error("Erro ao salvar edição manual:", error);
+      alert(error.message || "Erro ao salvar edição manual.");
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  };
+
   const pedidosFiltrados = useMemo(() => {
     const termo = String(busca || "").toLowerCase().trim();
 
@@ -1516,6 +1713,7 @@ export default function Painel() {
           pedido.cupomAplicado?.codigo,
           pedido.descontoCupom,
           pedido.tipoEntrega,
+          pedido.observacaoInterna,
           cliente.nome,
           cliente.email,
           cliente.telefone,
@@ -1810,10 +2008,382 @@ export default function Painel() {
                     onAvisarRetiradaPreparando={avisarRetiradaPreparando}
                     onAvisarRetiradaPronto={avisarRetiradaPronto}
                     onConcluirRetirada={concluirRetirada}
+                    onEditarManual={abrirEdicaoManual}
                   />
                 );
               })
             )}
+          </div>
+        )}
+
+                {pedidoEditando && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-5xl rounded-[1.5rem] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-[0.16em] text-[#b38200]">
+                    Edição manual
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold text-zinc-900">
+                    Pedido {pedidoEditando?.pedidoLocalId || pedidoEditando?.id || "-"}
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fecharEdicaoManual}
+                  disabled={salvandoEdicao}
+                  className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                    Tipo de entrega
+                  </label>
+                  <select
+                    value={formEdicao.tipoEntrega}
+                    onChange={(e) => alterarCampoEdicao("tipoEntrega", e.target.value)}
+                    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                  >
+                    <option value="">Selecione</option>
+                    <option value="entrega">Entrega</option>
+                    <option value="retirada">Retirada</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                    Status interno
+                  </label>
+                  <select
+                    value={formEdicao.statusInterno}
+                    onChange={(e) => alterarCampoEdicao("statusInterno", e.target.value)}
+                    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                  >
+                    <option value="">Selecione</option>
+
+                    {formEdicao.tipoEntrega === "retirada" ? (
+                      <>
+                        <option value="retirada_recebido">retirada_recebido</option>
+                        <option value="retirada_preparando">retirada_preparando</option>
+                        <option value="retirada_pronto">retirada_pronto</option>
+                        <option value="retirada_concluido">retirada_concluido</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="para_confirmar">para_confirmar</option>
+                        <option value="a_emitir">a_emitir</option>
+                        <option value="emitido">emitido</option>
+                        <option value="enviado">enviado</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                    Nome do frete
+                  </label>
+                  <input
+                    type="text"
+                    value={formEdicao.freteNome}
+                    onChange={(e) => alterarCampoEdicao("freteNome", e.target.value)}
+                    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                    placeholder="Ex.: SEDEX, PAC, Retirada no local"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                    Valor do frete
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formEdicao.fretePreco}
+                    onChange={(e) => alterarCampoEdicao("fretePreco", e.target.value)}
+                    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                    Subtotal dos produtos
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formEdicao.subtotalProdutos}
+                    onChange={(e) =>
+                      alterarCampoEdicao("subtotalProdutos", e.target.value)
+                    }
+                    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                    Desconto
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formEdicao.descontoCupom}
+                    onChange={(e) =>
+                      alterarCampoEdicao("descontoCupom", e.target.value)
+                    }
+                    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                    Total com frete
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formEdicao.totalComFrete}
+                    onChange={(e) =>
+                      alterarCampoEdicao("totalComFrete", e.target.value)
+                    }
+                    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <label className="block text-sm font-semibold text-zinc-800">
+                      Produtos do carrinho
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={adicionarItemCarrinhoEdicao}
+                      className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800"
+                    >
+                      + Adicionar produto
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {formEdicao.carrinho.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-500">
+                        Nenhum produto no carrinho.
+                      </div>
+                    )}
+
+                    {formEdicao.carrinho.map((item, index) => (
+                      <div
+                        key={`${item?.id || "item"}-${index}`}
+                        className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+                      >
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                          <p className="font-semibold text-zinc-900">
+                            Produto {index + 1}
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={() => removerItemCarrinhoEdicao(index)}
+                            className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-700"
+                          >
+                            Remover
+                          </button>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="md:col-span-2">
+                            <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                              Nome do produto
+                            </label>
+                            <input
+                              type="text"
+                              value={item.nome}
+                              onChange={(e) =>
+                                alterarItemCarrinhoEdicao(index, "nome", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                              Quantidade
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={item.quantidade}
+                              onChange={(e) =>
+                                alterarItemCarrinhoEdicao(index, "quantidade", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                              Preço unitário
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.preco}
+                              onChange={(e) =>
+                                alterarItemCarrinhoEdicao(index, "preco", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                              Peso
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.001"
+                              value={item.peso}
+                              onChange={(e) =>
+                                alterarItemCarrinhoEdicao(index, "peso", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                              Altura
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={item.altura}
+                              onChange={(e) =>
+                                alterarItemCarrinhoEdicao(index, "altura", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                              Largura
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={item.largura}
+                              onChange={(e) =>
+                                alterarItemCarrinhoEdicao(index, "largura", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                              Comprimento
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={item.comprimento}
+                              onChange={(e) =>
+                                alterarItemCarrinhoEdicao(index, "comprimento", e.target.value)
+                              }
+                              className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                            />
+                          </div>
+                        </div>
+
+                        {Array.isArray(item?.resumoVariacoes) &&
+                          item.resumoVariacoes.length > 0 && (
+                            <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4">
+                              <p className="mb-2 text-sm font-semibold text-zinc-900">
+                                Variações atuais
+                              </p>
+
+                              <div className="space-y-2">
+                                {item.resumoVariacoes.map((variacao, i) => (
+                                  <div
+                                    key={`${item?.id || "item"}-${i}`}
+                                    className="rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+                                  >
+                                    <span className="font-semibold text-zinc-900">
+                                      {variacao?.nome || "Opção"}:
+                                    </span>{" "}
+                                    {variacao?.valor || "-"}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        <div className="mt-4 rounded-xl bg-white px-4 py-3 text-sm text-zinc-700">
+                          <span className="font-semibold text-zinc-900">
+                            Total do item:
+                          </span>{" "}
+                          {formatarMoeda(
+                            Number(item?.quantidade || 0) * Number(item?.preco || 0)
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-semibold text-zinc-800">
+                    Observação interna
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={formEdicao.observacaoInterna}
+                    onChange={(e) =>
+                      alterarCampoEdicao("observacaoInterna", e.target.value)
+                    }
+                    placeholder="Ex.: cliente acrescentou 2 itens, pagou diferença por fora e alterou para retirada."
+                    className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-black"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={salvarEdicaoManual}
+                  disabled={salvandoEdicao}
+                  className="rounded-2xl bg-zinc-900 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {salvandoEdicao ? "Salvando..." : "Salvar alterações"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={fecharEdicaoManual}
+                  disabled={salvandoEdicao}
+                  className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
