@@ -405,27 +405,31 @@ const variacoes = [
     const subcategoria = item.subcategoria || "";
     const subcategoria2 = item.subcategoria2 || "";
 
-    return {
-      id: item.id || String(index + 1),
-      nome: item.nome || "Produto sem nome",
-      categoria: categoriaNormalizada,
-      categoriaLabel: tituloCategoria(item.categoria || categoriaNormalizada),
-      subcategoria,
-      subcategoriaLabel: tituloItem(subcategoria),
-      subcategoria2,
-      subcategoria2Label: tituloItem(subcategoria2),
-      preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
-      destaque: slugCategoria(item.destaque || ""),
-      descricao:
-        item.descricao,
-      imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
-      variacoes,
-      peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
-      altura: Number(String(item.altura || "0").replace(",", ".")) || 0,
-      largura: Number(String(item.largura || "0").replace(",", ".")) || 0,
-      comprimento:
-        Number(String(item.comprimento || "0").replace(",", ".")) || 0,
-    };
+    const statusNormalizado = slugCategoria(item.status || "ativo");
+
+return {
+  id: item.id || String(index + 1),
+  status: statusNormalizado,
+  indisponivel: statusNormalizado === "indisponivel",
+
+  nome: item.nome || "Produto sem nome",
+  categoria: categoriaNormalizada,
+  categoriaLabel: tituloCategoria(item.categoria || categoriaNormalizada),
+  subcategoria,
+  subcategoriaLabel: tituloItem(subcategoria),
+  subcategoria2,
+  subcategoria2Label: tituloItem(subcategoria2),
+  preco: Number(String(item.preco || "0").replace(",", ".")) || 0,
+  destaque: slugCategoria(item.destaque || ""),
+  descricao: item.descricao,
+  imagens: imagens.length > 0 ? imagens : ["/imagens/placeholder.png"],
+  variacoes,
+  peso: Number(String(item.peso || "0").replace(",", ".")) || 0,
+  altura: Number(String(item.altura || "0").replace(",", ".")) || 0,
+  largura: Number(String(item.largura || "0").replace(",", ".")) || 0,
+  comprimento:
+    Number(String(item.comprimento || "0").replace(",", ".")) || 0,
+};
   });
 }
 
@@ -574,6 +578,10 @@ function formatarMoeda(valor) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function produtoDisponivel(produto) {
+  return !produto?.indisponivel;
 }
 
 function getBadgeDestaque(destaque) {
@@ -916,7 +924,7 @@ export default function CatalogoOnline() {
   });
 
   if (termo) {
-    return [...filtrados].sort((a, b) => {
+    return ordenarIndisponiveisPorUltimo([...filtrados]).sort((a, b) => {
       const score = (produto) => {
         let pontos = 0;
 
@@ -943,22 +951,43 @@ export default function CatalogoOnline() {
     });
   }
 
-  switch (ordenacao) {
-    case "menor-preco":
-      return [...filtrados].sort((a, b) => a.preco - b.preco);
-    case "maior-preco":
-      return [...filtrados].sort((a, b) => b.preco - a.preco);
-    case "nome-az":
-      return [...filtrados].sort((a, b) =>
+  const ordenarIndisponiveisPorUltimo = (lista) => {
+  return [...lista].sort((a, b) => {
+    const aIndisponivel = a.indisponivel ? 1 : 0;
+    const bIndisponivel = b.indisponivel ? 1 : 0;
+
+    return aIndisponivel - bIndisponivel;
+  });
+};
+
+switch (ordenacao) {
+  case "menor-preco":
+    return ordenarIndisponiveisPorUltimo(
+      [...filtrados].sort((a, b) => a.preco - b.preco)
+    );
+
+  case "maior-preco":
+    return ordenarIndisponiveisPorUltimo(
+      [...filtrados].sort((a, b) => b.preco - a.preco)
+    );
+
+  case "nome-az":
+    return ordenarIndisponiveisPorUltimo(
+      [...filtrados].sort((a, b) =>
         a.nome.localeCompare(b.nome, "pt-BR")
-      );
-    case "nome-za":
-      return [...filtrados].sort((a, b) =>
+      )
+    );
+
+  case "nome-za":
+    return ordenarIndisponiveisPorUltimo(
+      [...filtrados].sort((a, b) =>
         b.nome.localeCompare(a.nome, "pt-BR")
-      );
-    default:
-      return filtrados;
-  }
+      )
+    );
+
+  default:
+    return ordenarIndisponiveisPorUltimo(filtrados);
+}
 }, [
   produtos,
   categoriaAtiva,
@@ -2053,7 +2082,8 @@ const descricaoSecao = useMemo(() => {
     </p>
 
     {/* BOTÕES */}
-    <div className="mt-auto pt-4 space-y-2">
+    {/* BOTÕES */}
+<div className="mt-auto pt-4 space-y-2">
   <button
     onClick={() => navigate(`/produto/${produto.id}`)}
     className="w-full rounded-xl border border-zinc-300 bg-white py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
@@ -2061,7 +2091,15 @@ const descricaoSecao = useMemo(() => {
     Ver produto
   </button>
 
-  {produtoTemVariacoes(produto) ? (
+  {!produtoDisponivel(produto) ? (
+    <button
+      type="button"
+      disabled
+      className="w-full cursor-not-allowed rounded-xl bg-zinc-200 py-2.5 text-sm font-black text-zinc-500"
+    >
+      Indisponível para compra
+    </button>
+  ) : produtoTemVariacoes(produto) ? (
     <button
       onClick={() => abrirDetalhes(produto)}
       className="w-full rounded-xl bg-[#f4b400] py-2.5 text-sm font-black text-black shadow-md transition hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
@@ -2334,7 +2372,8 @@ const descricaoSecao = useMemo(() => {
     </p>
 
     {/* BOTÕES */}
-    <div className="mt-auto pt-4 space-y-2">
+    {/* BOTÕES */}
+<div className="mt-auto pt-4 space-y-2">
   <button
     onClick={() => navigate(`/produto/${produto.id}`)}
     className="w-full rounded-xl border border-zinc-300 bg-white py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
@@ -2342,7 +2381,15 @@ const descricaoSecao = useMemo(() => {
     Ver produto
   </button>
 
-  {produtoTemVariacoes(produto) ? (
+  {!produtoDisponivel(produto) ? (
+    <button
+      type="button"
+      disabled
+      className="w-full cursor-not-allowed rounded-xl bg-zinc-200 py-2.5 text-sm font-black text-zinc-500"
+    >
+      Indisponível para compra
+    </button>
+  ) : produtoTemVariacoes(produto) ? (
     <button
       onClick={() => abrirDetalhes(produto)}
       className="w-full rounded-xl bg-[#f4b400] py-2.5 text-sm font-black text-black shadow-md transition hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
@@ -2770,75 +2817,83 @@ const descricaoSecao = useMemo(() => {
                   </div>
 
                   <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                    {produtoTemVariacoes(produtoSelecionado) ? (
-                      quantidadeModal > 0 ? (
-                        <ControleQuantidade
-                          quantidade={quantidadeModal}
-                          onDiminuir={() =>
-                            diminuirQuantidade({
-                              carrinhoKey: gerarChaveCarrinho(
-                                produtoSelecionado,
-                                selecoesVariacao
-                              ),
-                            })
-                          }
-                          onAumentar={(e) =>
-                            adicionarAoCarrinho(
-                              produtoSelecionado,
-                              e,
-                              selecoesVariacao
-                            )
-                          }
-                        />
-                      ) : (
-                        <button
-                          onClick={(e) =>
-                            adicionarAoCarrinho(
-                              produtoSelecionado,
-                              e,
-                              selecoesVariacao
-                            )
-                          }
-                          className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
-                        >
-                          Adicionar ao carrinho
-                        </button>
-                      )
-                    ) : quantidadeNoCarrinho(produtoSelecionado.id) > 0 ? (
-                      <ControleQuantidade
-                        quantidade={quantidadeNoCarrinho(produtoSelecionado.id)}
-                        onDiminuir={() =>
-                          diminuirQuantidade(
-                            carrinho.find(
-                              (item) => String(item.id) === String(produtoSelecionado.id)
-                            )
-                          )
-                        }
-                        onAumentar={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
-                      />
-                    ) : (
-                      <button
-                        onClick={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
-                        className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
-                      >
-                        Adicionar ao carrinho
-                      </button>
-                    )}
+  {!produtoDisponivel(produtoSelecionado) ? (
+    <button
+      type="button"
+      disabled
+      className="cursor-not-allowed rounded-2xl border border-zinc-300 bg-zinc-200 px-5 py-3 font-medium text-zinc-500"
+    >
+      Indisponível para compra
+    </button>
+  ) : produtoTemVariacoes(produtoSelecionado) ? (
+    quantidadeModal > 0 ? (
+      <ControleQuantidade
+        quantidade={quantidadeModal}
+        onDiminuir={() =>
+          diminuirQuantidade({
+            carrinhoKey: gerarChaveCarrinho(
+              produtoSelecionado,
+              selecoesVariacao
+            ),
+          })
+        }
+        onAumentar={(e) =>
+          adicionarAoCarrinho(
+            produtoSelecionado,
+            e,
+            selecoesVariacao
+          )
+        }
+      />
+    ) : (
+      <button
+        onClick={(e) =>
+          adicionarAoCarrinho(
+            produtoSelecionado,
+            e,
+            selecoesVariacao
+          )
+        }
+        className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+      >
+        Adicionar ao carrinho
+      </button>
+    )
+  ) : quantidadeNoCarrinho(produtoSelecionado.id) > 0 ? (
+    <ControleQuantidade
+      quantidade={quantidadeNoCarrinho(produtoSelecionado.id)}
+      onDiminuir={() =>
+        diminuirQuantidade(
+          carrinho.find(
+            (item) => String(item.id) === String(produtoSelecionado.id)
+          )
+        )
+      }
+      onAumentar={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
+    />
+  ) : (
+    <button
+      onClick={(e) => adicionarAoCarrinho(produtoSelecionado, e)}
+      className="rounded-2xl border border-[#f4b400] bg-[#fff8df] px-5 py-3 font-medium text-[#8b6900] transition hover:bg-[#fff2bf]"
+    >
+      Adicionar ao carrinho
+    </button>
+  )}
 
-                    <button
-                      onClick={() => navigate(`/produto/${produtoSelecionado.id}`)}
-                      className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
-                    >
-                      Abrir página do produto
-                    </button>
+  <button
+    onClick={() => navigate(`/produto/${produtoSelecionado.id}`)}
+    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+  >
+    Abrir página do produto
+  </button>
 
-                    <button
-                      onClick={fecharDetalhes}
-                      className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
-                    >
-                      Voltar
-                    </button>
-                  </div>
+  <button
+    onClick={fecharDetalhes}
+    className="rounded-2xl border border-zinc-300 bg-white px-5 py-3 font-medium text-zinc-800 transition hover:bg-zinc-50"
+  >
+    Voltar
+  </button>
+</div>
                 </div>
               </motion.div>
             </div>
