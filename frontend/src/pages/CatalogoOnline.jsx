@@ -923,34 +923,6 @@ export default function CatalogoOnline() {
     return bateCategoria && bateSubcategoria && bateSubcategoria2 && bateBusca;
   });
 
-  if (termo) {
-    return ordenarIndisponiveisPorUltimo([...filtrados]).sort((a, b) => {
-      const score = (produto) => {
-        let pontos = 0;
-
-        if ((produto.nome || "").toLowerCase().startsWith(termo)) pontos += 100;
-        else if ((produto.nome || "").toLowerCase().includes(termo)) pontos += 70;
-
-        if ((produto.subcategoria || "").toLowerCase().includes(termo)) pontos += 30;
-        if ((produto.subcategoria2 || "").toLowerCase().includes(termo)) pontos += 20;
-
-        if (
-          (produto.categoriaLabel || produto.categoria || "")
-            .toLowerCase()
-            .includes(termo)
-        ) {
-          pontos += 15;
-        }
-
-        if ((produto.descricao || "").toLowerCase().includes(termo)) pontos += 10;
-
-        return pontos;
-      };
-
-      return score(b) - score(a);
-    });
-  }
-
   const ordenarIndisponiveisPorUltimo = (lista) => {
   return [...lista].sort((a, b) => {
     const aIndisponivel = a.indisponivel ? 1 : 0;
@@ -959,6 +931,30 @@ export default function CatalogoOnline() {
     return aIndisponivel - bIndisponivel;
   });
 };
+
+if (termo) {
+  return ordenarIndisponiveisPorUltimo([...filtrados]).sort((a, b) => {
+    const score = (produto) => {
+      let pontos = 0;
+
+      if ((produto.nome || "").toLowerCase().startsWith(termo)) pontos += 100;
+      else if ((produto.nome || "").toLowerCase().includes(termo)) pontos += 70;
+
+      if ((produto.subcategoria || "").toLowerCase().includes(termo)) pontos += 30;
+      if ((produto.subcategoria2 || "").toLowerCase().includes(termo)) pontos += 20;
+
+      if ((produto.categoriaLabel || produto.categoria || "").toLowerCase().includes(termo)) {
+        pontos += 15;
+      }
+
+      if ((produto.descricao || "").toLowerCase().includes(termo)) pontos += 10;
+
+      return pontos;
+    };
+
+    return score(b) - score(a);
+  });
+}
 
 switch (ordenacao) {
   case "menor-preco":
